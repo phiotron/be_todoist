@@ -2,6 +2,7 @@ package com.taskly.controller;
 
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
+import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.service.AuthService;
 import jakarta.validation.Valid;
@@ -31,5 +32,10 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request);
     }
 }

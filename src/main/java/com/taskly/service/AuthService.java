@@ -3,6 +3,7 @@ package com.taskly.service;
 import com.taskly.common.error.ApiException;
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
+import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.entity.RefreshToken;
 import com.taskly.entity.User;
@@ -33,6 +34,7 @@ public class AuthService {
     /** BCrypt chỉ nhận tối đa 72 byte; Spring Security ném lỗi nếu dài hơn. */
     static final int BCRYPT_MAX_BYTES = 72;
     static final String INVALID_CREDENTIALS = "Email hoặc mật khẩu không đúng";
+    static final String INVALID_REFRESH_TOKEN = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn";
 
     private final UserService userService;
     private final WorkspaceService workspaceService;
@@ -79,6 +81,20 @@ public class AuthService {
             throw ApiException.unauthorized(INVALID_CREDENTIALS);
         }
         return issueTokens(user.get());
+    }
+
+    /**
+     * Xoay vòng: token cũ bị thu hồi ngay, trả cặp token mới.
+     * findByTokenHash khoá dòng → hai request dùng cùng token thì chỉ một cái thành công.
+     * Chạy trong transaction ghi của class (không readOnly) nên đọc được current.getUser() (LAZY).
+     */
+    public AuthResponse refresh(RefreshRequest request) {
+        Instant now = Instant.now(clock);
+        RefreshToken current = refreshTokenRepository.findByTokenHash(OpaqueTokens.sha256Hex(request.refreshToken()))
+                .filter(token -> token.isActive(now))
+                .orElseThrow(() -> ApiException.unauthorized(INVALID_REFRESH_TOKEN));
+        current.revoke(now);
+        return issueTokens(current.getUser());
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
