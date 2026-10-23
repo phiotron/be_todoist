@@ -1,0 +1,4 @@
+# Chỉ dùng cho test tự động — giá trị giả, KHÔNG phải bí mật thật. Datasource do Testcontainers (@ServiceConnection) cấp.
+app:
+  jwt:
+    secret: test-only-jwt-secret-not-for-production-0123456789
