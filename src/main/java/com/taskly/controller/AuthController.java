@@ -2,11 +2,15 @@ package com.taskly.controller;
 
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
+import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
+import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,5 +41,12 @@ public class AuthController {
     @PostMapping("/refresh")
     public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
         return authService.refresh(request);
+    }
+
+    /** Cần access JWT (SecurityConfig không để /logout ở danh sách public). */
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody LogoutRequest request) {
+        authService.logout(CurrentUser.id(jwt), request);
     }
 }

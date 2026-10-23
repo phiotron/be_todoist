@@ -3,6 +3,7 @@ package com.taskly.service;
 import com.taskly.common.error.ApiException;
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
+import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.entity.RefreshToken;
@@ -95,6 +96,18 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.unauthorized(INVALID_REFRESH_TOKEN));
         current.revoke(now);
         return issueTokens(current.getUser());
+    }
+
+    /**
+     * Thu hồi refresh token nếu nó thuộc user đang đăng nhập; không thì bỏ qua.
+     * Luôn trả 204 (idempotent, không cho biết token có tồn tại không).
+     * Access token đang cầm vẫn dùng được tới khi hết 15 phút (JWT stateless).
+     * Chạy trong transaction ghi của class nên đọc được token.getUser() (LAZY).
+     */
+    public void logout(UUID currentUserId, LogoutRequest request) {
+        refreshTokenRepository.findByTokenHash(OpaqueTokens.sha256Hex(request.refreshToken()))
+                .filter(token -> token.getUser().getId().equals(currentUserId))
+                .ifPresent(token -> token.revoke(Instant.now(clock)));
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
