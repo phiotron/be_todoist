@@ -1,6 +1,7 @@
 package com.taskly.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,15 +11,32 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.IntegrationTestBase;
+import com.taskly.entity.RefreshToken;
+import com.taskly.repository.RefreshTokenRepository;
 import com.taskly.security.OpaqueTokens;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class RefreshApiTest extends IntegrationTestBase {
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
 
     private static MockHttpServletRequestBuilder refresh(String refreshToken) {
         return post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("""
@@ -91,7 +109,8 @@ class RefreshApiTest extends IntegrationTestBase {
     void refresh_unknownToken_returns401() throws Exception {
         mockMvc.perform(refresh(OpaqueTokens.generate()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value("Phiên đăng nhập không hợp lệ hoặc đã hết hạn"));
     }
 
     @Test
@@ -100,7 +119,9 @@ class RefreshApiTest extends IntegrationTestBase {
 
         clock.advance(Duration.ofDays(30).plusMinutes(1));
 
-        mockMvc.perform(refresh(user.refreshToken())).andExpect(status().isUnauthorized());
+        mockMvc.perform(refresh(user.refreshToken()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Phiên đăng nhập không hợp lệ hoặc đã hết hạn"));
     }
 
     @Test
@@ -126,5 +147,53 @@ class RefreshApiTest extends IntegrationTestBase {
         mockMvc.perform(refresh(" "))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("refreshToken")));
+    }
+
+    /**
+     * Khoá dòng thật sự: một transaction giữ SELECT ... FOR UPDATE của refresh token thì request refresh cùng token
+     * phải CHỜ (không chạy xuyên qua), và khi transaction giữ khoá thu hồi + commit thì request chờ thấy token đã bị
+     * thu hồi → 401. Bỏ @Lock trên findByTokenHash thì request thứ hai xong ngay với 200 → test đỏ.
+     */
+    @Test
+    void refresh_waitsForRowLockHeldByAnotherTransactionThenRejectsRevokedToken() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String hash = OpaqueTokens.sha256Hex(user.refreshToken());
+        CountDownLatch lockHeld = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> holder = executor.submit(() -> new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+                RefreshToken locked = refreshTokenRepository.findByTokenHash(hash).orElseThrow();
+                lockHeld.countDown();
+                try {
+                    assertThat(release.await(10, TimeUnit.SECONDS)).as("tín hiệu nhả khoá").isTrue();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+                locked.revoke(clock.instant());
+            }));
+            assertThat(lockHeld.await(10, TimeUnit.SECONDS)).as("transaction giữ khoá đã bắt đầu").isTrue();
+
+            Future<MvcResult> waiting = executor.submit(() -> mockMvc.perform(refresh(user.refreshToken())).andReturn());
+            Thread.sleep(300);
+            assertThat(waiting.isDone()).as("request refresh phải đang chờ khoá dòng").isFalse();
+
+            release.countDown();
+            holder.get(10, TimeUnit.SECONDS);
+            assertThat(waiting.get(10, TimeUnit.SECONDS).getResponse().getStatus()).isEqualTo(401);
+        } finally {
+            release.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void refresh_missingToken_returns400WithThieuRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("refreshToken")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'refreshToken')].message",
+                        contains("Thiếu refresh token")));
     }
 }
