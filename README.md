@@ -34,8 +34,9 @@ Không cần cài Maven, vì repo dùng `mvnw`.
 App di động sinh kiểu TypeScript từ `/v3/api-docs` bằng lệnh `npm run gen:api`. Sau mỗi lần đổi API, cần chạy
 lại lệnh đó ở repo `mobile`. Thay đổi phá vỡ tương thích thì phải lên `/api/v2` thay vì sửa thẳng `/api/v1`.
 
-> **Lưu ý cho dev mobile:** các field trong response schema của `/v3/api-docs` hiện **không** được đánh dấu
-> `required`, nên `openapi-typescript` sinh chúng thành optional. App di động đang bọc kiểu bằng `Strict<>` để bù.
+> **Lưu ý cho dev mobile:** mọi field của `AuthResponse` và `UserResponse` được đánh dấu `required` trong
+> `/v3/api-docs` (`@Schema(requiredMode = REQUIRED)`), nên `openapi-typescript` sinh chúng thành bắt buộc.
+> Thêm response DTO mới thì đánh dấu tương tự; `OpenApiDocsTest` khoá danh sách `required` của từng schema.
 
 ## API mốc M0
 Tiền tố `/api/v1`, JSON camelCase. Lỗi luôn là ProblemDetail (`application/problem+json`); lỗi validation có thêm
