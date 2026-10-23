@@ -8,6 +8,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerExceptionResolver;
+import org.springframework.web.servlet.ModelAndView;
 
 /**
  * 401 của Spring Security (thiếu/sai/hết hạn JWT) → chuyển cho GlobalExceptionHandler
@@ -27,6 +28,10 @@ public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntr
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) {
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-        handlerExceptionResolver.resolveException(request, response, null, authException);
+        ModelAndView handled = handlerExceptionResolver.resolveException(request, response, null, authException);
+        if (handled == null) {
+            // Không có resolver nào xử lý: tuyệt đối không để 200 rỗng.
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        }
     }
 }

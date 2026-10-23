@@ -48,7 +48,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<FieldErrorItem> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> new FieldErrorItem(error.getField(),
                         Objects.requireNonNullElse(error.getDefaultMessage(), "Giá trị không hợp lệ")))
-                .sorted(Comparator.comparing(FieldErrorItem::field))
+                .sorted(Comparator.comparing(FieldErrorItem::field).thenComparing(FieldErrorItem::message))
                 .toList();
         problem.setProperty("errors", errors);
         return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
