@@ -1,7 +1,13 @@
 package com.taskly.dto.auth;
 
 import com.taskly.dto.user.UserResponse;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-/** accessTokenExpiresIn tính bằng giây (900 = 15 phút). */
-public record AuthResponse(String accessToken, String refreshToken, long accessTokenExpiresIn, UserResponse user) {
+/** Mọi field luôn có mặt trong response — đánh REQUIRED để types.gen.ts của mobile không sinh kiểu optional. */
+public record AuthResponse(
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String accessToken,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String refreshToken,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Giây (900 = 15 phút)")
+        long accessTokenExpiresIn,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UserResponse user) {
 }
