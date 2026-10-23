@@ -2,7 +2,7 @@
 
 REST API cho Taskly, app quản lý công việc kiểu Todoist. App di động nằm ở repo riêng (`mobile`).
 
-- **Stack:** Java 17 · Spring Boot 3 · PostgreSQL 16 · Flyway · Maven Wrapper
+- **Stack:** Java 17 · Spring Boot 4.1.1 · PostgreSQL 16 · Flyway · Maven Wrapper
 - **API:** `http://localhost:8080/api/v1/...`; tài liệu OpenAPI ở `/v3/api-docs` (Swagger UI: `/swagger-ui.html`)
 - **Thiết kế:** xem spec `docs/superpowers/specs/2026-10-23-taskly-design.md` trong repo tài liệu gốc
 
