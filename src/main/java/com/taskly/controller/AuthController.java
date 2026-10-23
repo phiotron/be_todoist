@@ -1,5 +1,6 @@
 package com.taskly.controller;
 
+import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.LogoutRequest;
@@ -7,6 +8,7 @@ import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,6 +48,7 @@ public class AuthController {
     /** Cần access JWT (SecurityConfig không để /logout ở danh sách public). */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
     public void logout(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody LogoutRequest request) {
         authService.logout(CurrentUser.id(jwt), request);
     }
