@@ -1,6 +1,8 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
 import com.taskly.dto.auth.AuthResponse;
+import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.entity.RefreshToken;
 import com.taskly.entity.User;
@@ -10,8 +12,11 @@ import com.taskly.repository.RefreshTokenRepository;
 import com.taskly.security.JwtProperties;
 import com.taskly.security.JwtTokenIssuer;
 import com.taskly.security.OpaqueTokens;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthService {
 
+    /** BCrypt chỉ nhận tối đa 72 byte; Spring Security ném lỗi nếu dài hơn. */
+    static final int BCRYPT_MAX_BYTES = 72;
+    static final String INVALID_CREDENTIALS = "Email hoặc mật khẩu không đúng";
+
     private final UserService userService;
     private final WorkspaceService workspaceService;
     private final ProjectService projectService;
@@ -33,6 +42,8 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    /** Hash giả để vẫn chạy BCrypt khi email không tồn tại → thời gian phản hồi như nhau, không lộ email. */
+    private final String dummyPasswordHash;
 
     public AuthService(UserService userService, WorkspaceService workspaceService, ProjectService projectService,
                        RefreshTokenRepository refreshTokenRepository, JwtTokenIssuer jwtTokenIssuer,
@@ -45,6 +56,7 @@ public class AuthService {
         this.jwtProperties = jwtProperties;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.dummyPasswordHash = passwordEncoder.encode("timing-equalizer-" + UUID.randomUUID());
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -53,6 +65,20 @@ public class AuthService {
         Workspace personal = workspaceService.createPersonalWorkspace(user);
         projectService.createInbox(personal);
         return issueTokens(user);
+    }
+
+    /** Sai email hay sai mật khẩu đều trả cùng một 401. */
+    public AuthResponse login(LoginRequest request) {
+        if (request.password().getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
+            throw ApiException.unauthorized(INVALID_CREDENTIALS);
+        }
+        Optional<User> user = userService.findByEmail(request.email());
+        String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
+        boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
+        if (user.isEmpty() || !passwordMatches) {
+            throw ApiException.unauthorized(INVALID_CREDENTIALS);
+        }
+        return issueTokens(user.get());
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */

@@ -5,6 +5,7 @@ import com.taskly.dto.user.UserResponse;
 import com.taskly.entity.User;
 import com.taskly.mapper.UserMapper;
 import com.taskly.repository.UserRepository;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,5 +35,10 @@ public class UserService {
             throw ApiException.conflict("Email đã được dùng");
         }
         return userRepository.save(new User(normalizedEmail, passwordHash, displayName));
+    }
+
+    /** email phải đã chuẩn hoá (EmailNormalizer). */
+    public Optional<User> findByEmail(String normalizedEmail) {
+        return userRepository.findByEmail(normalizedEmail);
     }
 }
