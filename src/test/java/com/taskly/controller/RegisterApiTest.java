@@ -124,12 +124,15 @@ class RegisterApiTest extends IntegrationTestBase {
 
     @Test
     void register_tooLongEmailOrPasswordOverBcryptBytes_returns400() throws Exception {
-        String longEmail = "a".repeat(245) + "@example.com"; // 257 ký tự > 254
+        // Hợp lệ cú pháp @Email (local-part 64, mỗi nhãn miền <= 63) nhưng dài 64+1+3*64+3 = 260 > 254
+        // → chỉ có thể bị chặn bởi @Size, không phải @Email.
+        String longEmail = "a".repeat(64) + "@" + ("b".repeat(63) + ".").repeat(3) + "com";
+        assertThat(longEmail.length()).isGreaterThan(254);
         mockMvc.perform(register("""
                         {"email": "%s", "password": "%s", "displayName": "A"}
                         """.formatted(longEmail, FIXTURE_PASSWORD)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors[*].field", hasItem("email")));
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].message", contains("Email tối đa 254 ký tự")));
 
         String vietnamesePassword = "ạ".repeat(30); // 30 ký tự (hợp lệ theo số ký tự) nhưng 90 byte UTF-8 > 72
         mockMvc.perform(register("""

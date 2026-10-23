@@ -65,7 +65,7 @@ public abstract class IntegrationTestBase {
         return result.getResponse().getContentAsString(StandardCharsets.UTF_8);
     }
 
-    /** Đăng ký user mới qua POST /api/v1/auth/register với mật khẩu fixture. */
+    /** Đăng ký user mới qua POST /api/v1/auth/register với mật khẩu fixture; email trả về là bản server đã chuẩn hoá. */
     protected RegisteredUser registerUser(String email) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +77,7 @@ public abstract class IntegrationTestBase {
         String json = body(result);
         return new RegisteredUser(
                 UUID.fromString(JsonPath.read(json, "$.user.id")),
-                email,
+                JsonPath.read(json, "$.user.email"),
                 JsonPath.read(json, "$.accessToken"),
                 JsonPath.read(json, "$.refreshToken"));
     }

@@ -11,6 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.IntegrationTestBase;
+import com.taskly.security.OpaqueTokens;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -56,21 +59,24 @@ class LoginApiTest extends IntegrationTestBase {
     }
 
     @Test
-    void login_wrongPasswordAndUnknownEmail_return401WithSameDetail() throws Exception {
+    void login_wrongPasswordAndUnknownEmail_return401WithIdenticalResponse() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
 
-        String wrongPassword = body(mockMvc.perform(login(user.email(), "Wrong-Pass-999"))
+        MvcResult wrongPwd = mockMvc.perform(login(user.email(), "Wrong-Pass-999"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andReturn());
-        String unknownEmail = body(mockMvc.perform(login(uniqueEmail(), FIXTURE_PASSWORD))
+                .andExpect(jsonPath("$.detail").value("Email hoặc mật khẩu không đúng"))
+                .andReturn();
+        MvcResult unknown = mockMvc.perform(login(uniqueEmail(), FIXTURE_PASSWORD))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andReturn());
+                .andExpect(jsonPath("$.detail").value("Email hoặc mật khẩu không đúng"))
+                .andReturn();
 
-        String detail = JsonPath.read(wrongPassword, "$.detail");
-        assertThat(detail).isEqualTo("Email hoặc mật khẩu không đúng");
-        assertThat((String) JsonPath.read(unknownEmail, "$.detail")).isEqualTo(detail);
+        // Không để lộ email có tồn tại hay không qua bất kỳ khác biệt nào của response
+        assertThat(body(unknown)).isEqualTo(body(wrongPwd));
+        assertThat(Set.copyOf(unknown.getResponse().getHeaderNames()))
+                .isEqualTo(Set.copyOf(wrongPwd.getResponse().getHeaderNames()));
     }
 
     @Test
@@ -78,7 +84,26 @@ class LoginApiTest extends IntegrationTestBase {
         RegisteredUser user = registerUser(uniqueEmail());
 
         mockMvc.perform(login(user.email(), "ạ".repeat(30))) // 90 byte UTF-8 > 72
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Email hoặc mật khẩu không đúng"));
+    }
+
+    @Test
+    void login_eachCallIssuesNewRefreshTokenStoredAsSha256() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+
+        String first = JsonPath.read(body(mockMvc.perform(login(user.email(), FIXTURE_PASSWORD))
+                .andExpect(status().isOk()).andReturn()), "$.refreshToken");
+        String second = JsonPath.read(body(mockMvc.perform(login(user.email(), FIXTURE_PASSWORD))
+                .andExpect(status().isOk()).andReturn()), "$.refreshToken");
+
+        assertThat(first).isNotEqualTo(second);
+        for (String token : List.of(first, second)) {
+            Integer stored = jdbcTemplate.queryForObject(
+                    "select count(*) from refresh_tokens where user_id = ? and token_hash = ?",
+                    Integer.class, user.id(), OpaqueTokens.sha256Hex(token));
+            assertThat(stored).as("dòng refresh_tokens của token đăng nhập").isEqualTo(1);
+        }
     }
 
     @Test
