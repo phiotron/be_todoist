@@ -59,6 +59,41 @@ class JwtTokenIssuerTest extends IntegrationTestBase {
     }
 
     @Test
+    void acceptsTokenJustBeforeExpiry() {
+        String token = jwtTokenIssuer.issueAccessToken(UUID.randomUUID());
+
+        clock.advance(Duration.ofMinutes(14));
+
+        assertThat(jwtDecoder.decode(token).getSubject()).isNotNull();
+    }
+
+    @Test
+    void rejectsTokenWithoutExpiry() {
+        Instant now = clock.instant();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("taskly")
+                .subject(UUID.randomUUID().toString())
+                .issuedAt(now)
+                .build();
+        String token = sign(claims);
+
+        assertThatThrownBy(() -> jwtDecoder.decode(token)).isInstanceOf(JwtValidationException.class);
+    }
+
+    @Test
+    void rejectsTokenWithoutSubject() {
+        Instant now = clock.instant();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("taskly")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(900))
+                .build();
+        String token = sign(claims);
+
+        assertThatThrownBy(() -> jwtDecoder.decode(token)).isInstanceOf(JwtValidationException.class);
+    }
+
+    @Test
     void rejectsTokenAfterExpiry() {
         String token = jwtTokenIssuer.issueAccessToken(UUID.randomUUID());
 
@@ -81,6 +116,11 @@ class JwtTokenIssuerTest extends IntegrationTestBase {
         String forged = encode(new NimbusJwtEncoder(new ImmutableSecret<>(otherKey)), "taskly");
 
         assertThatThrownBy(() -> jwtDecoder.decode(forged)).isInstanceOf(BadJwtException.class);
+    }
+
+    private String sign(JwtClaimsSet claims) {
+        return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
+                .getTokenValue();
     }
 
     private String encode(JwtEncoder encoder, String issuer) {

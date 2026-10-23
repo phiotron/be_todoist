@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
@@ -45,7 +47,7 @@ public class JwtConfig {
         return new NimbusJwtEncoder(new ImmutableSecret<>(jwtSecretKey));
     }
 
-    /** Kiểm chữ ký HS256 + exp/nbf theo bean Clock (dung sai 60 giây mặc định) + iss = app.jwt.issuer. */
+    /** Kiểm chữ ký HS256 + exp (bắt buộc)/nbf theo bean Clock (dung sai 60 giây mặc định) + iss = app.jwt.issuer + sub không rỗng. */
     @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey, JwtProperties properties, Clock clock) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
@@ -53,8 +55,11 @@ public class JwtConfig {
                 .build();
         JwtTimestampValidator timestampValidator = new JwtTimestampValidator();
         timestampValidator.setClock(clock);
+        timestampValidator.setAllowEmptyExpiryClaim(false); // token thiếu exp bị từ chối
+        JwtClaimValidator<String> subjectValidator =
+                new JwtClaimValidator<>(JwtClaimNames.SUB, sub -> sub != null && !sub.isBlank());
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                timestampValidator, new JwtIssuerValidator(properties.issuer())));
+                timestampValidator, new JwtIssuerValidator(properties.issuer()), subjectValidator));
         return decoder;
     }
 }
