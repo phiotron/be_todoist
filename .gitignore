@@ -1,0 +1,31 @@
+# Bí mật — không bao giờ commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.secret.*
+
+# Maven / Java
+target/
+*.class
+!.mvn/wrapper/maven-wrapper.jar
+HELP.md
+
+# Kết quả test
+test-output/
+coverage/
+
+# IDE, hệ điều hành, tạm
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+.DS_Store
+Thumbs.db
+*.log
