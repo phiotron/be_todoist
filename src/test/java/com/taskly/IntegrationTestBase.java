@@ -1,5 +1,9 @@
 package com.taskly;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.jayway.jsonpath.JsonPath;
 import com.taskly.support.MutableClock;
 import com.taskly.support.TestClockConfiguration;
 import java.nio.charset.StandardCharsets;
@@ -9,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +43,10 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected MutableClock clock;
 
+    /** Kết quả đăng ký qua API, dùng làm dữ liệu đầu vào cho test khác. */
+    protected record RegisteredUser(UUID id, String email, String accessToken, String refreshToken) {
+    }
+
     @BeforeEach
     protected void resetClock() {
         clock.reset();
@@ -54,5 +63,22 @@ public abstract class IntegrationTestBase {
     /** Đọc body response dạng UTF-8 (mặc định MockMvc đọc ISO-8859-1 làm hỏng tiếng Việt). */
     protected static String body(MvcResult result) throws Exception {
         return result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+    }
+
+    /** Đăng ký user mới qua POST /api/v1/auth/register với mật khẩu fixture. */
+    protected RegisteredUser registerUser(String email) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s", "password": "%s", "displayName": "Người dùng thử"}
+                                """.formatted(email, FIXTURE_PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String json = body(result);
+        return new RegisteredUser(
+                UUID.fromString(JsonPath.read(json, "$.user.id")),
+                email,
+                JsonPath.read(json, "$.accessToken"),
+                JsonPath.read(json, "$.refreshToken"));
     }
 }
