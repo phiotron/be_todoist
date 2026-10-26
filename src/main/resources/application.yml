@@ -30,3 +30,7 @@ app:
     refresh-ttl: 30d
   mail:
     from: ${MAIL_FROM:no-reply@taskly.local}
+  password-reset:
+    # Token nối ngay sau link-base; app mobile mở deep link này (từ M5 dev build) hoặc người dùng dán mã.
+    link-base: taskly://reset-password/
+    token-ttl: 30m

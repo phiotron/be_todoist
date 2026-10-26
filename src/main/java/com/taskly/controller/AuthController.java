@@ -2,12 +2,14 @@ package com.taskly.controller;
 
 import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.auth.AuthResponse;
+import com.taskly.dto.auth.ForgotPasswordRequest;
 import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
+import com.taskly.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -51,5 +55,12 @@ public class AuthController {
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
     public void logout(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody LogoutRequest request) {
         authService.logout(CurrentUser.id(jwt), request);
+    }
+
+    /** Public. Luôn 200 body rỗng dù email có tài khoản hay không; gửi thư lỗi → 503. */
+    @PostMapping("/password-reset/request")
+    @ResponseStatus(HttpStatus.OK)
+    public void requestPasswordReset(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.email());
     }
 }
