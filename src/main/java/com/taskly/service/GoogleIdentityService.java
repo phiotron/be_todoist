@@ -87,21 +87,34 @@ public class GoogleIdentityService {
         user.linkIdentity(IdentityProvider.GOOGLE, google.subject(), google.email());
     }
 
-    /** Task 10: nhánh idToken. Nhánh linkToken làm ở Task 11. */
+    /** Chọn nguồn danh tính Google: idToken (Cài đặt) hoặc linkToken (sau 409 link-required). */
     private GoogleIdentity resolveForLink(User user, GoogleLinkRequest request) {
         boolean hasIdToken = request.idToken() != null && !request.idToken().isBlank();
         boolean hasLinkToken = request.linkToken() != null && !request.linkToken().isBlank();
         if (hasIdToken == hasLinkToken) {
             throw GoogleAuthErrors.exactlyOneToken();
         }
-        if (!hasIdToken) {
-            throw GoogleAuthErrors.invalidTokenForLink();
+        if (hasIdToken) {
+            GoogleIdentity google = verifyIdToken(request.idToken(), GoogleAuthErrors::invalidTokenForLink);
+            if (!google.emailVerified()) {
+                throw GoogleAuthErrors.emailNotVerified();
+            }
+            return google;
         }
-        GoogleIdentity google = verifyIdToken(request.idToken(), GoogleAuthErrors::invalidTokenForLink);
-        if (!google.emailVerified()) {
-            throw GoogleAuthErrors.emailNotVerified();
+        GoogleIdentity google = verifyLinkToken(request.linkToken());
+        // Spec 12.1: email trong linkToken phải trùng email tài khoản (cả hai đã chuẩn hoá); lệch → 400 (hợp đồng mobile).
+        if (!google.email().equals(user.getEmail())) {
+            throw GoogleAuthErrors.linkTokenForAnotherAccount();
         }
         return google;
+    }
+
+    private GoogleIdentity verifyLinkToken(String linkToken) {
+        try {
+            return linkTokens.verify(linkToken);
+        } catch (InvalidGoogleTokenException ex) {
+            throw GoogleAuthErrors.invalidTokenForLink();
+        }
     }
 
     private GoogleIdentity verifyIdToken(String idToken, Supplier<ApiException> whenInvalid) {
