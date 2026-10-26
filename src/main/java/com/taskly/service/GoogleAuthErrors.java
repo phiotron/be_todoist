@@ -12,6 +12,9 @@ final class GoogleAuthErrors {
     /** Giá trị property "code" của 409 khi email Google trùng tài khoản mật khẩu. */
     static final String LINK_REQUIRED_CODE = "link-required";
 
+    /** Giá trị property "code" của 409 khi tài khoản chưa có mật khẩu (spec 12.10, chung với DELETE me của M3). */
+    static final String PASSWORD_REQUIRED_CODE = "password-required";
+
     private GoogleAuthErrors() {
     }
 
@@ -61,8 +64,11 @@ final class GoogleAuthErrors {
                 "Tài khoản của bạn đã liên kết với một tài khoản Google khác. Hãy bỏ liên kết trước");
     }
 
+    /** DELETE me/identities/google khi tài khoản chưa có mật khẩu → 409 code "password-required" (spec 12.1, 12.10). */
     static ApiException passwordRequiredBeforeUnlink() {
-        return ApiException.conflict("Hãy đặt mật khẩu trước khi bỏ liên kết Google");
+        ApiException ex = ApiException.conflict("Hãy đặt mật khẩu trước khi bỏ liên kết Google");
+        ex.getBody().setProperty("code", PASSWORD_REQUIRED_CODE);
+        return ex;
     }
 
     static ApiException googleUnavailable() {
