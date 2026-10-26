@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,5 +41,13 @@ public class GoogleAuthController {
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
     public void link(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody GoogleLinkRequest request) {
         googleIdentityService.link(CurrentUser.id(jwt), request);
+    }
+
+    /** Cần access JWT. 204; chưa liên kết → 404; tài khoản chưa có mật khẩu → 409. */
+    @DeleteMapping("/me/identities/google")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)
+    public void unlink(@AuthenticationPrincipal Jwt jwt) {
+        googleIdentityService.unlink(CurrentUser.id(jwt));
     }
 }

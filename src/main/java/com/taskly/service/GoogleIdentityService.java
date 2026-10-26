@@ -87,6 +87,18 @@ public class GoogleIdentityService {
         user.linkIdentity(IdentityProvider.GOOGLE, google.subject(), google.email());
     }
 
+    /** DELETE me/identities/google — chưa liên kết → 404; chưa có mật khẩu → 409; xong → controller trả 204. */
+    public void unlink(UUID userId) {
+        User user = userService.requireUser(userId);
+        if (user.identity(IdentityProvider.GOOGLE).isEmpty()) {
+            throw GoogleAuthErrors.googleNotLinked();
+        }
+        if (!user.hasPassword()) {
+            throw GoogleAuthErrors.passwordRequiredBeforeUnlink();
+        }
+        user.unlinkIdentity(IdentityProvider.GOOGLE);
+    }
+
     /** Chọn nguồn danh tính Google: idToken (Cài đặt) hoặc linkToken (sau 409 link-required). */
     private GoogleIdentity resolveForLink(User user, GoogleLinkRequest request) {
         boolean hasIdToken = request.idToken() != null && !request.idToken().isBlank();
