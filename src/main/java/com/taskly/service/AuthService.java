@@ -70,12 +70,15 @@ public class AuthService {
         return issueTokens(user);
     }
 
-    /** Sai email hay sai mật khẩu đều trả cùng một 401. */
+    /**
+     * Sai email, sai mật khẩu, hay tài khoản chỉ có Google (chưa có mật khẩu, M5) đều trả cùng một 401
+     * và đều chạy BCrypt (trên hash giả khi không có hash thật) → không lộ trạng thái tài khoản qua thời gian.
+     */
     public AuthResponse login(LoginRequest request) {
         if (request.password().getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
             throw ApiException.unauthorized(INVALID_CREDENTIALS);
         }
-        Optional<User> user = userService.findByEmail(request.email());
+        Optional<User> user = userService.findByEmail(request.email()).filter(User::hasPassword);
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
         boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
         if (user.isEmpty() || !passwordMatches) {
