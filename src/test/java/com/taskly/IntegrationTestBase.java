@@ -5,7 +5,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.support.MutableClock;
+import com.taskly.support.RecordingMailSender;
 import com.taskly.support.TestClockConfiguration;
+import com.taskly.support.TestMailConfiguration;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,14 +23,14 @@ import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * Nền chung cho test tích hợp: Postgres thật (Testcontainers), MockMvc có Spring Security,
- * profile "test" (JWT secret giả) và MutableClock để dời "bây giờ".
+ * profile "test" (JWT secret giả), MutableClock để dời "bây giờ" và MailSender giả (mailbox) ghi lại thư.
  * Mọi class con dùng chung MỘT Spring context và MỘT container (context cache).
  * Dữ liệu không bị xoá giữa các test → luôn dùng uniqueEmail().
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestClockConfiguration.class})
+@Import({TestcontainersConfiguration.class, TestClockConfiguration.class, TestMailConfiguration.class})
 public abstract class IntegrationTestBase {
 
     /** Mật khẩu fixture cho test tự động — không phải mật khẩu thật của ai. */
@@ -43,6 +45,10 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected MutableClock clock;
 
+    /** Hộp thư giả: thư service đã "gửi" trong test. */
+    @Autowired
+    protected RecordingMailSender mailbox;
+
     /** Kết quả đăng ký qua API, dùng làm dữ liệu đầu vào cho test khác. */
     protected record RegisteredUser(UUID id, String email, String accessToken, String refreshToken) {
     }
@@ -50,6 +56,11 @@ public abstract class IntegrationTestBase {
     @BeforeEach
     protected void resetClock() {
         clock.reset();
+    }
+
+    @BeforeEach
+    protected void resetMailbox() {
+        mailbox.reset();
     }
 
     protected static String uniqueEmail() {
