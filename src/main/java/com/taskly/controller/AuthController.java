@@ -7,6 +7,7 @@ import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
+import com.taskly.dto.auth.ResetPasswordRequest;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
 import com.taskly.service.PasswordResetService;
@@ -62,5 +63,12 @@ public class AuthController {
     @ResponseStatus(HttpStatus.OK)
     public void requestPasswordReset(@Valid @RequestBody ForgotPasswordRequest request) {
         passwordResetService.requestReset(request.email());
+    }
+
+    /** Public. 204 (không tự đăng nhập); mã sai 404; hết hạn / đã dùng 410. */
+    @PostMapping("/password-reset/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmPasswordReset(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.confirmReset(request);
     }
 }

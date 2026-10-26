@@ -3,6 +3,7 @@ package com.taskly.service;
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
 import com.taskly.config.PasswordResetProperties;
+import com.taskly.dto.auth.ResetPasswordRequest;
 import com.taskly.entity.PasswordResetToken;
 import com.taskly.entity.User;
 import com.taskly.integration.MailDeliveryException;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,19 +37,24 @@ public class PasswordResetService {
     static final String MAIL_BODY_KEY = "mail.password-reset.body";
 
     private final UserService userService;
+    private final AuthService authService;
     private final PasswordResetTokenRepository tokenRepository;
     private final MailSender mailSender;
     private final MessageSource messageSource;
+    private final PasswordEncoder passwordEncoder;
     private final PasswordResetProperties properties;
     private final Clock clock;
 
-    public PasswordResetService(UserService userService, PasswordResetTokenRepository tokenRepository,
-                                MailSender mailSender, MessageSource messageSource,
+    public PasswordResetService(UserService userService, AuthService authService,
+                                PasswordResetTokenRepository tokenRepository, MailSender mailSender,
+                                MessageSource messageSource, PasswordEncoder passwordEncoder,
                                 PasswordResetProperties properties, Clock clock) {
         this.userService = userService;
+        this.authService = authService;
         this.tokenRepository = tokenRepository;
         this.mailSender = mailSender;
         this.messageSource = messageSource;
+        this.passwordEncoder = passwordEncoder;
         this.properties = properties;
         this.clock = clock;
     }
@@ -64,8 +71,7 @@ public class PasswordResetService {
         }
         User user = found.get();
         Instant now = Instant.now(clock);
-        tokenRepository.findAllByUserIdAndUsedAtIsNullAndExpiresAtAfter(user.getId(), now)
-                .forEach(token -> token.invalidate(now));
+        invalidateActiveTokens(user, now);
         String token = OpaqueTokens.generate();
         tokenRepository.save(new PasswordResetToken(user, OpaqueTokens.sha256Hex(token),
                 now.plus(properties.tokenTtl())));
@@ -75,6 +81,30 @@ public class PasswordResetService {
             log.warn("Không gửi được email đặt lại mật khẩu; trả 503 và huỷ token vừa tạo");
             throw ApiException.serviceUnavailable(ErrorMessage.MAIL_UNAVAILABLE);
         }
+    }
+
+    /**
+     * Đặt lại mật khẩu bằng mã trong thư. Mã không khớp → 404; hết hạn / đã dùng / đã bị vô hiệu → 410.
+     * Thành công: đổi mật khẩu, đánh dấu đã dùng, vô hiệu token khác còn dùng được, thu hồi mọi refresh token.
+     * Không tự đăng nhập (controller trả 204). findByTokenHash khoá dòng → một mã chỉ thành công một lần.
+     */
+    public void confirmReset(ResetPasswordRequest request) {
+        Instant now = Instant.now(clock);
+        PasswordResetToken token = tokenRepository.findByTokenHash(OpaqueTokens.sha256Hex(request.token()))
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.RESET_TOKEN_INVALID));
+        if (!token.isUsable(now)) {
+            throw ApiException.gone(ErrorMessage.RESET_TOKEN_EXPIRED);
+        }
+        token.markUsed(now);
+        User user = token.getUser();
+        user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+        invalidateActiveTokens(user, now);
+        authService.revokeAllRefreshTokens(user.getId());
+    }
+
+    private void invalidateActiveTokens(User user, Instant now) {
+        tokenRepository.findAllByUserIdAndUsedAtIsNullAndExpiresAtAfter(user.getId(), now)
+                .forEach(token -> token.invalidate(now));
     }
 
     /** Thư theo users.locale: liên kết taskly://reset-password/<token> + chính token làm mã để dán vào app. */
