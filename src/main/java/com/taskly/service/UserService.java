@@ -1,6 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.user.UserResponse;
 import com.taskly.entity.User;
 import com.taskly.mapper.UserMapper;
@@ -21,18 +22,24 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    /** JWT hợp lệ nhưng user không còn → coi như phiên hết hiệu lực (401). */
     public UserResponse getProfile(UUID userId) {
+        return UserMapper.toResponse(requireUser(userId));
+    }
+
+    /**
+     * User đang đăng nhập (id lấy từ JWT). JWT hợp lệ nhưng user không còn → coi như phiên hết hiệu lực (401).
+     * Service khác gọi trong transaction ghi của mình để nhận entity được quản lý và sửa trực tiếp.
+     */
+    public User requireUser(UUID userId) {
         return userRepository.findById(userId)
-                .map(UserMapper::toResponse)
-                .orElseThrow(() -> ApiException.unauthorized("Phiên đăng nhập không hợp lệ hoặc đã hết hạn"));
+                .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
     }
 
     /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). Email đã có → 409. */
     @Transactional
     public User createUser(String normalizedEmail, String passwordHash, String displayName) {
         if (userRepository.existsByEmail(normalizedEmail)) {
-            throw ApiException.conflict("Email đã được dùng");
+            throw ApiException.conflict(ErrorMessage.EMAIL_TAKEN);
         }
         return userRepository.save(new User(normalizedEmail, passwordHash, displayName));
     }

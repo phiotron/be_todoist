@@ -1,6 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.LogoutRequest;
@@ -34,8 +35,6 @@ public class AuthService {
 
     /** BCrypt chỉ nhận tối đa 72 byte; Spring Security ném lỗi nếu dài hơn. */
     static final int BCRYPT_MAX_BYTES = 72;
-    static final String INVALID_CREDENTIALS = "Email hoặc mật khẩu không đúng";
-    static final String INVALID_REFRESH_TOKEN = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn";
 
     private final UserService userService;
     private final WorkspaceService workspaceService;
@@ -73,13 +72,13 @@ public class AuthService {
     /** Sai email hay sai mật khẩu đều trả cùng một 401. */
     public AuthResponse login(LoginRequest request) {
         if (request.password().getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
-            throw ApiException.unauthorized(INVALID_CREDENTIALS);
+            throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
         Optional<User> user = userService.findByEmail(request.email());
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
         boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
         if (user.isEmpty() || !passwordMatches) {
-            throw ApiException.unauthorized(INVALID_CREDENTIALS);
+            throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
         return issueTokens(user.get());
     }
@@ -93,7 +92,7 @@ public class AuthService {
         Instant now = Instant.now(clock);
         RefreshToken current = refreshTokenRepository.findByTokenHash(OpaqueTokens.sha256Hex(request.refreshToken()))
                 .filter(token -> token.isActive(now))
-                .orElseThrow(() -> ApiException.unauthorized(INVALID_REFRESH_TOKEN));
+                .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
         current.revoke(now);
         return issueTokens(current.getUser());
     }

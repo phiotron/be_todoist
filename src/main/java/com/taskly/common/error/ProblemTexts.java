@@ -1,33 +1,27 @@
 package com.taskly.common.error;
 
-/** Chữ tiếng Việt cho ProblemDetail: title theo mã HTTP, và detail mặc định cho lỗi do framework sinh. */
+import java.util.Set;
+
+/**
+ * KEY (trong messages_*.properties) của title ProblemDetail theo mã HTTP và của detail mặc định cho lỗi do framework
+ * sinh. Câu chữ vi / en nằm trong file properties, không nằm ở đây.
+ */
 final class ProblemTexts {
+
+    /** Mã HTTP có title riêng; mã khác dùng problem.title.default. */
+    static final Set<Integer> TITLED_STATUSES = Set.of(400, 401, 403, 404, 405, 409, 410, 415, 422, 429, 500, 503);
+
+    /** Mã HTTP có detail mặc định riêng (thay câu tiếng Anh của Spring); mã khác dùng problem.detail.default. */
+    static final Set<Integer> DEFAULT_DETAIL_STATUSES = Set.of(400, 403, 404, 405, 415, 429);
 
     private ProblemTexts() {
     }
 
-    static String title(int status) {
-        return switch (status) {
-            case 400 -> "Dữ liệu không hợp lệ";
-            case 401 -> "Chưa xác thực";
-            case 403 -> "Không có quyền";
-            case 404 -> "Không tìm thấy";
-            case 405 -> "Phương thức không được hỗ trợ";
-            case 409 -> "Xung đột dữ liệu";
-            case 415 -> "Định dạng dữ liệu không được hỗ trợ";
-            case 500 -> "Lỗi máy chủ";
-            default -> "Lỗi";
-        };
+    static String titleKey(int status) {
+        return TITLED_STATUSES.contains(status) ? "problem.title." + status : "problem.title.default";
     }
 
-    /** Thay detail tiếng Anh của Spring (vd "Failed to read request") bằng câu tiếng Việt. */
-    static String defaultDetail(int status) {
-        return switch (status) {
-            case 400 -> "Dữ liệu gửi lên không đọc được hoặc không hợp lệ";
-            case 404 -> "Không tìm thấy đường dẫn yêu cầu";
-            case 405 -> "Đường dẫn này không hỗ trợ phương thức HTTP đã gửi";
-            case 415 -> "Chỉ chấp nhận dữ liệu JSON";
-            default -> "Đã có lỗi xảy ra, vui lòng thử lại sau";
-        };
+    static String defaultDetailKey(int status) {
+        return DEFAULT_DETAIL_STATUSES.contains(status) ? "problem.detail." + status : "problem.detail.default";
     }
 }
