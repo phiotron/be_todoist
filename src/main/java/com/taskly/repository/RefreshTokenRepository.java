@@ -2,6 +2,7 @@ package com.taskly.repository;
 
 import com.taskly.entity.RefreshToken;
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +16,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    /** Refresh token chưa thu hồi của user (kể cả đã hết hạn — thu hồi luôn cho gọn). */
+    List<RefreshToken> findAllByUserIdAndRevokedAtIsNull(UUID userId);
 }

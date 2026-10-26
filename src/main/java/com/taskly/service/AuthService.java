@@ -109,6 +109,15 @@ public class AuthService {
                 .ifPresent(token -> token.revoke(Instant.now(clock)));
     }
 
+    /**
+     * Thu hồi MỌI refresh token chưa thu hồi của user (đổi / đặt lại mật khẩu — spec mục 12.1).
+     * Token đã thu hồi giữ nguyên revoked_at cũ. Access token đã phát vẫn sống tới khi hết hạn (tối đa 15 phút).
+     */
+    public void revokeAllRefreshTokens(UUID userId) {
+        Instant now = Instant.now(clock);
+        refreshTokenRepository.findAllByUserIdAndRevokedAtIsNull(userId).forEach(token -> token.revoke(now));
+    }
+
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
     private AuthResponse issueTokens(User user) {
         String refreshToken = OpaqueTokens.generate();
