@@ -2,6 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
+import com.taskly.dto.user.UpdateProfileRequest;
 import com.taskly.dto.user.UserResponse;
 import com.taskly.entity.User;
 import com.taskly.mapper.UserMapper;
@@ -33,6 +34,14 @@ public class UserService {
     public User requireUser(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
+    }
+
+    /** Đổi tên hiển thị. Tên giống hệt hiện tại → không UPDATE, updated_at giữ nguyên (BR-10). */
+    @Transactional
+    public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
+        User user = requireUser(userId);
+        user.changeDisplayName(request.displayName());
+        return UserMapper.toResponse(user);
     }
 
     /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). Email đã có → 409. */
