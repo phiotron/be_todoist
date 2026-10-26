@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.taskly.support.GoogleTestConfiguration;
 import com.taskly.support.MutableClock;
 import com.taskly.support.TestClockConfiguration;
 import java.nio.charset.StandardCharsets;
@@ -28,7 +29,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestClockConfiguration.class})
+@Import({TestcontainersConfiguration.class, TestClockConfiguration.class, GoogleTestConfiguration.class})
 public abstract class IntegrationTestBase {
 
     /** Mật khẩu fixture cho test tự động — không phải mật khẩu thật của ai. */

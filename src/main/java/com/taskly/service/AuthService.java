@@ -63,11 +63,19 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
-        User user = userService.createUser(
-                request.email(), passwordEncoder.encode(request.password()), request.displayName());
+        User user = createAccount(request.email(), passwordEncoder.encode(request.password()), request.displayName());
+        return issueTokens(user);
+    }
+
+    /**
+     * Tạo user + workspace cá nhân (ADMIN) + Inbox trong transaction hiện tại (spec 10.1). Dùng chung cho đăng ký
+     * bằng mật khẩu và đăng ký bằng Google (passwordHash null). Email đã có → 409.
+     */
+    public User createAccount(String normalizedEmail, String passwordHash, String displayName) {
+        User user = userService.createUser(normalizedEmail, passwordHash, displayName);
         Workspace personal = workspaceService.createPersonalWorkspace(user);
         projectService.createInbox(personal);
-        return issueTokens(user);
+        return user;
     }
 
     /**
@@ -113,8 +121,8 @@ public class AuthService {
                 .ifPresent(token -> token.revoke(Instant.now(clock)));
     }
 
-    /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
-    private AuthResponse issueTokens(User user) {
+    /** Phát cặp token mới (dùng cả cho đăng nhập Google); DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
+    public AuthResponse issueTokens(User user) {
         String refreshToken = OpaqueTokens.generate();
         Instant expiresAt = Instant.now(clock).plus(jwtProperties.refreshTtl());
         refreshTokenRepository.save(new RefreshToken(user, OpaqueTokens.sha256Hex(refreshToken), expiresAt));

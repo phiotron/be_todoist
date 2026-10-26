@@ -25,7 +25,7 @@ public class SecurityConfig {
 
     /** Endpoint không cần JWT. */
     static final String[] PUBLIC_AUTH_PATHS = {
-            "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh"
+            "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/google"
     };
 
     private static final String[] PUBLIC_DOC_PATHS = {
@@ -55,7 +55,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Bỏ qua header Authorization trên register/login/refresh: app mobile có thể gửi kèm access token
+     * Bỏ qua header Authorization trên register/login/refresh/google: app mobile có thể gửi kèm access token
      * đã hết hạn khi gọi refresh — nếu không bỏ qua, Resource Server sẽ trả 401 trước khi tới controller.
      */
     @Bean

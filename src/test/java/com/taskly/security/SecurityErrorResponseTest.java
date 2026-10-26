@@ -75,6 +75,7 @@ class SecurityErrorResponseTest extends IntegrationTestBase {
         assertThat(resolver.resolve(postTo("/api/v1/auth/register"))).isNull();
         assertThat(resolver.resolve(postTo("/api/v1/auth/login"))).isNull();
         assertThat(resolver.resolve(postTo("/api/v1/auth/refresh"))).isNull();
+        assertThat(resolver.resolve(postTo("/api/v1/auth/google"))).isNull();
 
         assertThat(resolver.resolve(postTo("/api/v1/auth/logout"))).isEqualTo("abc");
         assertThat(resolver.resolve(postTo("/api/v1/me"))).isEqualTo("abc");
