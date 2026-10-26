@@ -2,6 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.dto.auth.AuthResponse;
+import com.taskly.dto.user.GoogleLinkRequest;
 import com.taskly.entity.IdentityProvider;
 import com.taskly.entity.User;
 import com.taskly.security.GoogleIdTokenVerifier;
@@ -10,6 +11,7 @@ import com.taskly.security.GoogleLinkTokens;
 import com.taskly.security.GoogleUnavailableException;
 import com.taskly.security.InvalidGoogleTokenException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +64,44 @@ public class GoogleIdentityService {
         User user = authService.createAccount(google.email(), null, displayName(google));    // tình huống 1
         user.linkIdentity(IdentityProvider.GOOGLE, google.subject(), google.email());
         return authService.issueTokens(user);
+    }
+
+    /**
+     * POST me/identities/google — liên kết Google vào tài khoản đang đăng nhập (controller trả 204). Gửi lại đúng
+     * Google đã liên kết → không làm gì (204, idempotent). sub đã gắn tài khoản khác → 409; tài khoản đã gắn Google
+     * khác → 409 (bỏ liên kết trước).
+     */
+    public void link(UUID userId, GoogleLinkRequest request) {
+        User user = userService.requireUser(userId);
+        GoogleIdentity google = resolveForLink(user, request);
+        Optional<User> owner = userService.findByIdentity(IdentityProvider.GOOGLE, google.subject());
+        if (owner.isPresent()) {
+            if (owner.get().getId().equals(user.getId())) {
+                return;
+            }
+            throw GoogleAuthErrors.googleAccountLinkedElsewhere();
+        }
+        if (user.identity(IdentityProvider.GOOGLE).isPresent()) {
+            throw GoogleAuthErrors.accountAlreadyLinked();
+        }
+        user.linkIdentity(IdentityProvider.GOOGLE, google.subject(), google.email());
+    }
+
+    /** Task 10: nhánh idToken. Nhánh linkToken làm ở Task 11. */
+    private GoogleIdentity resolveForLink(User user, GoogleLinkRequest request) {
+        boolean hasIdToken = request.idToken() != null && !request.idToken().isBlank();
+        boolean hasLinkToken = request.linkToken() != null && !request.linkToken().isBlank();
+        if (hasIdToken == hasLinkToken) {
+            throw GoogleAuthErrors.exactlyOneToken();
+        }
+        if (!hasIdToken) {
+            throw GoogleAuthErrors.invalidTokenForLink();
+        }
+        GoogleIdentity google = verifyIdToken(request.idToken(), GoogleAuthErrors::invalidTokenForLink);
+        if (!google.emailVerified()) {
+            throw GoogleAuthErrors.emailNotVerified();
+        }
+        return google;
     }
 
     private GoogleIdentity verifyIdToken(String idToken, Supplier<ApiException> whenInvalid) {
