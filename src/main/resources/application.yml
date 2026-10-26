@@ -19,3 +19,10 @@ app:
     issuer: taskly
     access-ttl: 15m
     refresh-ttl: 30d
+
+taskly:
+  google:
+    # aud hợp lệ của ID token Google = Web client ID (app Android truyền nó làm serverClientId).
+    # Người dùng tự điền GOOGLE_CLIENT_IDS trong .env; nhiều ID cách nhau bởi dấu phẩy; để trống = từ chối mọi token.
+    client-ids: ${GOOGLE_CLIENT_IDS:}
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs

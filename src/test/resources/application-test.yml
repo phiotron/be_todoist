@@ -2,3 +2,7 @@
 app:
   jwt:
     secret: test-only-jwt-secret-not-for-production-0123456789
+taskly:
+  google:
+    # Client ID GIẢ, khớp GoogleTestTokens.CLIENT_IDS — test không gọi Google thật.
+    client-ids: test-web-client.apps.googleusercontent.com,test-android-client.apps.googleusercontent.com
