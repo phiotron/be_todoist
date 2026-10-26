@@ -6,10 +6,10 @@ import jakarta.validation.constraints.NotNull;
 
 /** Không kiểm độ dài mật khẩu ở đây để không lộ quy tắc; sai thì luôn trả 401 chung. */
 public record LoginRequest(
-        @NotBlank(message = "Vui lòng nhập email")
+        @NotBlank(message = "{validation.email.required}")
         String email,
 
-        @NotNull(message = "Vui lòng nhập mật khẩu")
+        @NotNull(message = "{validation.password.required}")
         String password) {
 
     public LoginRequest {

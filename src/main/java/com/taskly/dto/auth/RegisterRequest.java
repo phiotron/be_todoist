@@ -8,22 +8,22 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * Message tiếng Việt đặt thẳng trên annotation: app mobile hiển thị nguyên văn errors[].message.
- * Tên component = tên field JSON camelCase = errors[].field.
+ * message = "{key}" trong messages_vi/en.properties: errors[].message được dịch theo Accept-Language, app mobile
+ * hiển thị nguyên văn. Tên component = tên field JSON camelCase = errors[].field.
  */
 public record RegisterRequest(
-        @NotBlank(message = "Vui lòng nhập email")
-        @Email(message = "Email không hợp lệ")
-        @Size(max = 254, message = "Email tối đa 254 ký tự")
+        @NotBlank(message = "{validation.email.required}")
+        @Email(message = "{validation.email.invalid}")
+        @Size(max = 254, message = "{validation.email.too-long}")
         String email,
 
-        @NotNull(message = "Vui lòng nhập mật khẩu")
-        @Size(min = 8, max = 72, message = "Mật khẩu phải từ 8 đến 72 ký tự")
-        @MaxUtf8Bytes(value = 72, message = "Mật khẩu quá dài, hãy dùng mật khẩu ngắn hơn")
+        @NotNull(message = "{validation.password.required}")
+        @Size(min = 8, max = 72, message = "{validation.password.size}")
+        @MaxUtf8Bytes(value = 72, message = "{validation.password.too-many-bytes}")
         String password,
 
-        @NotBlank(message = "Vui lòng nhập tên hiển thị")
-        @Size(max = 100, message = "Tên hiển thị tối đa 100 ký tự")
+        @NotBlank(message = "{validation.display-name.required}")
+        @Size(max = 100, message = "{validation.display-name.too-long}")
         String displayName) {
 
     /** Chuẩn hoá TRƯỚC khi validate (Jackson gọi constructor này): email strip + chữ thường, tên strip. */

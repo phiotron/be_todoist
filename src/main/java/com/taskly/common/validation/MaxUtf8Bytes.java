@@ -21,7 +21,7 @@ public @interface MaxUtf8Bytes {
 
     int value();
 
-    String message() default "Giá trị vượt quá số byte cho phép";
+    String message() default "{validation.max-utf8-bytes}";
 
     Class<?>[] groups() default {};
 
