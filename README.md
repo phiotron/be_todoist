@@ -51,5 +51,34 @@ Tiền tố `/api/v1`, JSON camelCase. Lỗi luôn là ProblemDetail (`applicati
 | GET | `/me` | có | 200 `UserResponse` |
 
 - `AuthResponse` = `{accessToken, refreshToken, accessTokenExpiresIn (giây, 900), user}`
-- `UserResponse` = `{id, email, displayName, locale, timeZone}`
+- `UserResponse` = `{id, email, displayName, locale, timeZone, hasPassword, linkedProviders}` (2 field cuối từ M5)
 - Access token: JWT HS256 sống 15 phút. Refresh token: chuỗi ngẫu nhiên, sống 30 ngày, xoay vòng mỗi lần refresh.
+
+## Đăng nhập Google (mốc M5)
+
+### Cấu hình — người dùng tự làm (Claude không đăng nhập Google Cloud hộ)
+1. Google Cloud Console → tạo OAuth consent screen, một **Web client ID** và một **Android client ID** (package name
+   của app + SHA-1 keystore debug — xem README của repo `mobile`).
+2. Trong `.env` (chép từ `.env.example`), điền `GOOGLE_CLIENT_IDS` = **Web client ID**. App Android truyền Web client
+   ID làm `serverClientId`, nên `aud` của ID token là Web client ID. Nhiều ID cách nhau bởi dấu phẩy.
+3. Để trống thì server vẫn chạy, log cảnh báo lúc khởi động, và mọi lần đăng nhập Google bị từ chối (401).
+
+Server tự tải khoá công khai của Google ở `https://www.googleapis.com/oauth2/v3/certs` (cần mạng; không tải được →
+503). Kiểm `iss` ∈ {`accounts.google.com`, `https://accounts.google.com`}, `aud` ∈ `GOOGLE_CLIENT_IDS`, `exp`, chữ ký
+RS256; tài khoản gắn theo claim `sub`, không theo email. Test tự động dùng khoá RSA giả, không gọi Google.
+
+### API
+| Method | Path | JWT | Kết quả |
+|---|---|---|---|
+| POST | `/auth/google` `{idToken}` | không | 200 `AuthResponse` (tạo tài khoản không mật khẩu nếu email mới); 401 token sai / hết hạn / sai aud; 403 email Google chưa xác minh; 409 `code=link-required` kèm `linkToken`; 503 không kết nối được Google |
+| POST | `/me/identities/google` `{idToken}` hoặc `{linkToken}` | có | 204 (gửi lại đúng Google đã liên kết cũng 204); 400 token không dùng được / hết hạn / sai aud, email trong `linkToken` khác email tài khoản, hoặc gửi sai số trường (**không** 401 — app coi 401 là hết phiên); 403 email Google chưa xác minh; 409 Google đã gắn tài khoản khác / tài khoản đã gắn Google khác |
+| DELETE | `/me/identities/google` | có | 204; 404 chưa liên kết Google; 409 tài khoản chưa có mật khẩu |
+
+409 `link-required`:
+```json
+{"type": "about:blank", "title": "Xung đột dữ liệu", "status": 409,
+ "detail": "Email này đã có tài khoản Taskly. Hãy đăng nhập bằng mật khẩu để liên kết Google",
+ "instance": "/api/v1/auth/google", "code": "link-required", "linkToken": "<JWT, hạn 10 phút>"}
+```
+App: đăng nhập bằng mật khẩu → gọi `POST /me/identities/google {linkToken}`. Tài khoản chỉ có Google đặt mật khẩu qua
+Quên mật khẩu (M3); đăng nhập mật khẩu vào tài khoản chưa có mật khẩu trả 401 giống sai mật khẩu.
