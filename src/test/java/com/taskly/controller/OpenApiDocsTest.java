@@ -57,7 +57,8 @@ class OpenApiDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.AuthResponse.required")
                         .value(containsInAnyOrder("accessToken", "refreshToken", "accessTokenExpiresIn", "user")))
                 .andExpect(jsonPath("$.components.schemas.UserResponse.required")
-                        .value(containsInAnyOrder("id", "email", "displayName", "locale", "timeZone")))
+                        .value(containsInAnyOrder("id", "email", "displayName", "locale", "timeZone",
+                                "hasPassword", "linkedProviders")))
                 // request: field bắt buộc lấy từ Bean Validation
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.required")
                         .value(containsInAnyOrder("email", "password", "displayName")))

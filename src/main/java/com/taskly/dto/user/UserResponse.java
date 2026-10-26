@@ -1,6 +1,8 @@
 package com.taskly.dto.user;
 
+import com.taskly.entity.IdentityProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 import java.util.UUID;
 
 /** Thông tin user trả cho client — KHÔNG có passwordHash. Mọi field luôn có mặt trong response. */
@@ -9,5 +11,11 @@ public record UserResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String email,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String locale,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String timeZone) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String timeZone,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "false với tài khoản chỉ đăng nhập bằng Google (đặt mật khẩu qua Quên mật khẩu)")
+        boolean hasPassword,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Nhà cung cấp đăng nhập đã liên kết, ví dụ [\"GOOGLE\"]")
+        List<IdentityProvider> linkedProviders) {
 }
