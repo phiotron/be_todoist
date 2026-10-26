@@ -24,16 +24,19 @@ import org.springframework.stereotype.Component;
 
 /**
  * linkToken (spec 12.1): JWT HS256 ký bằng JWT_SECRET hiện có, sống 10 phút, chứa sub + email Google; không lưu DB.
- * iss = "<app.jwt.issuer>/google-link" (khác iss của access token) và aud = "google-link" → decoder access-token
- * từ chối linkToken, và decoder ở đây từ chối access token. JWT không mã hoá: client đọc được sub + email (vốn đã có
- * trong ID token Google họ đang cầm).
+ * typ = "google-link", aud = "taskly-google-link" (spec 3.1) và iss riêng "<app.jwt.issuer>/google-link" →
+ * decoder access-token từ chối linkToken, và decoder ở đây từ chối access token / twoFactorToken. JWT không mã hoá:
+ * client đọc được sub + email (vốn đã có trong ID token Google họ đang cầm).
  */
 @Component
 public class GoogleLinkTokens {
 
-    public static final String AUDIENCE = "google-link";
+    /** Spec 3.1 (12.1, "Kiểu token"): claim "typ" và "aud" của linkToken (token khác: access / two-factor có typ + aud riêng). */
+    public static final String TYPE = "google-link";
+    public static final String AUDIENCE = "taskly-google-link";
     public static final Duration TTL = Duration.ofMinutes(10);
     static final String ISSUER_SUFFIX = "/google-link";
+    static final String TYPE_CLAIM = "typ";
     static final String EMAIL_CLAIM = "email";
 
     private final JwtEncoder jwtEncoder;
@@ -55,6 +58,7 @@ public class GoogleLinkTokens {
                 timestamps,
                 new JwtIssuerValidator(issuer),
                 new JwtAudienceValidator(AUDIENCE),
+                new JwtClaimValidator<String>(TYPE_CLAIM, TYPE::equals),
                 new JwtClaimValidator<String>(JwtClaimNames.SUB, sub -> sub != null && !sub.isBlank()),
                 new JwtClaimValidator<String>(EMAIL_CLAIM, email -> email != null && !email.isBlank())));
         this.decoder = nimbus;
@@ -66,6 +70,7 @@ public class GoogleLinkTokens {
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .audience(List.of(AUDIENCE))
+                .claim(TYPE_CLAIM, TYPE)
                 .subject(identity.subject())
                 .claim(EMAIL_CLAIM, identity.email())
                 .issuedAt(now)

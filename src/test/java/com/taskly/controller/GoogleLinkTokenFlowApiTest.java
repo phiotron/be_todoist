@@ -98,4 +98,18 @@ class GoogleLinkTokenFlowApiTest extends GoogleIntegrationTestBase {
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, bearer(linkToken)))
                 .andExpect(status().isUnauthorized());
     }
+
+    // Spec 3.1 (12.1): access token (typ access) dùng làm linkToken → 400 ở me/identities/google — không 401, vì 401
+    // làm app refresh rồi đăng xuất. Không liên kết gì.
+    @Test
+    void accessTokenUsedAsLinkToken_returns400_andLinksNothing() throws Exception {
+        RegisteredUser existing = registerUser(uniqueEmail());
+
+        postLinkGoogle(existing.accessToken(), linkTokenJson(existing.accessToken()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, bearer(existing.accessToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linkedProviders").isEmpty());
+    }
 }
