@@ -7,6 +7,7 @@ import com.taskly.dto.auth.LoginRequest;
 import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
+import com.taskly.dto.user.ChangePasswordRequest;
 import com.taskly.entity.RefreshToken;
 import com.taskly.entity.User;
 import com.taskly.entity.Workspace;
@@ -25,7 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Xác thực: đăng ký, đăng nhập, refresh, đăng xuất. Sở hữu bảng refresh_tokens.
+ * Xác thực: đăng ký, đăng nhập, refresh, đăng xuất, đổi mật khẩu. Sở hữu bảng refresh_tokens.
  * Mỗi method chạy trong MỘT transaction ghi: đăng ký = user + workspace cá nhân + ADMIN + Inbox
  * + refresh token, lỗi ở bước nào thì rollback toàn bộ.
  */
@@ -71,7 +72,7 @@ public class AuthService {
 
     /** Sai email hay sai mật khẩu đều trả cùng một 401. */
     public AuthResponse login(LoginRequest request) {
-        if (request.password().getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
+        if (exceedsBcryptLimit(request.password())) {
             throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
         Optional<User> user = userService.findByEmail(request.email());
@@ -110,12 +111,31 @@ public class AuthService {
     }
 
     /**
+     * Đổi mật khẩu khi đang đăng nhập (spec mục 12.1). Sai mật khẩu hiện tại → 400 (cố ý không 401 để app không hiểu
+     * nhầm là hết phiên). Đúng → lưu hash mới, thu hồi MỌI refresh token (mọi máy) và phát cặp token mới.
+     */
+    public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
+        User user = userService.requireUser(userId);
+        if (exceedsBcryptLimit(request.currentPassword())
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw ApiException.badRequest(ErrorMessage.CURRENT_PASSWORD_INCORRECT);
+        }
+        user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+        revokeAllRefreshTokens(userId);
+        return issueTokens(user);
+    }
+
+    /**
      * Thu hồi MỌI refresh token chưa thu hồi của user (đổi / đặt lại mật khẩu — spec mục 12.1).
      * Token đã thu hồi giữ nguyên revoked_at cũ. Access token đã phát vẫn sống tới khi hết hạn (tối đa 15 phút).
      */
     public void revokeAllRefreshTokens(UUID userId) {
         Instant now = Instant.now(clock);
         refreshTokenRepository.findAllByUserIdAndRevokedAtIsNull(userId).forEach(token -> token.revoke(now));
+    }
+
+    private static boolean exceedsBcryptLimit(String password) {
+        return password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES;
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
