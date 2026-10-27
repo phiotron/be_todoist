@@ -42,6 +42,7 @@ taskly:
     labels: 500
     filters: 150
     reminders: 700
+    labels-per-task: 100
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:
