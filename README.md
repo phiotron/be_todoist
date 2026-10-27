@@ -141,7 +141,7 @@ Các mốc sau dựa vào tên dưới đây (chi tiết: plan M1 backend part 1
 | POST | `/me/settings/reset` | có | 200 `SettingsResponse` về mặc định (`TASKLY`, `AUTO`, `vi`…; giữ múi giờ) |
 | POST | `/auth/password-reset/request` `{email}` | không | luôn 200 body rỗng dù email có hay không; gửi thư lỗi 503 |
 | POST | `/auth/password-reset/confirm` `{token, newPassword}` | không | 204 (không tự đăng nhập); mã sai 404; hết hạn / đã dùng 410 |
-| POST | `/auth/2fa/verify` `{twoFactorToken, code}` | không | 200 `AuthResponse`; token sai / hết hạn hoặc mã sai 401 |
+| POST | `/auth/2fa/verify` `{twoFactorToken, code}` | không | 200 `AuthResponse`; token sai / hết hạn hoặc mã sai 401; quá 5 lần / 5 phút / tài khoản 429 |
 | GET | `/me/2fa` | có | 200 `{enabled, recoveryCodesLeft}` |
 | POST | `/me/2fa/setup` | có | 200 `{secret, otpauthUri}` (tạo / thay secret chờ bật); đang bật 409 `two-factor-already-enabled` |
 | POST | `/me/2fa/enable` `{code}` | có | 200 `{recoveryCodes[10]}` (chỉ trả một lần); chưa setup 409 `two-factor-not-setup`; sai mã 400 |
@@ -163,7 +163,7 @@ Các mốc sau dựa vào tên dưới đây (chi tiết: plan M1 backend part 1
 - SMTP cấu hình bằng `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` trong `.env` (mặc định Mailpit `localhost:1025`).
 - **2FA (TOTP RFC 6238, 6 số, 30 giây, lệch ±1 bước):** đăng nhập tài khoản bật 2FA trả **401** `code:
   "two-factor-required"` kèm `twoFactorToken` (5 phút) → gọi `/auth/2fa/verify` với mã 6 số hoặc một mã khôi phục
-  (`xxxx-xxxx`, dùng một lần). Mỗi mã TOTP chỉ dùng được một lần. Secret lưu mã hoá AES-256-GCM bằng
+  (`xxxx-xxxx`, dùng một lần). Mỗi mã TOTP chỉ dùng được một lần. Giới hạn THEO TÀI KHOẢN, **5 lần / 5 phút**, vượt → **429** kèm `Retry-After` (kể cả khi mã đúng): mã 2FA dùng chung một bộ đếm cho `auth/2fa/verify`, `me/2fa/enable`, `me/2fa/disable`, `me/2fa/recovery-codes`, `DELETE me` (`app.rate-limit.two-factor.*`); sai mật khẩu ở `DELETE me` / `me/2fa/disable` có bộ đếm riêng (`app.rate-limit.account-password.*`). Bộ đếm trong bộ nhớ (một instance). Secret lưu mã hoá AES-256-GCM bằng
   `TOTP_ENCRYPTION_KEY` trong `.env` (thiếu thì server không khởi động; mất khoá → chỉ đăng nhập được bằng mã khôi phục).
   `UserResponse` có thêm `twoFactorEnabled`. Đặt lại mật khẩu không tắt 2FA.
 - Lỗi có `code` (để app phân biệt, không dựa vào câu chữ): `two-factor-required`, `two-factor-already-enabled`,

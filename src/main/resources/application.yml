@@ -45,6 +45,14 @@ app:
     refresh:
       max-requests: 30
       window-seconds: 60
+    # Theo tài khoản (spec mục 5.9): 5 lần / 5 phút; vượt → 429 + Retry-After. two-factor = mã 2FA (dùng chung mọi
+    # endpoint nhận mã); account-password = sai mật khẩu ở DELETE me và me/2fa/disable.
+    two-factor:
+      max-requests: 5
+      window-seconds: 300
+    account-password:
+      max-requests: 5
+      window-seconds: 300
 
 taskly:
   totp:

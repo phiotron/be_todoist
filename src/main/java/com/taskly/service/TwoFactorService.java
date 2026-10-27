@@ -17,6 +17,7 @@ import com.taskly.security.RecoveryCodeHasher;
 import com.taskly.security.RecoveryCodes;
 import com.taskly.security.SecretCipher;
 import com.taskly.security.TotpCodec;
+import com.taskly.security.TwoFactorRateLimiter;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -49,11 +50,13 @@ public class TwoFactorService {
     private final RecoveryCodeHasher recoveryCodeHasher;
     private final TotpProperties totpProperties;
     private final PasswordEncoder passwordEncoder;
+    private final TwoFactorRateLimiter rateLimiter;
     private final Clock clock;
 
     public TwoFactorService(UserService userService, UserTotpRepository totpRepository,
                             UserRecoveryCodeRepository recoveryCodeRepository, SecretCipher secretCipher,
-                            RecoveryCodeHasher recoveryCodeHasher, TotpProperties totpProperties, PasswordEncoder passwordEncoder, Clock clock) {
+                            RecoveryCodeHasher recoveryCodeHasher, TotpProperties totpProperties, PasswordEncoder passwordEncoder,
+                            TwoFactorRateLimiter rateLimiter, Clock clock) {
         this.userService = userService;
         this.totpRepository = totpRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
@@ -61,6 +64,7 @@ public class TwoFactorService {
         this.recoveryCodeHasher = recoveryCodeHasher;
         this.totpProperties = totpProperties;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiter = rateLimiter;
         this.clock = clock;
     }
 
@@ -105,6 +109,7 @@ public class TwoFactorService {
         if (totp.isEnabled()) {
             throw alreadyEnabled();
         }
+        rateLimiter.checkCode(userId);
         if (!acceptTotp(totp, code)) {
             throw ApiException.badRequest(ErrorMessage.TWO_FACTOR_CODE_INVALID);
         }
@@ -116,6 +121,9 @@ public class TwoFactorService {
     public void disable(UUID userId, DisableTwoFactorRequest request) {
         User user = userService.requireUser(userId);
         UserTotp totp = requireEnabled(userId);
+        if (hasPassword(user)) {
+            rateLimiter.checkPassword(userId);
+        }
         if (hasPassword(user) && !passwordMatches(user, request.password())) {
             throw ApiException.badRequest(ErrorMessage.CURRENT_PASSWORD_INCORRECT);
         }
@@ -147,6 +155,7 @@ public class TwoFactorService {
     }
 
     /**
+     * Mỗi lần so mã tính vào giới hạn 5 lần / 5 phút / tài khoản (429) — đếm ở acceptCode, SAU khi đã khoá dòng.
      * Kiểm và TIÊU THỤ một mã (TOTP hoặc mã khôi phục) — dùng ở auth/2fa/verify và DELETE me. Khoá dòng user_totp ngay từ
      * lần đọc đầu tiên: KHÔNG gọi isEnabled / findById trước đó trong cùng transaction, vì entity đã nạp vào persistence context
      * (trạng thái cũ) sẽ được findForUpdate trả lại nguyên và hai request song song cùng dùng được một mã TOTP.
@@ -183,6 +192,7 @@ public class TwoFactorService {
 
     /** 6 chữ số (cho phép khoảng trắng giữa) → TOTP; còn lại → mã khôi phục. */
     private boolean acceptCode(User user, UserTotp totp, String code) {
+        rateLimiter.checkCode(user.getId()); // dùng chung một bộ đếm cho mọi chỗ nhận mã (429 trước khi so mã)
         if (code == null) {
             return false;
         }

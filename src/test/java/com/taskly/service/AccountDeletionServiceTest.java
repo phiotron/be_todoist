@@ -10,6 +10,7 @@ import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.user.DeleteAccountRequest;
 import com.taskly.entity.User;
+import com.taskly.security.TwoFactorRateLimiter;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -28,7 +29,8 @@ class AccountDeletionServiceTest {
         WorkspaceService workspaceService = mock(WorkspaceService.class);
         when(userService.requireUserForUpdate(userId)).thenReturn(new User("google-only@example.com", null, "Chỉ Google"));
         AccountDeletionService service = new AccountDeletionService(
-                userService, twoFactorService, workspaceService, new BCryptPasswordEncoder());
+                userService, twoFactorService, workspaceService, new BCryptPasswordEncoder(),
+                mock(TwoFactorRateLimiter.class));
 
         assertThatThrownBy(() -> service.deleteAccount(userId, new DeleteAccountRequest("bat-ky", null)))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {

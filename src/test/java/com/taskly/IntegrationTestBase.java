@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.security.AuthRateLimiter;
+import com.taskly.security.TwoFactorRateLimiter;
 import com.taskly.service.UsageLimits;
 import com.taskly.support.MutableClock;
 import com.taskly.support.RecordingMailSender;
@@ -61,6 +62,9 @@ public abstract class IntegrationTestBase {
     @Autowired
     private AuthRateLimiter authRateLimiter;
 
+    @Autowired
+    private TwoFactorRateLimiter twoFactorRateLimiter;
+
     /** Chèn dữ liệu mẫu bằng SQL; tạo mới trước mỗi test. */
     protected TestData testData;
 
@@ -86,6 +90,7 @@ public abstract class IntegrationTestBase {
     @BeforeEach
     protected void resetRateLimits() {
         authRateLimiter.clear();
+        twoFactorRateLimiter.clear();
     }
 
     @BeforeEach

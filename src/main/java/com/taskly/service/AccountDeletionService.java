@@ -5,6 +5,7 @@ import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.user.DeleteAccountRequest;
 import com.taskly.entity.User;
+import com.taskly.security.TwoFactorRateLimiter;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,13 +25,16 @@ public class AccountDeletionService {
     private final TwoFactorService twoFactorService;
     private final WorkspaceService workspaceService;
     private final PasswordEncoder passwordEncoder;
+    private final TwoFactorRateLimiter rateLimiter;
 
     public AccountDeletionService(UserService userService, TwoFactorService twoFactorService,
-                                  WorkspaceService workspaceService, PasswordEncoder passwordEncoder) {
+                                  WorkspaceService workspaceService, PasswordEncoder passwordEncoder,
+                                  TwoFactorRateLimiter rateLimiter) {
         this.userService = userService;
         this.twoFactorService = twoFactorService;
         this.workspaceService = workspaceService;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiter = rateLimiter;
     }
 
     public void deleteAccount(UUID userId, DeleteAccountRequest request) {
@@ -39,6 +43,7 @@ public class AccountDeletionService {
         if (user.getPasswordHash() == null) {
             throw ApiException.conflict(ErrorMessage.PASSWORD_REQUIRED).withCode(ProblemCodes.PASSWORD_REQUIRED);
         }
+        rateLimiter.checkPassword(userId); // đoán mật khẩu qua JWT: 5 lần / 5 phút / tài khoản → 429
         String password = request.password();
         if (password == null
                 || password.getBytes(StandardCharsets.UTF_8).length > AuthService.BCRYPT_MAX_BYTES
