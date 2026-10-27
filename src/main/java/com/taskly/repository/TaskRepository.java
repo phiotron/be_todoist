@@ -2,6 +2,8 @@ package com.taskly.repository;
 
 import com.taskly.entity.Task;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +50,18 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     /** JPQL (không native) để Hibernate tự flush thay đổi chưa ghi trước khi đếm — đếm đúng khi gọi nhiều lần / lô. */
     @Query("select count(t) from Task t where t.projectId = :projectId and t.completedAt is null")
     long countOpenInProject(UUID projectId);
+
+    /**
+     * Khối Quá hạn chưa xong trong dự án CHƯA lưu trữ của các workspace (spec 5.1, 12.5): due_day < today, tức
+     * due_date < today hoặc due_datetime < 00:00 hôm nay (startOfToday) — task có giờ đã qua TRONG hôm nay KHÔNG tính.
+     * Sắp theo due để kết quả ổn định.
+     */
+    @Query("select t from Task t where t.completedAt is null "
+            + "and (t.dueDate < :today or t.dueDatetime < :startOfToday) "
+            + "and t.workspaceId in :workspaceIds "
+            + "and t.projectId in (select p.id from Project p where p.archivedAt is null) "
+            + "order by t.dueDate, t.dueDatetime, t.id")
+    List<Task> findOverdue(LocalDate today, LocalDateTime startOfToday, Collection<UUID> workspaceIds);
 
     default List<Task> findContainer(UUID projectId, UUID sectionId, UUID parentId) {
         if (parentId != null) {

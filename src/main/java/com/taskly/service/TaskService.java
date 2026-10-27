@@ -289,6 +289,14 @@ public class TaskService {
         }
     }
 
+    /** Mọi task trong khối Quá hạn (due_day < hôm nay, chưa xong, không tính dự án lưu trữ) của user — Reschedule (spec 12.5). */
+    public List<Task> findOverdue(UUID userId) {
+        LocalDate today = TaskDueRules.today(clock.instant(), userService.timeZoneOf(userId));
+        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
+        return workspaceIds.isEmpty() ? List.of()
+                : taskRepository.findOverdue(today, today.atStartOfDay(), workspaceIds);
+    }
+
     /**
      * Tạo / chuyển / sao chép: afterId == null (VẮNG) → CUỐI vùng chứa; Optional.empty() ("afterId": null) → ĐẦU;
      * có giá trị → ngay sau task đó (khác vùng chứa → 400). siblings không gồm task đang đặt. Hết khoảng trống →
