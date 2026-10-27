@@ -34,7 +34,7 @@ public class AccountDeletionService {
     }
 
     public void deleteAccount(UUID userId, DeleteAccountRequest request) {
-        User user = userService.requireUser(userId);
+        User user = userService.requireUserForUpdate(userId);
         // M3: password_hash luôn có. M5 (null được) có thể đổi sang User.hasPassword().
         if (user.getPasswordHash() == null) {
             throw ApiException.conflict(ErrorMessage.PASSWORD_REQUIRED).withCode(ProblemCodes.PASSWORD_REQUIRED);

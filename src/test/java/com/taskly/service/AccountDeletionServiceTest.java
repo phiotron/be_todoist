@@ -26,7 +26,7 @@ class AccountDeletionServiceTest {
         UserService userService = mock(UserService.class);
         TwoFactorService twoFactorService = mock(TwoFactorService.class);
         WorkspaceService workspaceService = mock(WorkspaceService.class);
-        when(userService.requireUser(userId)).thenReturn(new User("google-only@example.com", null, "Chỉ Google"));
+        when(userService.requireUserForUpdate(userId)).thenReturn(new User("google-only@example.com", null, "Chỉ Google"));
         AccountDeletionService service = new AccountDeletionService(
                 userService, twoFactorService, workspaceService, new BCryptPasswordEncoder());
 

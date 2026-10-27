@@ -36,6 +36,15 @@ public class UserService {
                 .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
     }
 
+    /**
+     * Như requireUser nhưng khoá dòng user: các thao tác huỷ (DELETE me) chạy tuần tự, request thứ hai thấy user đã mất → 401
+     * thay vì lỗi 500 khi xoá lần hai. CHỈ gọi trong transaction ghi.
+     */
+    public User requireUserForUpdate(UUID userId) {
+        return userRepository.findForUpdate(userId)
+                .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
+    }
+
     /** Không ném lỗi nếu user không còn (vd auth/2fa/verify: user xoá giữa hai bước → token coi như vô hiệu). */
     public Optional<User> findById(UUID userId) {
         return userRepository.findById(userId);

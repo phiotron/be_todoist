@@ -144,6 +144,36 @@ class AccountDeletionApiTest extends IntegrationTestBase {
                 .andExpect(status().isOk());
     }
 
+    /** Khoá dòng user: hai DELETE me song song → một 204, một 401 (user không còn), không bao giờ 500. */
+    @Test
+    void delete_twoParallelRequests_oneSucceedsTheOtherSeesNoUser() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.List<java.util.concurrent.Future<Integer>> results = new java.util.ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                results.add(pool.submit(() -> {
+                    ready.countDown();
+                    go.await();
+                    return deleteMe(user.accessToken(), "{\"password\": \"" + FIXTURE_PASSWORD + "\"}")
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            ready.await();
+            go.countDown();
+            java.util.List<Integer> statuses = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Integer> result : results) {
+                statuses.add(result.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            assertThat(statuses).containsExactlyInAnyOrder(204, 401);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertNothingLeft(user.id());
+    }
+
     @Test
     void sameEmail_canRegisterAgainAfterDeletion() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
