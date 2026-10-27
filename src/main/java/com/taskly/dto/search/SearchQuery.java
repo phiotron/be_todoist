@@ -1,6 +1,7 @@
 package com.taskly.dto.search;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.List;
@@ -16,12 +17,6 @@ import java.util.regex.Pattern;
 public record SearchQuery(String normalized, List<String> terms) {
 
     public static final int MAX_LENGTH = 100;
-
-    /**
-     * Nội dung lỗi 400 khi từ khoá quá dài. Giá trị trùng ProblemTexts.SEARCH_QUERY_TOO_LONG (M2 Task 1);
-     * để cục bộ vì Task 4 chạy song song — điều phối gộp về ProblemTexts sau.
-     */
-    static final String TOO_LONG_DETAIL = "Từ khoá tìm kiếm tối đa 100 ký tự";
 
     /** Mọi khoảng trắng Unicode (kể cả NBSP) — \s mặc định của Java chỉ có khoảng trắng ASCII. */
     private static final Pattern WHITESPACE = Pattern.compile("\\s+", Pattern.UNICODE_CHARACTER_CLASS);
@@ -41,7 +36,7 @@ public record SearchQuery(String normalized, List<String> terms) {
         }
         String trimmed = EDGE_WHITESPACE.matcher(Normalizer.normalize(raw, Normalizer.Form.NFC)).replaceAll("");
         if (trimmed.codePointCount(0, trimmed.length()) > MAX_LENGTH) {
-            throw ApiException.badRequest(TOO_LONG_DETAIL);
+            throw ApiException.badRequest(ProblemTexts.SEARCH_QUERY_TOO_LONG);
         }
         if (trimmed.isEmpty()) {
             return Optional.empty();

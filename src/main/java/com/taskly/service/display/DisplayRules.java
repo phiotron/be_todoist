@@ -1,6 +1,7 @@
 package com.taskly.service.display;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.DueFilter;
 import com.taskly.entity.GroupBy;
 import com.taskly.entity.SortBy;
@@ -53,7 +54,7 @@ public final class DisplayRules {
         if (options.sortBy() == null || options.direction() == null || options.groupBy() == null
                 || !SORTS.get(kind).contains(options.sortBy()) || !GROUPS.get(kind).contains(options.groupBy())
                 || !priorityOk || !dueAllowed(kind, options.filterDue())) {
-            throw ApiException.badRequest(DisplayTexts.DISPLAY_INVALID);
+            throw ApiException.badRequest(ProblemTexts.DISPLAY_INVALID);
         }
     }
 

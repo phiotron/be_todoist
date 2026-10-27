@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemCodes;
+import com.taskly.common.error.ProblemTexts;
 import com.taskly.service.filterquery.FilterQueryParser.Part;
 import java.time.LocalDate;
 import java.util.stream.Stream;
@@ -211,9 +213,9 @@ class FilterQueryParserTest {
         ApiException problem = new FilterSyntaxException(4, "expected-term").toApiException();
 
         assertThat(problem.getStatusCode().value()).isEqualTo(400);
-        assertThat(problem.getBody().getDetail()).isEqualTo(FilterSyntaxException.DETAIL);
+        assertThat(problem.getBody().getDetail()).isEqualTo(ProblemTexts.FILTER_SYNTAX);
         assertThat(problem.getBody().getProperties())
-                .containsEntry("code", "filter-syntax")
+                .containsEntry("code", ProblemCodes.FILTER_SYNTAX)
                 .containsEntry("position", 4)
                 .containsEntry("reason", "expected-term");
     }

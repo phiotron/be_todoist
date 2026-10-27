@@ -36,14 +36,16 @@ public class IdempotencyFilter extends OncePerRequestFilter {
     public static final String REPLAY_HEADER = "Idempotent-Replay";
     static final int MAX_KEY_LENGTH = 64;
 
-    /** POST tạo / sao chép / batch có chống gửi trùng (spec 12.11, 12.5). M2 thêm "/api/v1/labels",
+    /** POST tạo / sao chép / batch có chống gửi trùng (spec 12.11, 12.5). M2 đã thêm "/api/v1/labels",
      *  "/api/v1/filters"; M4 thêm "/api/v1/tasks/{taskId}/reminders". */
     private static final List<PathPattern> COVERED = List.of(
             "/api/v1/projects",
             "/api/v1/projects/{projectId}/sections",
             "/api/v1/tasks",
             "/api/v1/tasks/{taskId}/duplicate",
-            "/api/v1/tasks/batch").stream().map(PathPatternParser.defaultInstance::parse).toList();
+            "/api/v1/tasks/batch",
+            "/api/v1/labels",
+            "/api/v1/filters").stream().map(PathPatternParser.defaultInstance::parse).toList();
 
     /** Đường dẫn (requestURI) có nằm trong danh sách POST được bảo vệ không — test đơn vị gọi trực tiếp. */
     public static boolean covers(String requestUri) {

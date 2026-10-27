@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,7 @@ class ViewKeyTest {
             assertThatThrownBy(() -> ViewKey.parse(bad)).as(String.valueOf(bad))
                     .isInstanceOfSatisfying(ApiException.class, ex -> {
                         assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                        assertThat(ex.getBody().getDetail()).isEqualTo(DisplayTexts.VIEW_KEY_INVALID);
+                        assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.VIEW_KEY_INVALID);
                     });
         }
     }
