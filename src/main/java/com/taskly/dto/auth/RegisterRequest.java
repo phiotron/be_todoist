@@ -1,7 +1,7 @@
 package com.taskly.dto.auth;
 
 import com.taskly.common.EmailNormalizer;
-import com.taskly.common.validation.MaxUtf8Bytes;
+import com.taskly.common.validation.ValidPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,8 +18,7 @@ public record RegisterRequest(
         String email,
 
         @NotNull(message = "{validation.password.required}")
-        @Size(min = 8, max = 72, message = "{validation.password.size}")
-        @MaxUtf8Bytes(value = 72, message = "{validation.password.too-many-bytes}")
+        @ValidPassword
         String password,
 
         @NotBlank(message = "{validation.display-name.required}")
