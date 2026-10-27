@@ -12,12 +12,15 @@ import com.taskly.entity.Project;
 import com.taskly.entity.Section;
 import com.taskly.mapper.SectionMapper;
 import com.taskly.repository.SectionRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,13 +37,18 @@ public class SectionService {
     private final ProjectService projectService;
     private final SortOrderService sortOrderService;
     private final UsageLimits usageLimits;
+    private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public SectionService(SectionRepository sectionRepository, ProjectService projectService,
-                          SortOrderService sortOrderService, UsageLimits usageLimits) {
+                          SortOrderService sortOrderService, UsageLimits usageLimits,
+                          ApplicationEventPublisher events, Clock clock) {
         this.sectionRepository = sectionRepository;
         this.projectService = projectService;
         this.sortOrderService = sortOrderService;
         this.usageLimits = usageLimits;
+        this.events = events;
+        this.clock = clock;
     }
 
     // ---- API ----
@@ -112,6 +120,39 @@ public class SectionService {
         Section section = requireInProject(projectId, sectionId);
         sectionRepository.delete(section);
         sectionRepository.flush();
+    }
+
+    /**
+     * Lưu trữ section (spec 5.7, 10.2): archived_at = now; mọi task đang mở trong section (kèm cây con) thành đã xong
+     * cùng thời điểm (qua SectionArchivedEvent → TaskService). Lặp lại → 200 không đổi. Dự án lưu trữ → 409.
+     */
+    public SectionResponse archive(UUID userId, UUID projectId, UUID sectionId) {
+        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Section section = requireInProject(projectId, sectionId);
+        if (!section.isArchived()) {
+            Instant now = clock.instant();
+            section.archive(now);
+            events.publishEvent(new SectionArchivedEvent(section.getId(), now));
+            sectionRepository.flush();
+        }
+        return toResponse(section);
+    }
+
+    /**
+     * Khôi phục section: task GIỮ trạng thái đã xong; giữ sort_order cũ (Q34). Khoá dự án rồi mới đếm (spec 8.2 #9);
+     * vượt 20 section đang hoạt động (PROJECT_SECTIONS) → 422. PROJECT_SECTIONS_TOTAL (tổng gồm cả section lưu trữ,
+     * <= 100) KHÔNG đổi khi khôi phục nên không kiểm lại.
+     */
+    public SectionResponse unarchive(UUID userId, UUID projectId, UUID sectionId) {
+        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Section section = requireInProject(projectId, sectionId);
+        if (section.isArchived()) {
+            usageLimits.lockProject(projectId);
+            usageLimits.check(LimitKind.PROJECT_SECTIONS, sectionRepository.countByProjectIdAndArchivedAtIsNull(projectId), 1);
+            section.unarchive();
+            sectionRepository.flush();
+        }
+        return toResponse(section);
     }
 
     // ---- Tra cứu cho service khác ----

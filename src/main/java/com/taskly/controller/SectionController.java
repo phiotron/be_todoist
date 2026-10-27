@@ -67,4 +67,17 @@ public class SectionController {
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId, @PathVariable UUID sectionId) {
         sectionService.delete(CurrentUser.id(jwt), projectId, sectionId);
     }
+
+    /** Lưu trữ: task đang mở thành đã hoàn thành (app hỏi xác nhận — BR-11). */
+    @PostMapping("/{sectionId}/archive")
+    public SectionResponse archive(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
+                                   @PathVariable UUID sectionId) {
+        return sectionService.archive(CurrentUser.id(jwt), projectId, sectionId);
+    }
+
+    @PostMapping("/{sectionId}/unarchive")
+    public SectionResponse unarchive(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
+                                     @PathVariable UUID sectionId) {
+        return sectionService.unarchive(CurrentUser.id(jwt), projectId, sectionId);
+    }
 }
