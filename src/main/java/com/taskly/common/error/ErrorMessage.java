@@ -102,7 +102,20 @@ public enum ErrorMessage {
     TWO_FACTOR_ALREADY_ENABLED("error.two-factor-already-enabled"),
     TWO_FACTOR_NOT_SETUP("error.two-factor-not-setup"),
     TWO_FACTOR_NOT_ENABLED("error.two-factor-not-enabled"),
-    PASSWORD_REQUIRED("error.password-required");
+    PASSWORD_REQUIRED("error.password-required"),
+    // M5 - đăng nhập / liên kết Google
+    GOOGLE_INVALID_ID_TOKEN("error.google.invalid-id-token"),
+    GOOGLE_INVALID_TOKEN_FOR_LINK("error.google.invalid-token-for-link"),
+    GOOGLE_EXACTLY_ONE_TOKEN("error.google.exactly-one-token"),
+    GOOGLE_EMAIL_NOT_VERIFIED("error.google.email-not-verified"),
+    GOOGLE_LINK_TOKEN_OTHER_ACCOUNT("error.google.link-token-other-account"),
+    GOOGLE_LINK_REQUIRED("error.google.link-required"),
+    GOOGLE_LINKED_ELSEWHERE("error.google.linked-elsewhere"),
+    GOOGLE_ACCOUNT_ALREADY_LINKED("error.google.account-already-linked"),
+    GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
+    GOOGLE_NOT_LINKED("error.google.not-linked"),
+    GOOGLE_UNAVAILABLE("error.google.unavailable"),
+    PASSWORD_NOT_SET("error.password.not-set");
 
     private final String key;
 

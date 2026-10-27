@@ -75,34 +75,51 @@ public class AuthService {
     }
 
     public AuthResponse register(RegisterRequest request) {
-        User user = userService.createUser(
-                request.email(), passwordEncoder.encode(request.password()), request.displayName());
-        Workspace personal = workspaceService.createPersonalWorkspace(user);
-        projectService.createInbox(personal);
+        User user = createAccount(request.email(), passwordEncoder.encode(request.password()), request.displayName());
         return issueTokens(user, UUID.randomUUID());
     }
 
     /**
-     * Sai email hay sai mật khẩu đều trả cùng một 401. Đúng mật khẩu nhưng tài khoản bật 2FA → 401
-     * code "two-factor-required" kèm twoFactorToken (5 phút), KHÔNG phát token phiên.
+     * Tạo user + workspace cá nhân (ADMIN) + Inbox trong transaction hiện tại (spec 10.1). Dùng chung cho đăng ký
+     * bằng mật khẩu và đăng ký bằng Google (passwordHash null). Email đã có → 409.
+     */
+    public User createAccount(String normalizedEmail, String passwordHash, String displayName) {
+        User user = userService.createUser(normalizedEmail, passwordHash, displayName);
+        Workspace personal = workspaceService.createPersonalWorkspace(user);
+        projectService.createInbox(personal);
+        return user;
+    }
+
+    /**
+     * Sai email, sai mật khẩu, hay tài khoản chỉ có Google (chưa có mật khẩu, M5) đều trả cùng một 401 và đều chạy BCrypt
+     * (trên hash giả khi không có hash thật) → không lộ trạng thái tài khoản qua thời gian. Đúng mật khẩu nhưng tài khoản
+     * bật 2FA → 401 code "two-factor-required" kèm twoFactorToken (5 phút), KHÔNG phát token phiên.
      */
     public AuthResponse login(LoginRequest request) {
         if (exceedsBcryptLimit(request.password())) {
             throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
-        Optional<User> user = userService.findByEmail(request.email());
+        Optional<User> user = userService.findByEmail(request.email()).filter(User::hasPassword);
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
         boolean passwordMatches = passwordEncoder.matches(request.password(), hash);
         if (user.isEmpty() || !passwordMatches) {
             throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
-        User found = user.get();
-        if (twoFactorService.isEnabled(found.getId())) {
+        return completeSignIn(user.get());
+    }
+
+    /**
+     * Bước cuối chung của mọi kiểu đăng nhập đã qua yếu tố thứ nhất - mật khẩu (login) và Google (M5, spec 12.1 bản 3):
+     * tài khoản bật 2FA → 401 code "two-factor-required" kèm twoFactorToken (M3); không bật → cặp token, mở họ mới.
+     * Khi ném 401 không ghi gì vào DB (không refresh token).
+     */
+    public AuthResponse completeSignIn(User user) {
+        if (twoFactorService.isEnabled(user.getId())) {
             throw ApiException.unauthorized(ErrorMessage.TWO_FACTOR_REQUIRED)
                     .withCode(ProblemCodes.TWO_FACTOR_REQUIRED)
-                    .withProperty(TWO_FACTOR_TOKEN_PROPERTY, twoFactorTokens.issue(found.getId()));
+                    .withProperty(TWO_FACTOR_TOKEN_PROPERTY, twoFactorTokens.issue(user.getId()));
         }
-        return issueTokens(found, UUID.randomUUID());
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /**
@@ -161,6 +178,10 @@ public class AuthService {
      */
     public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
         User user = userService.requireUser(userId);
+        // M5: tài khoản chỉ có Google chưa có mật khẩu để so → hướng dẫn dùng Quên mật khẩu (spec 12.1).
+        if (!user.hasPassword()) {
+            throw ApiException.badRequest(ErrorMessage.PASSWORD_NOT_SET);
+        }
         if (exceedsBcryptLimit(request.currentPassword())
                 || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw ApiException.badRequest(ErrorMessage.CURRENT_PASSWORD_INCORRECT);
@@ -186,6 +207,11 @@ public class AuthService {
 
     private static boolean exceedsBcryptLimit(String password) {
         return password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES;
+    }
+
+    /** Tài khoản Google vừa tạo / đăng nhập lại (M5): mở họ refresh token mới. Tài khoản mới chưa thể bật 2FA. */
+    public AuthResponse issueTokens(User user) {
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */

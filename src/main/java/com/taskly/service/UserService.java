@@ -5,6 +5,7 @@ import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.user.UpdateProfileRequest;
 import com.taskly.dto.user.UserResponse;
+import com.taskly.entity.IdentityProvider;
 import com.taskly.entity.User;
 import com.taskly.mapper.UserMapper;
 import com.taskly.repository.UserRepository;
@@ -14,10 +15,11 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Sở hữu bảng users. Service khác cần user thì gọi qua đây, không gọi UserRepository trực tiếp. */
+/** Sở hữu bảng users (và user_identities — thuộc aggregate User). Service khác cần user thì gọi qua đây. */
 @Service
 @Transactional(readOnly = true)
 public class UserService {
+
 
     private final UserRepository userRepository;
 
@@ -65,7 +67,7 @@ public class UserService {
         return ZoneId.of(requireUser(userId).getTimeZone());
     }
 
-    /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). Email đã có → 409 code email-taken (spec 12.10). */
+    /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). passwordHash null = chỉ có Google. Email đã có → 409 code email-taken (spec 12.10). */
     @Transactional
     public User createUser(String normalizedEmail, String passwordHash, String displayName) {
         if (userRepository.existsByEmail(normalizedEmail)) {
@@ -86,5 +88,10 @@ public class UserService {
     /** email phải đã chuẩn hoá (EmailNormalizer). */
     public Optional<User> findByEmail(String normalizedEmail) {
         return userRepository.findByEmail(normalizedEmail);
+    }
+
+    /** User đã liên kết tài khoản (provider, subject). */
+    public Optional<User> findByIdentity(IdentityProvider provider, String subject) {
+        return userRepository.findByIdentity(provider, subject);
     }
 }

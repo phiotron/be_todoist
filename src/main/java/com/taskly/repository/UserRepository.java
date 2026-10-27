@@ -1,5 +1,6 @@
 package com.taskly.repository;
 
+import com.taskly.entity.IdentityProvider;
 import com.taskly.entity.User;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
@@ -14,6 +15,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    /** User đã liên kết (provider, subject) — subject là claim "sub" của Google. */
+    @Query("select i.user from UserIdentity i where i.provider = :provider and i.subject = :subject")
+    Optional<User> findByIdentity(@Param("provider") IdentityProvider provider, @Param("subject") String subject);
 
     /** Khoá dòng user (SELECT ... FOR UPDATE) — CHỈ gọi trong transaction ghi (xoá tài khoản). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

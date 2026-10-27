@@ -32,6 +32,9 @@ public final class ProblemCodes {
     /** 409 ở DELETE me (và bỏ liên kết Google từ M5) khi tài khoản chưa có mật khẩu. */
     public static final String PASSWORD_REQUIRED = "password-required";
 
+    /** 409 ở auth/google khi email Google trùng tài khoản mật khẩu, kèm "linkToken" (M5). */
+    public static final String LINK_REQUIRED = "link-required";
+
     // ---- M1 (gộp từ feature/m1-backend)
     public static final String EMAIL_TAKEN = "email-taken";
     public static final String VERSION_CONFLICT = "version-conflict";
