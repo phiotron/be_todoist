@@ -72,7 +72,7 @@ public class TaskViewService {
     public Page<TaskResponse> list(UUID userId, TaskViewType view, UUID projectId, Boolean completed, LocalDate from,
                                    LocalDate to, LocalDate since, LocalDate until, String cursor, Integer limit) {
         if ((view == null) == (projectId == null)) {
-            throw ApiException.badRequest(ProblemTexts.LIST_QUERY_INVALID);
+            throw ApiException.badRequest(ProblemTexts.TASK_LIST_SELECTOR);
         }
         if ((from != null || to != null) && view != TaskViewType.upcoming) {
             throw ApiException.badRequest(ProblemTexts.FROM_ONLY_UPCOMING);

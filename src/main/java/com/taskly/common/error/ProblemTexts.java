@@ -62,7 +62,6 @@ public final class ProblemTexts {
     public static final String TASK_COMPLETED = "Công việc đã hoàn thành";
 
     // ---- Danh sách công việc
-    public static final String LIST_QUERY_INVALID = "Cần đúng một trong hai tham số view hoặc projectId";
     public static final String FROM_ONLY_UPCOMING = "Tham số from và to chỉ dùng với view=upcoming";
     public static final String SINCE_ONLY_COMPLETED = "Tham số since và until chỉ dùng với view=completed";
     public static final String COMPLETED_RANGE_INVALID = "since không được sau until";
