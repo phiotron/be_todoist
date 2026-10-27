@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -65,7 +66,7 @@ class ReminderWindowTest {
         assertThatThrownBy(() -> ReminderWindow.limit(limit))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                    assertThat(ex.getBody().getDetail()).isEqualTo(ReminderWindow.LIMIT_RANGE_DETAIL);
+                    assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.REMINDER_LIMIT_RANGE);
                 });
     }
 

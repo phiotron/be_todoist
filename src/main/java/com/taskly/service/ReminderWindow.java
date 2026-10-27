@@ -1,12 +1,12 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import org.springframework.http.HttpStatus;
 
 /**
  * Logic thời gian thuần của nhắc việc (spec 5.2, 5.8, 12.8). "Bây giờ" là giờ địa phương theo múi giờ tài khoản —
@@ -19,11 +19,6 @@ public record ReminderWindow(LocalDateTime now) {
     /** minuteOffset tối đa của nhắc tương đối = 7 ngày (spec 5.9). */
     public static final int MAX_MINUTE_OFFSET = 10_080;
     public static final String AUTO_KEY_PREFIX = "auto:";
-
-    /**
-     * Chữ lỗi của M0 (chưa có ErrorMessage / i18n của M3). Khi gộp M3, thay bằng ErrorMessage.REMINDER_LIMIT_RANGE.
-     */
-    static final String LIMIT_RANGE_DETAIL = "limit phải từ 1 đến 50";
 
     public static ReminderWindow at(Instant instant, ZoneId zone) {
         return new ReminderWindow(LocalDateTime.ofInstant(instant, zone));
@@ -45,7 +40,7 @@ public record ReminderWindow(LocalDateTime now) {
             return DEFAULT_LIMIT;
         }
         if (requested < 1 || requested > MAX_LIMIT) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, LIMIT_RANGE_DETAIL);
+            throw ApiException.badRequest(ProblemTexts.REMINDER_LIMIT_RANGE);
         }
         return requested;
     }

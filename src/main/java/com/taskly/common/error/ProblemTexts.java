@@ -83,6 +83,19 @@ public final class ProblemTexts {
     public static final String RESCHEDULE_DATE_REQUIRED = "Thiếu date";
     public static final String RESCHEDULE_DATE_PAST = "Ngày mới không được trước hôm nay";
 
+    // ---- Nhắc việc (M4). Khi gộp M3 (ErrorMessage / i18n) chuyển các hằng này thành key error.reminder-* / validation.*
+    public static final String REMINDER_NOT_FOUND = "Không tìm thấy nhắc nhở";
+    public static final String REMINDER_FIELDS_MISMATCH =
+            "Nhắc tuyệt đối cần at (không có minuteOffset), nhắc tương đối cần minuteOffset (không có at)";
+    public static final String REMINDER_AT_PAST = "Thời điểm nhắc đã qua";
+    public static final String REMINDER_NEEDS_DUE_TIME = "Nhắc tương đối chỉ dùng cho công việc có giờ";
+    public static final String REMINDER_TASK_COMPLETED = "Công việc đã hoàn thành, không thêm nhắc được";
+    public static final String REMINDER_LIMIT_RANGE = "limit phải từ 1 đến 50";
+    public static final String REMINDER_TYPE_REQUIRED = "Vui lòng chọn loại nhắc";
+    public static final String REMINDER_MINUTE_OFFSET_RANGE = "Nhắc trước phải từ 0 đến 10080 phút (7 ngày)";
+    public static final String AUTO_REMINDER_MINUTES_ALLOWED =
+            "Nhắc tự động chỉ nhận 0, 5, 10, 15, 30, 45, 60, 120, 180 hoặc 1440 phút";
+
     // ---- Chống gửi trùng
     public static final String IDEMPOTENCY_KEY_INVALID = "Idempotency-Key phải từ 1 đến 64 ký tự";
     public static final String IDEMPOTENCY_IN_PROGRESS = "Yêu cầu trước với cùng Idempotency-Key đang được xử lý";
