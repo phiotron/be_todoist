@@ -1,5 +1,6 @@
 package com.taskly.dto.settings;
 
+import com.taskly.common.validation.AutoReminderMinutes;
 import com.taskly.common.validation.IanaTimeZone;
 import com.taskly.common.validation.NavTabs;
 import com.taskly.common.validation.StartPage;
@@ -8,11 +9,13 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * PATCH /api/v1/me/settings (spec bản 3 mục 12.1.1): field nào vắng / null thì giữ nguyên. Giá trị ngoài danh sách →
  * 400 kèm errors[].field. Enum nhận chuỗi (không nhận kiểu enum) để giá trị lạ ra 400 có errors thay vì lỗi đọc JSON;
- * phân biệt hoa thường. M4 thêm remindersEnabled, autoReminderMinutes (tuỳ chọn).
+ * phân biệt hoa thường. M4 thêm remindersEnabled, autoReminderMinutes (tuỳ chọn). Ngoại lệ: autoReminderMinutes: null = tắt
+ * auto reminder (spec 12.1.1).
  */
 public record UpdateSettingsRequest(
         @Schema(allowableValues = {"TASKLY", "MOONSTONE", "TANGERINE", "KALE", "BLUEBERRY", "LAVENDER", "RASPBERRY"})
@@ -73,5 +76,13 @@ public record UpdateSettingsRequest(
 
         @Schema(description = "3–5 khoá khác nhau, BROWSE cuối, tối đa một mục ghim")
         @NavTabs
-        List<String> navTabs) {
+        List<String> navTabs,
+
+        @Schema(description = "Bật / tắt mọi nhắc việc; vắng hoặc null = giữ nguyên")
+        Boolean remindersEnabled,
+
+        @Schema(nullable = true, minimum = "0", maximum = "1440",
+                description = "Vắng = giữ nguyên; null = TẮT auto reminder. Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, "
+                        + "180, 1440")
+        Optional<@AutoReminderMinutes Integer> autoReminderMinutes) {
 }

@@ -89,6 +89,13 @@ public class SettingsService {
         if (request.navTabs() != null) {
             user.changeNavTabs(request.navTabs());
         }
+        // M4: cài đặt nhắc việc. remindersEnabled null = giữ; autoReminderMinutes vắng = giữ, null = tắt.
+        if (request.remindersEnabled() != null) {
+            user.changeRemindersEnabled(request.remindersEnabled());
+        }
+        if (request.autoReminderMinutes() != null) {
+            user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
+        }
         return SettingsMapper.toResponse(user);
     }
 

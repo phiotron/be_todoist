@@ -24,6 +24,8 @@ public final class SettingsMapper {
                 user.isSmartDateRecognition(),
                 user.getSwipeLeft(),
                 user.getSwipeRight(),
-                user.getNavTabs());
+                user.getNavTabs(),
+                user.isRemindersEnabled(),
+                user.getAutoReminderMinutes());
     }
 }

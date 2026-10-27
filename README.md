@@ -208,3 +208,21 @@ Sau khi đổi API: ở repo `mobile` chạy `npm run gen:api` + `npx tsc --noEm
   `two-factor-not-setup`, `password-required`; riêng `auth/2fa/verify` (401): `two-factor-code-invalid` (mã sai, token còn
   sống — nhập lại) và `two-factor-token-invalid` (token hết hạn / đã dùng / không hợp lệ — đăng nhập lại).
 
+## API mốc M4 — nhắc việc
+
+App đặt lịch nhắc cục bộ trên máy (`expo-notifications`); server lưu cài đặt + nhắc riêng và tính sẵn lịch nhắc.
+Giờ nhắc là giờ **floating**: xuất `"yyyy-MM-dd'T'HH:mm:ss"` (không `Z` / offset), nhập `yyyy-MM-ddTHH:mm` hoặc có giây;
+đổi sang thời điểm tuyệt đối bằng **`users.time_zone`** (`me/settings.timeZone`), không dùng múi giờ máy.
+
+| Method | Path | JWT | Kết quả |
+|---|---|---|---|
+| GET | `/tasks/{taskId}/reminders` | có | 200 `ReminderResponse[] {id, taskId, type, at, minuteOffset, createdAt}` (nhắc riêng của mình, theo thứ tự tạo; đọc được cả khi task đã xong / dự án lưu trữ) |
+| POST | `/tasks/{taskId}/reminders` | có | `{type: "ABSOLUTE", at: "yyyy-MM-ddTHH:mm"}` hoặc `{type: "RELATIVE", minuteOffset: 0..10080}` → 201; `Idempotency-Key`; `at` đã qua / có `Z` hoặc offset / `RELATIVE` cho task không có giờ / field không khớp `type` → 400; task đã xong → 409 `task-completed`; dự án / section lưu trữ → 409 `project-archived` / `section-archived`; vượt 700 nhắc → 422 `limit-reached` (khoá hàng `users` chống đua) |
+| DELETE | `/tasks/{taskId}/reminders/{reminderId}` | có | 204 (kể cả task đã xong); không thấy → 404; dự án / section lưu trữ → 409 |
+| GET | `/tasks/reminders?limit=` | có | 200 `ReminderOccurrence[] {key, taskId, reminderId, kind: AUTO\|ABSOLUTE\|RELATIVE, fireAt, content}` — task chưa xong, không thuộc dự án / section lưu trữ; `fireAt ≥ bây giờ`; sắp theo `fireAt`; cùng task + cùng `fireAt` chỉ một (ưu tiên nhắc riêng); `limit` 1–50 (mặc định 50) |
+
+Task mất giờ (đổi sang chỉ ngày / bỏ due) → nhắc tương đối của nó bị xoá bởi `ReminderService` (nghe `TaskTimeClearedEvent`
+của `TaskService.applyDue`, cùng transaction); mọi đường ghi due mới phải đi qua `applyDue`. Xoá task / dự án / section xoá
+kèm nhắc; sao chép task không chép nhắc. Migration: `V5__m4_reminders.sql` (V3 / V4 của M2 / M3 chưa có trên nhánh này — Flyway chấp nhận khoảng trống trên DB mới; DB dev đã chạy phiên bản cao hơn cần DB riêng hoặc `out-of-order`).
+
+> Chưa có trong nhánh `feature/m4-backend` (chờ M3): `remindersEnabled` / `autoReminderMinutes` trong `me/settings` (cột `users` đã có ở V5) — plan Task 4.

@@ -89,6 +89,13 @@ public enum ErrorMessage {
     DISPLAY_INVALID("error.display-invalid"),
     TASK_LIST_SELECTOR("error.task-list-selector"),
     BATCH_LABEL_IDS("error.batch-label-ids"),
+    // ---- Nhắc việc (M4)
+    REMINDER_NOT_FOUND("error.reminder-not-found"),
+    REMINDER_FIELDS_MISMATCH("error.reminder-fields-mismatch"),
+    REMINDER_AT_PAST("error.reminder-at-past"),
+    REMINDER_NEEDS_DUE_TIME("error.reminder-needs-due-time"),
+    REMINDER_TASK_COMPLETED("error.reminder-task-completed"),
+    REMINDER_LIMIT_RANGE("error.reminder-limit-range"),
     TWO_FACTOR_REQUIRED("error.two-factor-required"),
     TWO_FACTOR_TOKEN_INVALID("error.two-factor-token-invalid"),
     TWO_FACTOR_CODE_INVALID("error.two-factor-code-invalid"),

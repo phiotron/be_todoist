@@ -34,6 +34,9 @@ public class User extends BaseEntity {
     public static final SwipeAction DEFAULT_SWIPE_LEFT = SwipeAction.SCHEDULE;
     public static final SwipeAction DEFAULT_SWIPE_RIGHT = SwipeAction.COMPLETE;
     public static final List<String> DEFAULT_NAV_TABS = SettingsTargets.DEFAULT_NAV_TABS;
+    public static final boolean DEFAULT_REMINDERS_ENABLED = true;
+    /** spec 5.8: mặc định 30 phút; null = tắt auto reminder. */
+    public static final Integer DEFAULT_AUTO_REMINDER_MINUTES = 30;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -95,6 +98,12 @@ public class User extends BaseEntity {
 
     @Column(name = "nav_tabs", nullable = false, columnDefinition = "text")
     private String navTabs;
+
+    @Column(name = "reminders_enabled", nullable = false)
+    private boolean remindersEnabled = DEFAULT_REMINDERS_ENABLED;
+
+    @Column(name = "auto_reminder_minutes")
+    private Integer autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -267,6 +276,32 @@ public class User extends BaseEntity {
     public void resetSettings() {
         this.locale = DEFAULT_LOCALE;
         applyDefaultSettings();
+        resetReminderSettings();
+    }
+
+    public boolean isRemindersEnabled() {
+        return remindersEnabled;
+    }
+
+    /** null = auto reminder đang tắt. */
+    public Integer getAutoReminderMinutes() {
+        return autoReminderMinutes;
+    }
+
+    /** Gán lại giá trị cũ không làm Hibernate ghi (dirty checking) → updated_at giữ nguyên. */
+    public void changeRemindersEnabled(boolean enabled) {
+        this.remindersEnabled = enabled;
+    }
+
+    /** minutes đã được @AutoReminderMinutes kiểm ở DTO; null = tắt auto reminder. */
+    public void changeAutoReminderMinutes(Integer minutes) {
+        this.autoReminderMinutes = minutes;
+    }
+
+    /** Về mặc định (spec 12.1 reset): nhắc bật, auto reminder 30 phút. resetSettings() gọi hàm này. */
+    public void resetReminderSettings() {
+        this.remindersEnabled = DEFAULT_REMINDERS_ENABLED;
+        this.autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
     }
 
     private void applyDefaultSettings() {

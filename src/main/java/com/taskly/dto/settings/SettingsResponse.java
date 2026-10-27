@@ -38,5 +38,12 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "3–5 khoá, cuối là BROWSE: INBOX, TODAY, UPCOMING, SEARCH, FILTERS_LABELS, BROWSE, "
                         + "tối đa một project:<uuid> | label:<uuid> | filter:<uuid>")
-        List<String> navTabs) {
+        List<String> navTabs,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Bật / tắt mọi nhắc việc trên máy (app áp dụng, server không lọc)")
+        boolean remindersEnabled,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, minimum = "0", maximum = "1440",
+                description = "Auto reminder: số phút trước giờ của task có giờ; null = tắt. "
+                        + "Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, 180, 1440")
+        Integer autoReminderMinutes) {
 }
