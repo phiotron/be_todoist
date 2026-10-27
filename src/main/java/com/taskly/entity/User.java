@@ -1,17 +1,19 @@
 package com.taskly.entity;
 
 import com.taskly.common.persistence.BaseEntity;
+import com.taskly.common.validation.SettingsTargets;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.util.List;
 
 /**
- * Người dùng + cài đặt theo tài khoản (giao diện, ngôn ngữ, múi giờ). password_hash KHÔNG bao giờ rời tầng service
- * (Controller chỉ thấy UserResponse / SettingsResponse).
+ * Người dùng + cài đặt theo tài khoản (spec bản 3 mục 10). password_hash KHÔNG bao giờ rời tầng service (Controller chỉ
+ * thấy UserResponse / SettingsResponse).
  * Các hàm change* gán thẳng giá trị: gán giá trị giống hệt thì Hibernate không thấy "dirty" → không UPDATE →
- * updated_at giữ nguyên (BR-10, spec mục 5.6).
+ * updated_at giữ nguyên (BR-10, spec mục 5.6). Giá trị đã được DTO kiểm (và CHECK ở DB chặn lần cuối).
  */
 @Entity
 @Table(name = "users")
@@ -19,7 +21,21 @@ public class User extends BaseEntity {
 
     public static final String DEFAULT_LOCALE = "vi";
     public static final String DEFAULT_TIME_ZONE = "Asia/Ho_Chi_Minh";
-    public static final Theme DEFAULT_THEME = Theme.SYSTEM;
+    public static final Theme DEFAULT_THEME = Theme.TASKLY;
+    public static final Appearance DEFAULT_APPEARANCE = Appearance.AUTO;
+    public static final int DEFAULT_START_DAY = 1;
+    public static final int DEFAULT_NEXT_WEEK = 1;
+    public static final int DEFAULT_WEEKEND_START_DAY = 6;
+    public static final DateFormat DEFAULT_DATE_FORMAT = DateFormat.DMY;
+    public static final TimeFormat DEFAULT_TIME_FORMAT = TimeFormat.H24;
+    public static final String DEFAULT_START_PAGE = SettingsTargets.DEFAULT_START_PAGE;
+    public static final boolean DEFAULT_SMART_DATE_RECOGNITION = true;
+    public static final SwipeAction DEFAULT_SWIPE_LEFT = SwipeAction.SCHEDULE;
+    public static final SwipeAction DEFAULT_SWIPE_RIGHT = SwipeAction.COMPLETE;
+    public static final List<String> DEFAULT_NAV_TABS = SettingsTargets.DEFAULT_NAV_TABS;
+
+    /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
+    private static final String NAV_TABS_SEPARATOR = ",";
 
     @Column(name = "email", nullable = false, length = 254)
     private String email;
@@ -37,21 +53,60 @@ public class User extends BaseEntity {
     private String timeZone;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "theme", nullable = false, length = 10)
+    @Column(name = "theme", nullable = false, length = 16)
     private Theme theme;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "appearance", nullable = false, length = 8)
+    private Appearance appearance;
+
+    /** 1 = Thứ Hai … 7 = Chủ nhật. */
+    @Column(name = "start_day", nullable = false)
+    private int startDay;
+
+    @Column(name = "next_week", nullable = false)
+    private int nextWeek;
+
+    @Column(name = "weekend_start_day", nullable = false)
+    private int weekendStartDay;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "date_format", nullable = false, length = 3)
+    private DateFormat dateFormat;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "time_format", nullable = false, length = 3)
+    private TimeFormat timeFormat;
+
+    @Column(name = "start_page", nullable = false, length = 64)
+    private String startPage;
+
+    @Column(name = "smart_date_recognition", nullable = false)
+    private boolean smartDateRecognition;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "swipe_left", nullable = false, length = 10)
+    private SwipeAction swipeLeft;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "swipe_right", nullable = false, length = 10)
+    private SwipeAction swipeRight;
+
+    @Column(name = "nav_tabs", nullable = false, columnDefinition = "text")
+    private String navTabs;
 
     protected User() {
         // cho JPA
     }
 
-    /** email phải đã được chuẩn hoá bằng EmailNormalizer. */
+    /** email phải đã được chuẩn hoá bằng EmailNormalizer. Mọi cài đặt nhận giá trị mặc định của spec mục 10. */
     public User(String email, String passwordHash, String displayName) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.displayName = displayName;
         this.locale = DEFAULT_LOCALE;
         this.timeZone = DEFAULT_TIME_ZONE;
-        this.theme = DEFAULT_THEME;
+        applyDefaultSettings();
     }
 
     public String getEmail() {
@@ -78,6 +133,51 @@ public class User extends BaseEntity {
         return theme;
     }
 
+    public Appearance getAppearance() {
+        return appearance;
+    }
+
+    public int getStartDay() {
+        return startDay;
+    }
+
+    public int getNextWeek() {
+        return nextWeek;
+    }
+
+    public int getWeekendStartDay() {
+        return weekendStartDay;
+    }
+
+    public DateFormat getDateFormat() {
+        return dateFormat;
+    }
+
+    public TimeFormat getTimeFormat() {
+        return timeFormat;
+    }
+
+    public String getStartPage() {
+        return startPage;
+    }
+
+    public boolean isSmartDateRecognition() {
+        return smartDateRecognition;
+    }
+
+    public SwipeAction getSwipeLeft() {
+        return swipeLeft;
+    }
+
+    public SwipeAction getSwipeRight() {
+        return swipeRight;
+    }
+
+    /** Danh sách khoá tab theo thứ tự (không sửa được). */
+    public List<String> getNavTabs() {
+        return List.of(navTabs.split(NAV_TABS_SEPARATOR));
+    }
+
     /** displayName đã cắt khoảng trắng, 1–100 ký tự (DTO kiểm). */
     public void changeDisplayName(String displayName) {
         this.displayName = displayName;
@@ -92,6 +192,10 @@ public class User extends BaseEntity {
         this.theme = theme;
     }
 
+    public void changeAppearance(Appearance appearance) {
+        this.appearance = appearance;
+    }
+
     /** locale phải là "vi" hoặc "en" (DTO và ràng buộc DB ck_users_locale kiểm). */
     public void changeLocale(String locale) {
         this.locale = locale;
@@ -102,12 +206,69 @@ public class User extends BaseEntity {
         this.timeZone = timeZone;
     }
 
+    public void changeStartDay(int startDay) {
+        this.startDay = startDay;
+    }
+
+    public void changeNextWeek(int nextWeek) {
+        this.nextWeek = nextWeek;
+    }
+
+    public void changeWeekendStartDay(int weekendStartDay) {
+        this.weekendStartDay = weekendStartDay;
+    }
+
+    public void changeDateFormat(DateFormat dateFormat) {
+        this.dateFormat = dateFormat;
+    }
+
+    public void changeTimeFormat(TimeFormat timeFormat) {
+        this.timeFormat = timeFormat;
+    }
+
+    /** startPage đã qua @StartPage (định dạng); id ghim đọc được do SettingsService kiểm (Task 13b). */
+    public void changeStartPage(String startPage) {
+        this.startPage = startPage;
+    }
+
+    public void changeSmartDateRecognition(boolean smartDateRecognition) {
+        this.smartDateRecognition = smartDateRecognition;
+    }
+
+    public void changeSwipeLeft(SwipeAction swipeLeft) {
+        this.swipeLeft = swipeLeft;
+    }
+
+    public void changeSwipeRight(SwipeAction swipeRight) {
+        this.swipeRight = swipeRight;
+    }
+
+    /** navTabs đã qua @NavTabs. Lưu dạng nối dấu phẩy → cùng danh sách thì cùng chuỗi → không UPDATE. */
+    public void changeNavTabs(List<String> navTabs) {
+        this.navTabs = String.join(NAV_TABS_SEPARATOR, navTabs);
+    }
+
     /**
-     * Về mặc định (POST me/settings/reset): giao diện SYSTEM, ngôn ngữ vi; múi giờ GIỮ NGUYÊN (spec mục 12.1).
-     * M4 thêm ở đây: remindersEnabled = true, reminderOffsetMinutes = 0, allDayReminderTime = 09:00.
+     * Về mặc định (POST me/settings/reset, spec 12.1): mọi cài đặt mục 10 kể cả ngôn ngữ vi; múi giờ GIỮ NGUYÊN.
+     * M4 thêm ở cuối hàm: remindersEnabled = true, autoReminderMinutes = 30.
      */
     public void resetSettings() {
-        this.theme = DEFAULT_THEME;
         this.locale = DEFAULT_LOCALE;
+        applyDefaultSettings();
+    }
+
+    private void applyDefaultSettings() {
+        this.theme = DEFAULT_THEME;
+        this.appearance = DEFAULT_APPEARANCE;
+        this.startDay = DEFAULT_START_DAY;
+        this.nextWeek = DEFAULT_NEXT_WEEK;
+        this.weekendStartDay = DEFAULT_WEEKEND_START_DAY;
+        this.dateFormat = DEFAULT_DATE_FORMAT;
+        this.timeFormat = DEFAULT_TIME_FORMAT;
+        this.startPage = DEFAULT_START_PAGE;
+        this.smartDateRecognition = DEFAULT_SMART_DATE_RECOGNITION;
+        this.swipeLeft = DEFAULT_SWIPE_LEFT;
+        this.swipeRight = DEFAULT_SWIPE_RIGHT;
+        this.navTabs = String.join(NAV_TABS_SEPARATOR, DEFAULT_NAV_TABS);
     }
 }

@@ -63,12 +63,17 @@ Tiền tố `/api/v1`, JSON camelCase. Lỗi luôn là ProblemDetail (`applicati
 | PATCH | `/me` `{displayName}` | có | 200 `UserResponse`; tên rỗng / > 100 ký tự 400 |
 | POST | `/me/password` `{currentPassword, newPassword}` | có | 200 `AuthResponse` mới, mọi refresh token cũ bị thu hồi; sai mật khẩu hiện tại 400 |
 | GET | `/me/settings` | có | 200 `SettingsResponse` |
-| PATCH | `/me/settings` `{theme?, locale?, timeZone?}` | có | 200 `SettingsResponse`; field không gửi giữ nguyên; giá trị sai 400 |
-| POST | `/me/settings/reset` | có | 200 `SettingsResponse` về mặc định (`SYSTEM`, `vi`, giữ múi giờ) |
+| PATCH | `/me/settings` (mọi field của `SettingsResponse`, tuỳ chọn) | có | 200 `SettingsResponse`; field không gửi / `null` giữ nguyên; giá trị sai 400 kèm `errors[]` |
+| POST | `/me/settings/reset` | có | 200 `SettingsResponse` về mặc định (`TASKLY`, `AUTO`, `vi`…; giữ múi giờ) |
 | POST | `/auth/password-reset/request` `{email}` | không | luôn 200 body rỗng dù email có hay không; gửi thư lỗi 503 |
 | POST | `/auth/password-reset/confirm` `{token, newPassword}` | không | 204 (không tự đăng nhập); mã sai 404; hết hạn / đã dùng 410 |
 
-- `SettingsResponse` = `{theme: LIGHT|DARK|SYSTEM, locale: vi|en, timeZone (IANA, vd Asia/Ho_Chi_Minh)}`
+- `SettingsResponse` = `{theme: TASKLY|MOONSTONE|TANGERINE|KALE|BLUEBERRY|LAVENDER|RASPBERRY, appearance: AUTO|LIGHT|DARK,
+  locale: vi|en, timeZone (IANA), startDay / nextWeek / weekendStartDay: 1–7 (1 = Thứ Hai), dateFormat: DMY|MDY,
+  timeFormat: H24|H12, startPage: INBOX|TODAY|UPCOMING|project:<uuid>|label:<uuid>|filter:<uuid>, smartDateRecognition,
+  swipeLeft / swipeRight: COMPLETE|SCHEDULE|DELETE|REMINDERS|SELECT|NONE, navTabs: 3–5 khoá, cuối là BROWSE}`;
+  mặc định `TASKLY`, `AUTO`, `vi`, 1, 1, 6, `DMY`, `H24`, `TODAY`, `true`, `SCHEDULE`, `COMPLETE`,
+  `[INBOX, TODAY, UPCOMING, BROWSE]`. Bản 2 `theme: LIGHT|DARK|SYSTEM` không còn (→ `appearance`, `SYSTEM` = `AUTO`).
 - Thư đặt lại mật khẩu (xem ở Mailpit http://localhost:8025) có liên kết `taskly://reset-password/<mã>` và chính mã đó
   để dán vào app. Mã dùng một lần, hết hạn sau 30 phút; yêu cầu mới làm mã cũ hết hiệu lực; đặt lại thành công thu hồi
   mọi refresh token (đăng xuất mọi máy).

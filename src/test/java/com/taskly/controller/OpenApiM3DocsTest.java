@@ -48,13 +48,23 @@ class OpenApiM3DocsTest extends IntegrationTestBase {
     void apiDocs_m3SchemasMatchContract() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.required")
-                        .value(containsInAnyOrder("theme", "locale", "timeZone")))
+                        .value(containsInAnyOrder("theme", "appearance", "locale", "timeZone", "startDay", "nextWeek",
+                                "weekendStartDay", "dateFormat", "timeFormat", "startPage", "smartDateRecognition",
+                                "swipeLeft", "swipeRight", "navTabs")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.theme.enum")
-                        .value(containsInAnyOrder("LIGHT", "DARK", "SYSTEM")))
+                        .value(containsInAnyOrder("TASKLY", "MOONSTONE", "TANGERINE", "KALE", "BLUEBERRY",
+                                "LAVENDER", "RASPBERRY")))
+                .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.appearance.enum")
+                        .value(containsInAnyOrder("AUTO", "LIGHT", "DARK")))
+                .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.swipeLeft.enum")
+                        .value(containsInAnyOrder("COMPLETE", "SCHEDULE", "DELETE", "REMINDERS", "SELECT", "NONE")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.locale.enum")
                         .value(containsInAnyOrder("vi", "en")))
                 .andExpect(jsonPath("$.components.schemas.UpdateSettingsRequest.properties.theme.enum")
-                        .value(containsInAnyOrder("LIGHT", "DARK", "SYSTEM")))
+                        .value(containsInAnyOrder("TASKLY", "MOONSTONE", "TANGERINE", "KALE", "BLUEBERRY",
+                                "LAVENDER", "RASPBERRY")))
+                .andExpect(jsonPath("$.components.schemas.UpdateSettingsRequest.properties.appearance.enum")
+                        .value(containsInAnyOrder("AUTO", "LIGHT", "DARK")))
                 .andExpect(jsonPath("$.components.schemas.UpdateSettingsRequest.required").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.UpdateProfileRequest.required")
                         .value(containsInAnyOrder("displayName")))
