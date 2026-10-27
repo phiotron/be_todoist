@@ -9,5 +9,7 @@ public record UserResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String email,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String locale,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String timeZone) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String timeZone,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Đã bật xác minh hai bước (M3)")
+        boolean twoFactorEnabled) {
 }

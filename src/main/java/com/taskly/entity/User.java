@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.List;
+import org.hibernate.annotations.Formula;
 
 /**
  * Người dùng + cài đặt theo tài khoản (spec bản 3 mục 10). password_hash KHÔNG bao giờ rời tầng service (Controller chỉ
@@ -95,6 +96,13 @@ public class User extends BaseEntity {
     @Column(name = "nav_tabs", nullable = false, columnDefinition = "text")
     private String navTabs;
 
+    /**
+     * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
+     * twoFactorEnabled). Bật / tắt 2FA ghi ở TwoFactorService; entity đã nạp trước đó trong cùng transaction giữ giá trị cũ.
+     */
+    @Formula("(select count(*) from user_totp t where t.user_id = id and t.enabled_at is not null)")
+    private long enabledTwoFactorCount;
+
     protected User() {
         // cho JPA
     }
@@ -171,6 +179,10 @@ public class User extends BaseEntity {
 
     public SwipeAction getSwipeRight() {
         return swipeRight;
+    }
+
+    public boolean isTwoFactorEnabled() {
+        return enabledTwoFactorCount > 0;
     }
 
     /** Danh sách khoá tab theo thứ tự (không sửa được). */
