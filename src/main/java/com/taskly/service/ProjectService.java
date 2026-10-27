@@ -1,7 +1,6 @@
 package com.taskly.service;
 
 import com.taskly.entity.Project;
-import com.taskly.entity.ViewStyle;
 import com.taskly.entity.Workspace;
 import com.taskly.repository.ProjectRepository;
 import org.springframework.stereotype.Service;

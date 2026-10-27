@@ -332,4 +332,42 @@ class MigrationSchemaTest extends IntegrationTestBase {
             jdbcTemplate.execute("drop schema if exists v2_backfill cascade");
         }
     }
+
+    @Test
+    void v2NormalizesLegacyProjectColors_beforeAddingTheColorChecks() {
+        // Dự án tạo ở V1 có thể mang màu ngoài 20 khoá hoặc màu null (chỉ Inbox được null) → V2 đưa về 'charcoal'.
+        try {
+            javax.sql.DataSource dataSource = jdbcTemplate.getDataSource();
+            org.flywaydb.core.Flyway.configure().dataSource(dataSource).schemas("v2_colors").defaultSchema("v2_colors")
+                    .target("1").load().migrate();
+            UUID user = UUID.randomUUID();
+            UUID workspace = UUID.randomUUID();
+            jdbcTemplate.update("insert into v2_colors.users (id, email, password_hash, display_name, created_at, "
+                    + "updated_at) values (?, ?, 'h', 'U', now(), now())", user, uniqueEmail());
+            jdbcTemplate.update("insert into v2_colors.workspaces (id, name, type, owner_id, created_at, updated_at) "
+                    + "values (?, 'W', 'PERSONAL', ?, now(), now())", workspace, user);
+            UUID pink = legacyProject(workspace, "pink", false);
+            UUID noColor = legacyProject(workspace, null, false);
+            UUID blue = legacyProject(workspace, "blue", false);
+            UUID inbox = legacyProject(workspace, null, true);
+
+            org.flywaydb.core.Flyway.configure().dataSource(dataSource).schemas("v2_colors").defaultSchema("v2_colors")
+                    .load().migrate(); // lên V2
+
+            String sql = "select color from v2_colors.projects where id = ?";
+            assertThat(jdbcTemplate.queryForObject(sql, String.class, pink)).isEqualTo("charcoal");
+            assertThat(jdbcTemplate.queryForObject(sql, String.class, noColor)).isEqualTo("charcoal");
+            assertThat(jdbcTemplate.queryForObject(sql, String.class, blue)).isEqualTo("blue");
+            assertThat(jdbcTemplate.queryForObject(sql, String.class, inbox)).isNull();
+        } finally {
+            jdbcTemplate.execute("drop schema if exists v2_colors cascade");
+        }
+    }
+
+    private UUID legacyProject(UUID workspace, String color, boolean inbox) {
+        UUID id = UUID.randomUUID();
+        jdbcTemplate.update("insert into v2_colors.projects (id, workspace_id, name, color, is_inbox, created_at, "
+                + "updated_at) values (?, ?, 'P', ?, ?, now(), now())", id, workspace, color, inbox);
+        return id;
+    }
 }

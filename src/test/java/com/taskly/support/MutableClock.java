@@ -43,7 +43,7 @@ public class MutableClock extends Clock {
         };
     }
 
-    /** Làm tròn micro giây như ClockConfig (khớp Postgres). */
+    /** Làm tròn mili giây như ClockConfig (khớp Postgres). */
     @Override
     public Instant instant() {
         Instant base = frozenAt != null ? frozenAt : Instant.now();

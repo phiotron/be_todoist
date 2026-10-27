@@ -18,11 +18,11 @@ ALTER TABLE projects ALTER COLUMN sort_order TYPE BIGINT USING sort_order::bigin
 ALTER TABLE projects ADD COLUMN parent_id UUID REFERENCES projects (id) ON DELETE CASCADE;
 ALTER TABLE projects ADD COLUMN description TEXT NOT NULL DEFAULT '';
 ALTER TABLE projects ADD CONSTRAINT ck_projects_description_length CHECK (char_length(description) <= 16383);
-ALTER TABLE projects ADD CONSTRAINT ck_projects_color_unless_inbox CHECK (is_inbox OR color IS NOT NULL);
--- Dự án M0 có thể mang màu cũ ngoài 20 khoá (spec 3.1): đưa về mặc định charcoal TRƯỚC khi thêm CHECK.
-UPDATE projects SET color = 'charcoal' WHERE color IS NOT NULL AND color NOT IN (
+-- Dự án M0 có thể mang màu cũ ngoài 20 khoá hoặc màu null (chỉ Inbox được null): đưa về charcoal TRƯỚC khi thêm CHECK.
+UPDATE projects SET color = 'charcoal' WHERE (NOT is_inbox AND color IS NULL) OR (color IS NOT NULL AND color NOT IN (
     'berry_red', 'red', 'orange', 'yellow', 'olive_green', 'lime_green', 'green', 'mint_green', 'teal', 'sky_blue',
-    'light_blue', 'blue', 'grape', 'violet', 'lavender', 'magenta', 'salmon', 'charcoal', 'grey', 'taupe');
+    'light_blue', 'blue', 'grape', 'violet', 'lavender', 'magenta', 'salmon', 'charcoal', 'grey', 'taupe'));
+ALTER TABLE projects ADD CONSTRAINT ck_projects_color_unless_inbox CHECK (is_inbox OR color IS NOT NULL);
 -- 20 khoá màu (spec 10.1) — trùng enum ProjectColor; null chỉ cho Inbox (CHECK ở trên).
 ALTER TABLE projects ADD CONSTRAINT ck_projects_color_values CHECK (color IS NULL OR color IN (
     'berry_red', 'red', 'orange', 'yellow', 'olive_green', 'lime_green', 'green', 'mint_green', 'teal', 'sky_blue',
