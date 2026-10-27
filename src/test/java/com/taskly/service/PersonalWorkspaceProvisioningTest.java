@@ -9,6 +9,7 @@ import com.taskly.entity.Workspace;
 import com.taskly.repository.UserRepository;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -47,8 +48,10 @@ class PersonalWorkspaceProvisioningTest extends IntegrationTestBase {
         assertThat(project).containsEntry("name", "Inbox")
                 .containsEntry("is_inbox", true)
                 .containsEntry("view_style", "LIST")
-                .containsEntry("sort_order", 0);
+                .containsEntry("sort_order", 0L);
         assertThat(project.get("color")).isNull();
+        assertThat(jdbcTemplate.queryForObject("select parent_id from projects where id = ?", UUID.class, inbox.getId()))
+                .isNull();
         assertThat(project.get("archived_at")).isNull();
     }
 }

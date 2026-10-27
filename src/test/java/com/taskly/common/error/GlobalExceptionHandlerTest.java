@@ -1,5 +1,13 @@
 package com.taskly.common.error;
 
+import org.slf4j.MDC;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.access.AccessDeniedException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
@@ -92,5 +100,110 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getType()).isEqualTo(BLANK);
         assertThat(problem.getTitle()).isEqualTo("Xung đột dữ liệu");
         assertThat(problem.getDetail()).isEqualTo("Email đã được dùng");
+    }
+
+    @Test
+    void accessDenied_returns403ProblemDetail() {
+        ResponseEntity<ProblemDetail> response = handler.handleAccessDenied(new AccessDeniedException("denied"));
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(403);
+        assertThat(problem.getType()).isEqualTo(BLANK);
+        assertThat(problem.getTitle()).isEqualTo("Không có quyền");
+        assertThat(problem.getDetail()).isEqualTo("Bạn không có quyền thực hiện thao tác này");
+    }
+
+    @Test
+    void optimisticLock_returns409WithVersionConflictCode() {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleOptimisticLock(new OptimisticLockingFailureException("row was updated"));
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(problem.getDetail()).isEqualTo("Dữ liệu đã được thay đổi ở nơi khác, hãy tải lại");
+        assertThat(problem.getDetail()).doesNotContain("row");
+        assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+    }
+
+    @Test
+    void pessimisticLockFailures_return409WithCodeInsteadOf500() {
+        for (RuntimeException failure : List.<RuntimeException>of(
+                new DeadlockLoserDataAccessException("deadlock detected on relation projects", null),
+                new CannotAcquireLockException("could not obtain lock on row in relation projects"))) {
+            ResponseEntity<ProblemDetail> response = handler.handlePessimisticLock(
+                    (PessimisticLockingFailureException) failure);
+
+            ProblemDetail problem = problemOf(response);
+            assertThat(response.getStatusCode().value()).isEqualTo(409);
+            assertThat(problem.getType()).isEqualTo(BLANK);
+            assertThat(problem.getTitle()).isEqualTo("Xung đột dữ liệu");
+            assertThat(problem.getDetail()).isEqualTo("Dữ liệu đã được thay đổi ở nơi khác, hãy tải lại");
+            assertThat(problem.getDetail()).doesNotContain("projects");
+            assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+        }
+    }
+
+    @Test
+    void apiException_unprocessable_has422VietnameseTitle() throws Exception {
+        ResponseEntity<Object> response =
+                handler.handleException(ApiException.unprocessable(ProblemTexts.TARGET_ARCHIVED), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+        assertThat(problem.getTitle()).isEqualTo("Không thể xử lý yêu cầu");
+        assertThat(problem.getDetail()).isEqualTo("Nơi chuyển đến đang được lưu trữ");
+    }
+
+    @Test
+    void apiException_tooManyRequests_keepsRetryAfterHeader() throws Exception {
+        ResponseEntity<Object> response =
+                handler.handleException(ApiException.tooManyRequests(ProblemTexts.TOO_MANY_REQUESTS, 42), request());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(429);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("42");
+        assertThat(problemOf(response).getTitle()).isEqualTo("Quá nhiều yêu cầu");
+    }
+
+    @Test
+    void apiException_withProperty_addsFieldToBody() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withProperty("current", "bản mới"), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(problem.getProperties()).containsEntry("current", "bản mới");
+        assertThat(problem.getDetail()).isEqualTo("Đã có thay đổi ở nơi khác");
+    }
+
+    @Test
+    void apiException_withCode_addsMachineReadableCode() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                ApiException.conflict(ProblemTexts.PROJECT_ARCHIVED).withCode(ProblemCodes.PROJECT_ARCHIVED), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "project-archived");
+        assertThat(problem.getDetail()).isEqualTo("Dự án đã lưu trữ");
+    }
+
+    @Test
+    void problemDetail_includesRequestIdFromMdc() {
+        MDC.put("requestId", "rid-123");
+        try {
+            ProblemDetail problem = problemOf(handler.handleUnexpected(new IllegalStateException("x")));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-123");
+        } finally {
+            MDC.remove("requestId");
+        }
+    }
+
+    @Test
+    void frameworkProblemDetail_includesRequestIdFromMdc() throws Exception {
+        MDC.put("requestId", "rid-456");
+        try {
+            ProblemDetail problem = problemOf(handler.handleException(ApiException.notFound("Không tìm thấy dự án"), request()));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-456");
+        } finally {
+            MDC.remove("requestId");
+        }
     }
 }

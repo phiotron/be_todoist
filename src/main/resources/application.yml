@@ -19,3 +19,31 @@ app:
     issuer: taskly
     access-ttl: 15m
     refresh-ttl: 30d
+  idempotency:
+    ttl-hours: 24
+  jobs:
+    enabled: true
+  rate-limit:
+    auth:
+      max-requests: 10
+      window-seconds: 60
+    refresh:
+      max-requests: 30
+      window-seconds: 60
+
+# Giới hạn theo gói Pro của Todoist (spec 2.1) — đọc DUY NHẤT ở UsageLimits. Vượt → 422 code limit-reached.
+taskly:
+  limits:
+    active-projects: 300
+    projects: 500
+    project-active-tasks: 300
+    project-sections: 20
+    project-sections-total: 100
+    labels: 500
+    filters: 150
+    reminders: 700
+
+# requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
+logging:
+  pattern:
+    level: "%5p [rid=%X{requestId:-}]"

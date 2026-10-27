@@ -74,7 +74,8 @@ class LoginApiTest extends IntegrationTestBase {
                 .andReturn();
 
         // Không để lộ email có tồn tại hay không qua bất kỳ khác biệt nào của response
-        assertThat(body(unknown)).isEqualTo(body(wrongPwd));
+        // (requestId là mã riêng của từng request nên bỏ ra khỏi phép so sánh)
+        assertThat(withoutRequestId(body(unknown))).isEqualTo(withoutRequestId(body(wrongPwd)));
         assertThat(Set.copyOf(unknown.getResponse().getHeaderNames()))
                 .isEqualTo(Set.copyOf(wrongPwd.getResponse().getHeaderNames()));
     }
@@ -115,5 +116,9 @@ class LoginApiTest extends IntegrationTestBase {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("email", "password")));
+    }
+
+    private static String withoutRequestId(String json) {
+        return json.replaceAll("\"requestId\"\\s*:\\s*\"[^\"]*\"", "\"requestId\":\"-\"");
     }
 }
