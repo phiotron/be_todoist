@@ -35,6 +35,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             ProblemDetailAuthenticationEntryPoint entryPoint,
+                                            ProblemDetailAccessDeniedHandler accessDeniedHandler,
                                             BearerTokenResolver bearerTokenResolver) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -49,8 +50,11 @@ public class SecurityConfig {
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(bearerTokenResolver)
                         .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                         .jwt(Customizer.withDefaults()))
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint));
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler));
         return http.build();
     }
 

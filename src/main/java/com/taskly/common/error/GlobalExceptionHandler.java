@@ -7,11 +7,13 @@ import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,40 +23,29 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 /**
  * Mọi lỗi → ProblemDetail (application/problem+json), title/detail/errors[].message đều tiếng Việt
- * vì app mobile hiển thị nguyên văn.
- * - Lỗi chuẩn của Spring MVC (JSON hỏng, 404, 405, ErrorResponseException/ApiException...) do lớp cha xử lý,
- *   rồi handleExceptionInternal dịch title (và detail của lỗi framework) sang tiếng Việt.
- * - "instance" được Spring tự điền bằng đường dẫn request.
+ * (chữ ở ProblemTexts) vì app mobile hiển thị nguyên văn; "code" (ProblemCodes) cho tình huống app cần phân biệt.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    /** Detail của mọi 401 do JWT thiếu/sai/hết hạn hoặc refresh token không dùng được. */
-    public static final String SESSION_INVALID = "Phiên đăng nhập không hợp lệ hoặc đã hết hạn";
-
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    /**
-     * Spring Framework 7 để ProblemDetail.type = null (Jackson bỏ field khi serialize); hợp đồng API yêu cầu
-     * "type": "about:blank" nên phải đặt tường minh.
-     */
+    /** Spring 7 để type = null (Jackson bỏ field); hợp đồng API yêu cầu "about:blank". */
     private static final URI BLANK_TYPE = URI.create("about:blank");
 
-    /** Bean Validation trên @RequestBody → 400 kèm "errors": [{field, message}] (message lấy từ annotation DTO). */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dữ liệu gửi lên không hợp lệ");
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ProblemTexts.INVALID_DATA);
         List<FieldErrorItem> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> new FieldErrorItem(error.getField(),
-                        Objects.requireNonNullElse(error.getDefaultMessage(), "Giá trị không hợp lệ")))
+                        Objects.requireNonNullElse(error.getDefaultMessage(), ProblemTexts.INVALID_VALUE)))
                 .sorted(Comparator.comparing(FieldErrorItem::field).thenComparing(FieldErrorItem::message))
                 .toList();
         problem.setProperty("errors", errors);
         return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
     }
 
-    /** Điểm chung của mọi lỗi lớp cha xử lý: dịch title; lỗi do framework sinh thì dịch luôn detail. */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
@@ -71,24 +62,43 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return response;
     }
 
-    /** 401 từ Spring Security (chuyển qua ProblemDetailAuthenticationEntryPoint). */
+    /** 401 từ Spring Security (ProblemDetailAuthenticationEntryPoint) hoặc CurrentUser. */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleAuthentication(AuthenticationException ex) {
-        return problem(HttpStatus.UNAUTHORIZED, SESSION_INVALID);
+        return problem(HttpStatus.UNAUTHORIZED, ProblemTexts.SESSION_INVALID);
     }
 
-    /** Vi phạm ràng buộc DB (vd hai request đăng ký cùng email chạy song song) → 409 thay vì 500. */
+    /** 403: ném trong MVC, hoặc chuyển từ ProblemDetailAccessDeniedHandler (Spring Security). */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, ProblemTexts.FORBIDDEN);
+    }
+
+    /**
+     * Hai request cùng sửa một task (@Version) — bản thua nhận 409 thay vì 500. Cùng code "version-conflict" với
+     * lệch version do client gửi (spec 12.10) nhưng không có "current" → app tải lại.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ProblemTexts.CONCURRENT_UPDATE);
+        Objects.requireNonNull(response.getBody()).setProperty("code", ProblemCodes.VERSION_CONFLICT);
+        return response;
+    }
+
+    /** Vi phạm ràng buộc DB → 409. Log tên constraint (không log giá trị — có thể chứa email/nội dung). */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleDataIntegrity(DataIntegrityViolationException ex) {
-        log.warn("Vi phạm ràng buộc dữ liệu: {}", ex.getClass().getSimpleName()); // không log giá trị (có thể chứa email)
-        return problem(HttpStatus.CONFLICT, "Dữ liệu bị trùng hoặc xung đột với bản ghi đã có");
+        String constraint = ex.getCause() instanceof org.hibernate.exception.ConstraintViolationException cve
+                ? cve.getConstraintName() : "không rõ";
+        log.warn("Vi phạm ràng buộc dữ liệu: {} (constraint={})", ex.getClass().getSimpleName(), constraint);
+        return problem(HttpStatus.CONFLICT, ProblemTexts.DATA_CONFLICT);
     }
 
-    /** Lưới an toàn cuối: không lộ chi tiết nội bộ ra client. */
+    /** Lưới an toàn cuối: không lộ chi tiết nội bộ ra client; stack trace vào log. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
         log.error("Lỗi không mong đợi", ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Đã có lỗi phía máy chủ, vui lòng thử lại sau");
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, ProblemTexts.SERVER_ERROR);
     }
 
     private static ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
