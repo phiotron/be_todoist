@@ -5,6 +5,7 @@ import com.taskly.common.error.ProblemCodes;
 import com.taskly.common.error.ProblemTexts;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.project.CreateProjectRequest;
+import com.taskly.dto.project.MoveProjectRequest;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.dto.project.UpdateProjectRequest;
 import com.taskly.entity.FavoriteTargetType;
@@ -17,6 +18,7 @@ import com.taskly.mapper.ProjectMapper;
 import com.taskly.repository.ProjectRepository;
 import com.taskly.security.AccessPolicy;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -29,6 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,12 +53,13 @@ public class ProjectService {
     private final SortOrderService sortOrderService;
     private final ProjectTreeService projectTreeService;
     private final UsageLimits usageLimits;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     public ProjectService(ProjectRepository projectRepository, WorkspaceService workspaceService,
                           AccessPolicy accessPolicy, FavoriteService favoriteService,
                           SortOrderService sortOrderService, ProjectTreeService projectTreeService,
-                          UsageLimits usageLimits, Clock clock) {
+                          UsageLimits usageLimits, ApplicationEventPublisher events, Clock clock) {
         this.projectRepository = projectRepository;
         this.workspaceService = workspaceService;
         this.accessPolicy = accessPolicy;
@@ -63,6 +67,7 @@ public class ProjectService {
         this.sortOrderService = sortOrderService;
         this.projectTreeService = projectTreeService;
         this.usageLimits = usageLimits;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -158,6 +163,86 @@ public class ProjectService {
         return toResponse(userId, project);
     }
 
+    /**
+     * Đổi cha (null = gốc) + vị trí (spec 10.1, 12.2): cả cây con đi theo; độ sâu sau khi chuyển (tính cả cây con)
+     * ≤ 3; vòng lặp / Inbox làm cha → 400; Inbox bị chuyển → 403; cha lưu trữ → 422; dự án lưu trữ → 409.
+     */
+    public ProjectResponse move(UUID userId, UUID projectId, MoveProjectRequest request) {
+        Project project = requireReadable(userId, projectId);
+        rejectInbox(project);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        requireNotArchived(project);
+        UUID workspaceId = project.getWorkspace().getId();
+        UUID parentId = request.parentId().orElse(null); // parentId bắt buộc có khoá; null = gốc
+        if (parentId != null) {
+            requireParent(userId, workspaceId, parentId);
+        }
+        projectTreeService.checkCanAttach(tree(workspaceId), projectId, parentId);
+        List<Project> siblings = container(workspaceId, parentId).stream()
+                .filter(p -> !p.getId().equals(projectId))
+                .toList();
+        project.moveUnder(parentId, placeForInsert(siblings, request.afterId()));
+        projectRepository.flush();
+        return toResponse(userId, project);
+    }
+
+    /**
+     * Lưu trữ dự án + mọi dự án con chưa lưu trữ, cùng một thời điểm (spec 5.7). Lặp lại → 200 không ghi đè.
+     * Task / section không đổi; dự án lưu trữ thành chỉ đọc.
+     */
+    public ProjectResponse archive(UUID userId, UUID projectId) {
+        Project project = requireReadable(userId, projectId);
+        rejectInbox(project);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        if (!project.isArchived()) {
+            Instant now = clock.instant();
+            projectRepository.findAllById(withDescendants(project)).forEach(p -> p.archive(now));
+            projectRepository.flush();
+        }
+        return toResponse(userId, project);
+    }
+
+    /**
+     * Khôi phục dự án + các dự án con có CÙNG archived_at (spec 5.7, 10.2); cha còn lưu trữ → thành dự án gốc, đặt
+     * cuối vùng chứa gốc. Vượt 300 dự án đang hoạt động → 422. Dự án đang hoạt động → 200 không đổi.
+     */
+    public ProjectResponse unarchive(UUID userId, UUID projectId) {
+        Project project = requireReadable(userId, projectId);
+        rejectInbox(project);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        if (project.isArchived()) {
+            UUID workspaceId = project.getWorkspace().getId();
+            Instant archivedAt = project.getArchivedAt();
+            List<Project> restored = projectRepository.findAllById(withDescendants(project)).stream()
+                    .filter(p -> archivedAt.equals(p.getArchivedAt()))
+                    .toList();
+            usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): khoá TRƯỚC khi đếm
+            usageLimits.check(LimitKind.ACTIVE_PROJECTS, projectRepository.countActive(workspaceId), restored.size());
+            if (project.getParentId() != null && projectRepository.findById(project.getParentId())
+                    .map(Project::isArchived).orElse(false)) {
+                project.moveUnder(null, placeForInsert(container(workspaceId, null), null));
+            }
+            restored.forEach(Project::unarchive);
+            projectRepository.flush();
+        }
+        return toResponse(userId, project);
+    }
+
+    /**
+     * Xoá VĨNH VIỄN (spec 5.7, 10.2): dự án con, section, task bị DB xoá theo (ON DELETE CASCADE); yêu thích của mọi
+     * dự án trong cây xoá tay; phát ProjectsDeletedEvent cho M2. Dự án lưu trữ vẫn xoá được; Inbox → 403.
+     */
+    public void delete(UUID userId, UUID projectId) {
+        Project project = requireReadable(userId, projectId);
+        rejectInbox(project);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        List<UUID> ids = withDescendants(project);
+        favoriteService.removeAllFor(FavoriteTargetType.PROJECT, ids);
+        events.publishEvent(new ProjectsDeletedEvent(ids));
+        projectRepository.delete(project);
+        projectRepository.flush();
+    }
+
     // ---- Tra cứu cho service khác ----
 
     public Project requireReadable(UUID userId, UUID projectId) {
@@ -225,6 +310,14 @@ public class ProjectService {
         return projectTreeService.tree(projectRepository.findTreeRows(workspaceId).stream()
                 .map(row -> new ProjectTreeService.Node((UUID) row[0], (UUID) row[1], (Long) row[2]))
                 .toList());
+    }
+
+    /** Id của dự án + mọi dự án con cháu (theo cây của workspace, gồm cả dự án lưu trữ). */
+    private List<UUID> withDescendants(Project project) {
+        List<UUID> ids = new ArrayList<>();
+        ids.add(project.getId());
+        ids.addAll(projectTreeService.descendants(tree(project.getWorkspace().getId()), project.getId()));
+        return ids;
     }
 
     /** afterId null → CUỐI vùng chứa. siblings không gồm dự án đang đặt. Tự ghi đánh số lại. */

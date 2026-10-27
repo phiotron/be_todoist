@@ -2,6 +2,7 @@ package com.taskly.controller;
 
 import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.project.CreateProjectRequest;
+import com.taskly.dto.project.MoveProjectRequest;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.dto.project.UpdateProjectRequest;
 import com.taskly.security.CurrentUser;
@@ -78,5 +79,28 @@ public class ProjectController {
     @DeleteMapping("/{projectId}/favorite")
     public ProjectResponse unfavorite(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
         return projectService.setFavorite(CurrentUser.id(jwt), projectId, false);
+    }
+
+    /** Xoá vĩnh viễn kèm dự án con, section, task (app hỏi xác nhận trước — BR-11). */
+    @DeleteMapping("/{projectId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        projectService.delete(CurrentUser.id(jwt), projectId);
+    }
+
+    @PostMapping("/{projectId}/move")
+    public ProjectResponse move(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
+                                @Valid @RequestBody MoveProjectRequest request) {
+        return projectService.move(CurrentUser.id(jwt), projectId, request);
+    }
+
+    @PostMapping("/{projectId}/archive")
+    public ProjectResponse archive(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        return projectService.archive(CurrentUser.id(jwt), projectId);
+    }
+
+    @PostMapping("/{projectId}/unarchive")
+    public ProjectResponse unarchive(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        return projectService.unarchive(CurrentUser.id(jwt), projectId);
     }
 }
