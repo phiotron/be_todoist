@@ -11,6 +11,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.taskly.security.AuthRateLimiter;
 import com.taskly.support.MutableClock;
 import com.taskly.support.TestClockConfiguration;
+import com.taskly.service.UsageLimits;
 import com.taskly.support.TestData;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -57,6 +58,10 @@ public abstract class IntegrationTestBase {
     /** Chèn dữ liệu mẫu bằng SQL; tạo mới trước mỗi test. */
     protected TestData testData;
 
+    /** Giới hạn Pro: test hạ bằng usageLimits.overrideMax(LimitKind.X, n); tự gỡ trước mỗi test. */
+    @Autowired
+    protected UsageLimits usageLimits;
+
     /** Kết quả đăng ký qua API, dùng làm dữ liệu đầu vào cho test khác. */
     protected record RegisteredUser(UUID id, String email, String accessToken, String refreshToken) {
     }
@@ -75,6 +80,11 @@ public abstract class IntegrationTestBase {
     @BeforeEach
     protected void initTestData() {
         testData = new TestData(jdbcTemplate, clock);
+    }
+
+    @BeforeEach
+    protected void resetUsageLimits() {
+        usageLimits.resetOverrides();
     }
 
     protected static String uniqueEmail() {

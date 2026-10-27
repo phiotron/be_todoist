@@ -1,8 +1,10 @@
 package com.taskly.common.error;
 
 import org.slf4j.MDC;
-
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -121,6 +123,24 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getDetail()).isEqualTo("Dữ liệu đã được thay đổi ở nơi khác, hãy tải lại");
         assertThat(problem.getDetail()).doesNotContain("row");
         assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+    }
+
+    @Test
+    void pessimisticLockFailures_return409WithCodeInsteadOf500() {
+        for (RuntimeException failure : List.<RuntimeException>of(
+                new DeadlockLoserDataAccessException("deadlock detected on relation projects", null),
+                new CannotAcquireLockException("could not obtain lock on row in relation projects"))) {
+            ResponseEntity<ProblemDetail> response = handler.handlePessimisticLock(
+                    (PessimisticLockingFailureException) failure);
+
+            ProblemDetail problem = problemOf(response);
+            assertThat(response.getStatusCode().value()).isEqualTo(409);
+            assertThat(problem.getType()).isEqualTo(BLANK);
+            assertThat(problem.getTitle()).isEqualTo("Xung đột dữ liệu");
+            assertThat(problem.getDetail()).isEqualTo("Dữ liệu đã được thay đổi ở nơi khác, hãy tải lại");
+            assertThat(problem.getDetail()).doesNotContain("projects");
+            assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+        }
     }
 
     @Test

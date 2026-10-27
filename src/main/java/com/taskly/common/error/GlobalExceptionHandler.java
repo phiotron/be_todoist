@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -82,6 +83,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ProblemDetail> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ProblemTexts.CONCURRENT_UPDATE);
+        Objects.requireNonNull(response.getBody()).setProperty("code", ProblemCodes.VERSION_CONFLICT);
+        return response;
+    }
+
+    /**
+     * Khoá hàng của UsageLimits (SELECT … FOR NO KEY UPDATE): bản thua deadlock / hết thời gian chờ khoá nhận 409 thay vì
+     * 500 — giao dịch đã bị huỷ hoàn toàn nên app thử lại an toàn. Dùng chung code + chữ với lệch version (không thêm
+     * hằng mới): với app đều là "đụng độ đồng thời → tải lại / thử lại".
+     */
+    @ExceptionHandler(PessimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handlePessimisticLock(PessimisticLockingFailureException ex) {
+        log.warn("Đụng độ khoá hàng: {}", ex.getClass().getSimpleName());
         ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ProblemTexts.CONCURRENT_UPDATE);
         Objects.requireNonNull(response.getBody()).setProperty("code", ProblemCodes.VERSION_CONFLICT);
         return response;
