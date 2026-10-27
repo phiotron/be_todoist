@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.UUID;
 import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
@@ -23,6 +24,7 @@ public final class SecretCipher {
     static final int TAG_BITS = 128;
     static final String KEY_ERROR = "TOTP_ENCRYPTION_KEY chưa được cấu hình hoặc không phải base64 của đúng "
             + KEY_BYTES + " byte (xem .env.example)";
+    static final String VERSION_PREFIX = "v1:";
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -48,33 +50,49 @@ public final class SecretCipher {
         return bytes;
     }
 
-    public String encrypt(byte[] plaintext) {
+    /**
+     * Bản mã = "v1:" + base64(IV ‖ ciphertext + tag). aad = userId của chủ secret: GCM xác thực cả userId nên bản mã chép
+     * sang dòng của user khác không giải được ("v1:" cho phép đổi định dạng / xoay khoá về sau).
+     */
+    public String encrypt(UUID aad, byte[] plaintext) {
         byte[] iv = new byte[IV_BYTES];
         RANDOM.nextBytes(iv);
         try {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, iv));
+            cipher.updateAAD(aadBytes(aad));
             byte[] sealed = cipher.doFinal(plaintext);
-            return Base64.getEncoder().encodeToString(
+            return VERSION_PREFIX + Base64.getEncoder().encodeToString(
                     ByteBuffer.allocate(IV_BYTES + sealed.length).put(iv).put(sealed).array());
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Không mã hoá được secret 2FA");
         }
     }
 
-    /** Sai khoá, bản mã bị sửa hoặc không phải base64 → IllegalStateException (không kèm dữ liệu). */
-    public byte[] decrypt(String encoded) {
+    /**
+     * Sai khoá, sai userId (aad), thiếu / lạ tiền tố phiên bản, bản mã bị sửa hoặc không phải base64 →
+     * IllegalStateException (không kèm dữ liệu).
+     */
+    public byte[] decrypt(UUID aad, String stored) {
         try {
-            byte[] all = Base64.getDecoder().decode(encoded);
+            if (stored == null || !stored.startsWith(VERSION_PREFIX)) {
+                throw new IllegalStateException("Không giải mã được secret 2FA");
+            }
+            byte[] all = Base64.getDecoder().decode(stored.substring(VERSION_PREFIX.length()));
             if (all.length <= IV_BYTES) {
                 throw new IllegalStateException("Không giải mã được secret 2FA");
             }
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(TAG_BITS, all, 0, IV_BYTES));
+            cipher.updateAAD(aadBytes(aad));
             return cipher.doFinal(all, IV_BYTES, all.length - IV_BYTES);
         } catch (GeneralSecurityException | IllegalArgumentException e) {
             throw new IllegalStateException("Không giải mã được secret 2FA");
         }
+    }
+
+    private static byte[] aadBytes(UUID aad) {
+        return aad.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /**

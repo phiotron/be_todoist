@@ -19,9 +19,10 @@ class TotpWiringTest extends IntegrationTestBase {
 
     @Test
     void secretCipherBeanRoundTrips_andPropertiesHideTheKey() {
+        java.util.UUID user = java.util.UUID.randomUUID();
         byte[] secret = "12345678901234567890".getBytes(StandardCharsets.US_ASCII);
 
-        assertThat(secretCipher.decrypt(secretCipher.encrypt(secret))).isEqualTo(secret);
+        assertThat(secretCipher.decrypt(user, secretCipher.encrypt(user, secret))).isEqualTo(secret);
         assertThat(totpProperties.issuer()).isEqualTo("Taskly");
         assertThat(totpProperties.toString())
                 .isEqualTo("TotpProperties[encryptionKey=***, issuer=Taskly]")

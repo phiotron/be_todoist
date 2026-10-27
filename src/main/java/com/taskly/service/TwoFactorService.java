@@ -86,7 +86,7 @@ public class TwoFactorService {
             throw alreadyEnabled();
         }
         byte[] secret = TotpCodec.newSecret();
-        String encrypted = secretCipher.encrypt(secret);
+        String encrypted = secretCipher.encrypt(userId, secret);
         if (existing.isPresent()) {
             existing.get().replaceSecret(encrypted);
         } else {
@@ -204,7 +204,7 @@ public class TwoFactorService {
         String compact = code == null ? null : code.strip().replace(" ", "");
         byte[] secret;
         try {
-            secret = secretCipher.decrypt(totp.getSecretEncrypted());
+            secret = secretCipher.decrypt(totp.getUserId(), totp.getSecretEncrypted());
         } catch (IllegalStateException e) {
             // Mất / đổi TOTP_ENCRYPTION_KEY (spec 17): mã TOTP không kiểm được, mã khôi phục vẫn dùng được. Không log secret.
             log.error("Không giải mã được secret 2FA — kiểm tra TOTP_ENCRYPTION_KEY");

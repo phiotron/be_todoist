@@ -312,6 +312,23 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
         }
     }
 
+    /** AAD = userId: bản mã chép từ user này sang user khác không giải được → TOTP bị từ chối (không lộ secret của ai). */
+    @Test
+    void verify_withASecretCiphertextCopiedFromAnotherUser_isRejected() throws Exception {
+        RegisteredUser victim = registerUser(uniqueEmail());
+        RegisteredUser attacker = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled victimEnabled = TwoFactorSteps.enable(mockMvc, clock, victim.accessToken());
+        TwoFactorSteps.enable(mockMvc, clock, attacker.accessToken());
+        jdbcTemplate.update("update user_totp set secret_encrypted = "
+                + "(select secret_encrypted from user_totp where user_id = ?) where user_id = ?",
+                victim.id(), attacker.id());
+        String token = twoFactorToken(attacker.email());
+
+        verify(token, TwoFactorSteps.nextCode(victimEnabled.secret(), clock))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("two-factor-code-invalid"));
+    }
+
     @Test
     void verify_whenTheUserWasDeletedBetweenTheTwoSteps_isTokenInvalidNotSessionInvalid() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
