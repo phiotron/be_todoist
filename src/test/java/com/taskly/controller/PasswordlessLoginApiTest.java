@@ -28,7 +28,7 @@ class PasswordlessLoginApiTest extends IntegrationTestBase {
     }
 
     private static String withoutRequestId(String json) {
-        return json.replaceAll("\"requestId\"\s*:\s*\"[^\"]*\",?", "");
+        return json.replaceAll("\"requestId\"\\s*:\\s*\"[^\"]*\",?", "");
     }
 
     @Test
