@@ -11,6 +11,7 @@ import com.taskly.repository.TaskListingRepository.Context;
 import com.taskly.repository.TaskListingRepository.Scope;
 import com.taskly.repository.listing.KeysetPager.KeyedId;
 import com.taskly.repository.listing.SortKey;
+import com.taskly.repository.listing.SubtreeOrder;
 import com.taskly.security.AccessPolicy;
 import com.taskly.service.display.DisplayOptions;
 import com.taskly.service.display.DisplayParams;
@@ -51,17 +52,19 @@ public class TaskListingService {
     private final TaskViewService taskViewService;
     private final LabelService labelService;
     private final FilterService filterService;
+    private final ProjectService projectService;
     private final Clock clock;
 
     public TaskListingService(TaskListingRepository repository, AccessPolicy accessPolicy, UserService userService,
                               TaskViewService taskViewService, LabelService labelService,
-                              FilterService filterService, Clock clock) {
+                              FilterService filterService, ProjectService projectService, Clock clock) {
         this.repository = repository;
         this.accessPolicy = accessPolicy;
         this.userService = userService;
         this.taskViewService = taskViewService;
         this.labelService = labelService;
         this.filterService = filterService;
+        this.projectService = projectService;
         this.clock = clock;
     }
 
@@ -94,7 +97,10 @@ public class TaskListingService {
         if (params.filter() != null) {
             return Optional.of(byFilter(userId, params.filter(), display, cursor, limit));
         }
-        return Optional.empty(); // Today / Upcoming / dự án: Task 19
+        if (params.projectId() != null) {
+            return Optional.of(byProject(userId, params.projectId(), display, cursor, limit));
+        }
+        return Optional.of(byView(userId, params.view(), params.from(), params.to(), display, cursor, limit));
     }
 
     public Page<TaskResponse> byLabel(UUID userId, UUID labelId, DisplayQuery display, String cursor, Integer limit) {
@@ -114,6 +120,36 @@ public class TaskListingService {
         }
         DisplayOptions options = options(userId, ViewKind.FILTER, display);
         return run(userId, new Scope(ViewKind.FILTER, null, node, null, null), options, cursor, pageSize);
+    }
+
+    public Page<TaskResponse> byView(UUID userId, TaskViewType view, LocalDate from, LocalDate to,
+                                     DisplayQuery display, String cursor, Integer limit) {
+        int pageSize = CursorCodec.limit(limit);
+        ViewKind kind = switch (view) {
+            case today -> ViewKind.TODAY;
+            case upcoming -> ViewKind.UPCOMING;
+            default -> throw ApiException.badRequest(ProblemTexts.DISPLAY_INVALID); // overdue / completed không nhận Display
+        };
+        DisplayOptions options = options(userId, kind, display);
+        LocalDate windowFrom = null;
+        LocalDate windowTo = null;
+        if (kind == ViewKind.UPCOMING) {
+            // Cửa sổ ngày dùng chung với M1 (TaskViewService.upcomingWindow): kẹp from ở hôm nay, to mặc định from + 13, <= 31 ngày.
+            LocalDate today = LocalDate.now(clock.withZone(userService.timeZoneOf(userId)));
+            TaskViewService.UpcomingWindow window = TaskViewService.upcomingWindow(from, to, today);
+            windowFrom = window.first();
+            windowTo = window.last();
+        }
+        return run(userId, new Scope(kind, null, null, windowFrom, windowTo), options, cursor, pageSize);
+    }
+
+    /** Task gốc đang mở của dự án (cả Inbox, cả dự án lưu trữ) sắp / nhóm theo Display, cây con đi theo cha. */
+    public Page<TaskResponse> byProject(UUID userId, UUID projectId, DisplayQuery display, String cursor,
+                                        Integer limit) {
+        int pageSize = CursorCodec.limit(limit);
+        projectService.requireReadable(userId, projectId);
+        DisplayOptions options = options(userId, ViewKind.PROJECT, display);
+        return run(userId, new Scope(ViewKind.PROJECT, projectId, null, null, null), options, cursor, pageSize);
     }
 
     /** Display của request (hoặc mặc định của view); filterLabelId phải là label của user (404). */
@@ -139,7 +175,9 @@ public class TaskListingService {
         CursorCodec.Cursor after = CursorCodec.hasCursor(cursor) ? CursorCodec.decode(kind, cursor, keys.size()) : null;
         List<KeyedId> rows = repository.page(context, scope, options, after, pageSize + 1);
         Page<KeyedId> page = Page.fromLookahead(rows, pageSize, row -> CursorCodec.encode(kind, row.keys()));
-        List<UUID> ids = page.items().stream().map(KeyedId::id).toList();
+        List<UUID> rootIds = page.items().stream().map(KeyedId::id).toList();
+        List<UUID> ids = scope.kind() == ViewKind.PROJECT
+                ? SubtreeOrder.arrange(rootIds, repository.descendants(rootIds)) : rootIds;
         return new Page<>(taskViewService.getResponsesInOrder(userId, ids), page.nextCursor());
     }
 
