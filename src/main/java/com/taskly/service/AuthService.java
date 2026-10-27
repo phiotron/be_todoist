@@ -170,6 +170,10 @@ public class AuthService {
      */
     public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
         User user = userService.requireUser(userId);
+        // M5: tài khoản chỉ có Google chưa có mật khẩu để so → hướng dẫn dùng Quên mật khẩu (spec 12.1).
+        if (!user.hasPassword()) {
+            throw ApiException.badRequest(ErrorMessage.PASSWORD_NOT_SET);
+        }
         if (exceedsBcryptLimit(request.currentPassword())
                 || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
             throw ApiException.badRequest(ErrorMessage.CURRENT_PASSWORD_INCORRECT);
