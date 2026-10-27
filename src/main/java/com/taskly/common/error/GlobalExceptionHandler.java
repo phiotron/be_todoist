@@ -1,6 +1,7 @@
 package com.taskly.common.error;
 
 import com.taskly.common.web.RequestIdFilter;
+import jakarta.validation.ConstraintViolation;
 import java.net.URI;
 import java.util.Comparator;
 import java.util.List;
@@ -17,6 +18,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,30 +26,40 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Mọi lỗi → ProblemDetail (application/problem+json), title/detail/errors[].message đều tiếng Việt
- * (chữ ở ProblemTexts) vì app mobile hiển thị nguyên văn; "code" (ProblemCodes) cho tình huống app cần phân biệt.
+ * Mọi lỗi → ProblemDetail (application/problem+json). Handler chỉ đặt KEY:
+ * title theo mã HTTP (ProblemTexts), detail theo ErrorMessage hoặc detail mặc định của lỗi framework,
+ * errors[].message theo key trong message template "{key}" của Bean Validation.
+ * ProblemDetailLocalizer dịch key sang vi / en theo Accept-Language ngay trước khi ghi body.
+ * - Lỗi chuẩn của Spring MVC (JSON hỏng, 404, 405, ErrorResponseException/ApiException...) do lớp cha xử lý,
+ *   rồi handleExceptionInternal đặt type, title và (với lỗi framework) detail mặc định.
+ * - "instance" được Spring tự điền bằng đường dẫn request.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    /** Key của errors[].message khi lỗi không có message (vd lỗi bind kiểu dữ liệu). */
+    static final String INVALID_VALUE_KEY = "validation.invalid";
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /** Spring 7 để type = null (Jackson bỏ field); hợp đồng API yêu cầu "about:blank". */
     private static final URI BLANK_TYPE = URI.create("about:blank");
 
+    /** Bean Validation trên @RequestBody → 400 kèm "errors": [{field, message}] (message là key, sẽ được dịch). */
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ProblemTexts.INVALID_DATA);
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, ErrorMessage.VALIDATION_FAILED.key());
         List<FieldErrorItem> errors = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new FieldErrorItem(error.getField(),
-                        Objects.requireNonNullElse(error.getDefaultMessage(), ProblemTexts.INVALID_VALUE)))
+                .map(error -> new FieldErrorItem(error.getField(), messageKey(error)))
                 .sorted(Comparator.comparing(FieldErrorItem::field).thenComparing(FieldErrorItem::message))
                 .toList();
         problem.setProperty("errors", errors);
         return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
     }
 
+    /** Điểm chung của mọi lỗi lớp cha xử lý: đặt type, title; lỗi do framework sinh thì đặt detail mặc định. */
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(
             Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
@@ -56,9 +68,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             if (problem.getType() == null) {
                 problem.setType(BLANK_TYPE);
             }
-            problem.setTitle(ProblemTexts.title(problem.getStatus()));
+            problem.setTitle(ProblemTexts.titleKey(problem.getStatus()));
             if (!(ex instanceof ApiException) && !(ex instanceof MethodArgumentNotValidException)) {
-                problem.setDetail(ProblemTexts.defaultDetail(problem.getStatus()));
+                problem.setDetail(ProblemTexts.defaultDetailKey(problem.getStatus()));
             }
             addRequestId(problem);
         }
@@ -68,13 +80,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /** 401 từ Spring Security (ProblemDetailAuthenticationEntryPoint) hoặc CurrentUser. */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleAuthentication(AuthenticationException ex) {
-        return problem(HttpStatus.UNAUTHORIZED, ProblemTexts.SESSION_INVALID);
+        return problem(HttpStatus.UNAUTHORIZED, ErrorMessage.SESSION_INVALID);
     }
 
     /** 403: ném trong MVC, hoặc chuyển từ ProblemDetailAccessDeniedHandler (Spring Security). */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
-        return problem(HttpStatus.FORBIDDEN, ProblemTexts.FORBIDDEN);
+        return problem(HttpStatus.FORBIDDEN, ErrorMessage.FORBIDDEN);
     }
 
     /**
@@ -83,7 +95,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ProblemDetail> handleOptimisticLock(OptimisticLockingFailureException ex) {
-        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ProblemTexts.CONCURRENT_UPDATE);
+        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ErrorMessage.CONCURRENT_UPDATE);
         Objects.requireNonNull(response.getBody()).setProperty("code", ProblemCodes.VERSION_CONFLICT);
         return response;
     }
@@ -96,7 +108,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(PessimisticLockingFailureException.class)
     public ResponseEntity<ProblemDetail> handlePessimisticLock(PessimisticLockingFailureException ex) {
         log.warn("Đụng độ khoá hàng: {}", ex.getClass().getSimpleName());
-        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ProblemTexts.CONCURRENT_UPDATE);
+        ResponseEntity<ProblemDetail> response = problem(HttpStatus.CONFLICT, ErrorMessage.CONCURRENT_UPDATE);
         Objects.requireNonNull(response.getBody()).setProperty("code", ProblemCodes.VERSION_CONFLICT);
         return response;
     }
@@ -107,20 +119,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String constraint = ex.getCause() instanceof org.hibernate.exception.ConstraintViolationException cve
                 ? cve.getConstraintName() : "không rõ";
         log.warn("Vi phạm ràng buộc dữ liệu: {} (constraint={})", ex.getClass().getSimpleName(), constraint);
-        return problem(HttpStatus.CONFLICT, ProblemTexts.DATA_CONFLICT);
+        return problem(HttpStatus.CONFLICT, ErrorMessage.DATA_CONFLICT);
     }
 
     /** Lưới an toàn cuối: không lộ chi tiết nội bộ ra client; stack trace vào log. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
         log.error("Lỗi không mong đợi", ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, ProblemTexts.SERVER_ERROR);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, ErrorMessage.INTERNAL_ERROR);
     }
 
-    private static ResponseEntity<ProblemDetail> problem(HttpStatus status, String detail) {
-        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
+    /**
+     * Key của errors[].message: lấy từ message template "{key}" của constraint (không phụ thuộc message interpolator);
+     * message viết cứng (chưa chuyển sang key) giữ nguyên; lỗi bind không có message → validation.invalid.
+     */
+    static String messageKey(FieldError error) {
+        if (error.contains(ConstraintViolation.class)) {
+            String template = error.unwrap(ConstraintViolation.class).getMessageTemplate();
+            if (template.length() > 2 && template.startsWith("{") && template.endsWith("}")) {
+                return template.substring(1, template.length() - 1);
+            }
+        }
+        return Objects.requireNonNullElse(error.getDefaultMessage(), INVALID_VALUE_KEY);
+    }
+
+    private static ResponseEntity<ProblemDetail> problem(HttpStatus status, ErrorMessage message) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(status, message.key());
         body.setType(BLANK_TYPE);
-        body.setTitle(ProblemTexts.title(status.value()));
+        body.setTitle(ProblemTexts.titleKey(status.value()));
         addRequestId(body);
         return ResponseEntity.status(status).body(body);
     }

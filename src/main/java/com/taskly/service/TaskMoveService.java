@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.task.MoveTaskRequest;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.entity.Project;
@@ -49,13 +49,13 @@ public class TaskMoveService {
     public TaskResponse move(UUID userId, UUID taskId, MoveTaskRequest request) {
         Task task = taskService.requireWritable(userId, taskId); // 404; NGUỒN lưu trữ → 409 (kiểm trước đích)
         if (task.getCompletedAt() != null) {
-            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
+            throw ApiException.conflict(ErrorMessage.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
         }
-        Project source = projectService.requireReadable(userId, task.getProjectId(), ProblemTexts.TASK_NOT_FOUND);
+        Project source = projectService.requireReadable(userId, task.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
         Project target = projectService.requireTarget(userId, request.projectId()); // 404; ĐÍCH lưu trữ → 422
         UUID workspaceId = target.getWorkspace().getId();
         if (!workspaceId.equals(source.getWorkspace().getId())) {
-            throw ApiException.badRequest(ProblemTexts.CROSS_WORKSPACE_MOVE);
+            throw ApiException.badRequest(ErrorMessage.CROSS_WORKSPACE_MOVE);
         }
 
         // Chống đua (spec 8.2 #9): khoá dự án nguồn + đích (id tăng dần) TRƯỚC khi dựng cây → hai move ngược chiều
@@ -65,10 +65,10 @@ public class TaskMoveService {
         projectService.recheckAfterLock(source, target); // cờ lưu trữ nạp trước khoá có thể cũ (archive vừa commit)
         taskService.refresh(task);
         if (!task.getProjectId().equals(source.getId())) {
-            throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+            throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
         }
         if (task.getCompletedAt() != null) {
-            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
+            throw ApiException.conflict(ErrorMessage.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
         }
 
         List<SubtaskTreeService.Node> nodes = new ArrayList<>(taskService.treeNodes(source.getId()));
@@ -81,7 +81,7 @@ public class TaskMoveService {
         if (request.parentId() != null) {
             Task parent = taskService.requireReadable(userId, request.parentId());
             if (!parent.getProjectId().equals(target.getId())) {
-                throw ApiException.badRequest(ProblemTexts.PARENT_NOT_IN_PROJECT);
+                throw ApiException.badRequest(ErrorMessage.PARENT_NOT_IN_PROJECT);
             }
             if (parent.getSectionId() != null && sectionService.isArchived(parent.getSectionId())) {
                 throw SectionService.sectionArchived(); // cha ở section lưu trữ → 409 (spec 3.1), không phải 422

@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.reorder.ReorderRequest;
 import com.taskly.dto.reorder.ReorderResponse;
 import com.taskly.entity.Project;
@@ -58,7 +58,7 @@ public class ReorderService {
     private long reorderProject(UUID userId, UUID projectId, UUID afterId) {
         Project project = projectService.requireWritable(userId, projectId);
         if (project.isInbox()) {
-            throw ApiException.forbidden(ProblemTexts.INBOX_PROTECTED); // mọi thao tác nhắm vào chính Inbox → 403 (spec m2)
+            throw ApiException.forbidden(ErrorMessage.INBOX_PROTECTED); // mọi thao tác nhắm vào chính Inbox → 403 (spec m2)
         }
         // Quy tắc khoá thao tác đổi CẤU TRÚC dự án: W trước (+ đọc lại), rồi đọc anh em (bản mới nhất), rồi khoá hàng
         // id TĂNG DẦN trước mọi UPDATE (chỉ khi đánh số lại anh em) — không thì ghi đè sort_order của create / move.

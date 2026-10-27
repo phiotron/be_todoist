@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.task.AffectedTasksResponse;
 import com.taskly.dto.task.BatchTasksRequest;
 import com.taskly.dto.task.MoveTaskRequest;
@@ -73,12 +73,12 @@ public class TaskBatchService {
         for (UUID id : ids) {
             Task task = byId.get(id);
             if (task == null) {
-                throw ApiException.notFound(ProblemTexts.TASK_NOT_FOUND);
+                throw ApiException.notFound(ErrorMessage.TASK_NOT_FOUND);
             }
             tasks.add(task);
         }
         for (UUID projectId : tasks.stream().map(Task::getProjectId).distinct().toList()) {
-            projectService.requireReadable(userId, projectId, ProblemTexts.TASK_NOT_FOUND);
+            projectService.requireReadable(userId, projectId, ErrorMessage.TASK_NOT_FOUND);
         }
         // 409 project-archived / section-archived — KỂ CẢ DELETE (spec I15): mỗi (dự án, section) kiểm MỘT lần
         Set<List<UUID>> checked = new HashSet<>();
@@ -89,7 +89,7 @@ public class TaskBatchService {
         }
         if ((request.action() == BatchAction.SCHEDULE || request.action() == BatchAction.MOVE)
                 && tasks.stream().anyMatch(task -> task.getCompletedAt() != null)) {
-            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED); // spec 12.5, m3
+            throw ApiException.conflict(ErrorMessage.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED); // spec 12.5, m3
         }
         Set<UUID> affected = switch (request.action()) {
             case CLOSE -> close(userId, tasks);
@@ -117,7 +117,7 @@ public class TaskBatchService {
     public AffectedTasksResponse rescheduleOverdue(UUID userId, RescheduleOverdueRequest request) {
         LocalDate today = TaskDueRules.today(clock.instant(), userService.timeZoneOf(userId));
         if (request.date().isBefore(today)) {
-            throw ApiException.badRequest(ProblemTexts.RESCHEDULE_DATE_PAST);
+            throw ApiException.badRequest(ErrorMessage.RESCHEDULE_DATE_PAST);
         }
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : taskService.findOverdue(userId)) {
@@ -141,7 +141,7 @@ public class TaskBatchService {
         for (Task task : tasks) {
             taskService.refresh(task);
             if (!toLock.contains(task.getProjectId())) {
-                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+                throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
             }
         }
         toLock.forEach(projectService::recheckWritableAfterLock);
@@ -184,7 +184,7 @@ public class TaskBatchService {
         for (Task task : tasks) {
             taskService.refresh(task);
             if (!toLock.contains(task.getProjectId())) {
-                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+                throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
             }
         }
         Set<UUID> affected = new LinkedHashSet<>();
@@ -268,13 +268,13 @@ public class TaskBatchService {
 
     static void validate(BatchTasksRequest request) {
         if (new HashSet<>(request.taskIds()).size() != request.taskIds().size()) {
-            throw ApiException.badRequest(ProblemTexts.BATCH_IDS_DUPLICATE);
+            throw ApiException.badRequest(ErrorMessage.BATCH_IDS_DUPLICATE);
         }
         BatchAction action = request.action();
         boolean labelAction = action == BatchAction.ADD_LABELS || action == BatchAction.REMOVE_LABELS;
         boolean hasLabels = request.labelIds() != null && !request.labelIds().isEmpty();
         if (labelAction != hasLabels || (!labelAction && request.labelIds() != null)) {
-            throw ApiException.badRequest(ProblemTexts.BATCH_LABEL_IDS);
+            throw ApiException.badRequest(ErrorMessage.BATCH_LABEL_IDS);
         }
         boolean extra = (request.undo() != null && action != BatchAction.REOPEN)
                 || ((request.projectId() != null || request.sectionId() != null) && action != BatchAction.MOVE)
@@ -284,7 +284,7 @@ public class TaskBatchService {
                 || (action == BatchAction.SCHEDULE && request.date() == null)
                 || (action == BatchAction.PRIORITY && request.priority() == null);
         if (extra || missing) {
-            throw ApiException.badRequest(ProblemTexts.BATCH_FIELDS_INVALID);
+            throw ApiException.badRequest(ErrorMessage.BATCH_FIELDS_INVALID);
         }
     }
 }

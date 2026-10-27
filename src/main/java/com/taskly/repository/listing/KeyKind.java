@@ -1,7 +1,7 @@
 package com.taskly.repository.listing;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -80,7 +80,7 @@ public enum KeyKind {
                 }
             };
         } catch (RuntimeException ex) {
-            throw ApiException.badRequest(ProblemTexts.INVALID_CURSOR);
+            throw ApiException.badRequest(ErrorMessage.INVALID_CURSOR);
         }
     }
 

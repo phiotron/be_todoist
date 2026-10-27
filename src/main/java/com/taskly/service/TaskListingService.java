@@ -1,7 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.common.web.CursorCodec;
 import com.taskly.dto.common.Page;
 import com.taskly.dto.task.TaskResponse;
@@ -85,11 +85,11 @@ public class TaskListingService {
         if (selectors != 1 || (params.completed() && params.projectId() == null)
                 || (upcomingOnly && params.view() != TaskViewType.upcoming)
                 || (completedViewOnly && params.view() != TaskViewType.completed)) {
-            throw ApiException.badRequest(ProblemTexts.TASK_LIST_SELECTOR);
+            throw ApiException.badRequest(ErrorMessage.TASK_LIST_SELECTOR);
         }
         if (params.completed() || params.view() == TaskViewType.completed) {
             // Display không áp cho completed=true và view=completed (màn Completed toàn cục là của M1 — M2 không tạo)
-            throw ApiException.badRequest(ProblemTexts.DISPLAY_INVALID);
+            throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
         }
         if (params.labelId() != null) {
             return Optional.of(byLabel(userId, params.labelId(), display, cursor, limit));
@@ -128,7 +128,7 @@ public class TaskListingService {
         ViewKind kind = switch (view) {
             case today -> ViewKind.TODAY;
             case upcoming -> ViewKind.UPCOMING;
-            default -> throw ApiException.badRequest(ProblemTexts.DISPLAY_INVALID); // overdue / completed không nhận Display
+            default -> throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID); // overdue / completed không nhận Display
         };
         DisplayOptions options = options(userId, kind, display);
         LocalDate windowFrom = null;

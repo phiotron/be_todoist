@@ -1,10 +1,12 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.support.M2ApiTestBase;
 import com.taskly.service.LabelDeletedEvent;
 import java.util.List;
@@ -78,7 +80,7 @@ class ViewOptionsApiTest extends M2ApiTestBase {
     @Test
     void valuesNotAllowedForTheView_are400() throws Exception {
         put("TODAY", display("MANUAL", "NONE", "")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         put("UPCOMING", display("DATE", "PRIORITY", "")).andExpect(status().isBadRequest());
         put("TODAY", display("DATE", "NONE", "\"showCompleted\": true")).andExpect(status().isBadRequest());
         put("TODAY", display("DATE", "NONE", "\"filterPriority\": 5")).andExpect(status().isBadRequest());
@@ -113,7 +115,7 @@ class ViewOptionsApiTest extends M2ApiTestBase {
         put("filter:" + filter, display("DEADLINE", "LABEL", "")).andExpect(status().isOk());
         put("label:" + foreignLabel, display("DATE", "NONE", "")).andExpect(status().isNotFound());
         put("today", display("DATE", "NONE", "")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.VIEW_KEY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.VIEW_KEY_INVALID)));
         put("project:abc", display("DATE", "NONE", "")).andExpect(status().isBadRequest());
     }
 
@@ -188,7 +190,7 @@ class ViewOptionsApiTest extends M2ApiTestBase {
     @Test
     void filterDueNoDateOrOverdue_isRejectedForTodayAndUpcoming() throws Exception {
         put("TODAY", display("DATE", "NONE", "\"filterDue\": \"NO_DATE\"")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         put("UPCOMING", display("DATE", "NONE", "\"filterDue\": \"NO_DATE\"")).andExpect(status().isBadRequest());
         put("UPCOMING", display("DATE", "NONE", "\"filterDue\": \"OVERDUE\"")).andExpect(status().isBadRequest());
         put("TODAY", display("DATE", "NONE", "\"filterDue\": \"OVERDUE\"")).andExpect(status().isOk());

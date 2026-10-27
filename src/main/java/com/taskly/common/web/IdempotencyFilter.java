@@ -1,7 +1,7 @@
 package com.taskly.common.web;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.security.CurrentUser;
 import com.taskly.security.OpaqueTokens;
 import com.taskly.service.IdempotencyService;
@@ -74,7 +74,7 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String key = request.getHeader(HEADER);
         if (key.isEmpty() || key.length() > MAX_KEY_LENGTH) {
-            fail(request, response, ApiException.badRequest(ProblemTexts.IDEMPOTENCY_KEY_INVALID));
+            fail(request, response, ApiException.badRequest(ErrorMessage.IDEMPOTENCY_KEY_INVALID));
             return;
         }
         UUID userId = currentUserId();

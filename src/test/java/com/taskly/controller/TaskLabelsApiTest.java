@@ -1,5 +1,7 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -8,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.support.M2ApiTestBase;
 import java.time.Duration;
 import java.time.Instant;
@@ -79,7 +81,7 @@ class TaskLabelsApiTest extends M2ApiTestBase {
 
         apiPost(token, TASKS, createJson("Việc", "\"labelIds\": " + ids(a, foreign)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NOT_FOUND));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NOT_FOUND)));
 
         assertThat(jdbcTemplate.queryForObject("select count(*) from tasks where project_id = ?", Integer.class,
                 data.inboxOf(user.id()))).isEqualTo(before);
@@ -91,7 +93,7 @@ class TaskLabelsApiTest extends M2ApiTestBase {
 
         apiPost(token, TASKS, createJson("Việc", "\"labelIds\": " + ids(a, b, c, d)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABELS_PER_TASK));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABELS_PER_TASK)));
     }
 
     @Test
@@ -201,7 +203,7 @@ class TaskLabelsApiTest extends M2ApiTestBase {
 
         patch(task, "\"labelIds\": " + ids(a, b, c, d))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABELS_PER_TASK));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABELS_PER_TASK)));
         apiGet(token, TASKS + "/" + task).andExpect(jsonPath("$.labelIds", contains(a.toString())));
     }
 

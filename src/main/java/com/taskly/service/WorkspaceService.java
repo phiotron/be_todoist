@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.entity.User;
 import com.taskly.entity.Workspace;
 import com.taskly.entity.WorkspaceMember;
@@ -40,10 +40,19 @@ public class WorkspaceService {
         return workspace;
     }
 
+    /**
+     * DELETE me (spec 10.2): workspaces.owner_id không cascade ở V1 nên phải xoá workspace của user TRƯỚC khi xoá user.
+     * DB cascade phần còn lại (membership, dự án và dữ liệu bên dưới). M8 xử lý workspace nhóm (chốt ở plan M8).
+     */
+    @Transactional
+    public int deleteOwnedWorkspaces(UUID ownerId) {
+        return workspaceRepository.deleteAllByOwnerId(ownerId);
+    }
+
     /** Workspace cá nhân của user (Mức 1: dự án mới luôn tạo ở đây). Không có → phiên không hợp lệ (401). */
     @Transactional(readOnly = true)
     public Workspace personalWorkspace(UUID userId) {
         return workspaceRepository.findByOwnerIdAndType(userId, WorkspaceType.PERSONAL)
-                .orElseThrow(() -> ApiException.unauthorized(ProblemTexts.SESSION_INVALID));
+                .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
     }
 }

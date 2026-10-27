@@ -1,11 +1,13 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.IntegrationTestBase;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.entity.LimitKind;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -93,7 +95,7 @@ class UsageLimitsM2Test extends IntegrationTestBase {
 
         assertThatThrownBy(() -> usageLimits.checkLabelsPerTask(4)).isInstanceOfSatisfying(ApiException.class, ex -> {
             assertThat(ex.getStatusCode().value()).isEqualTo(400);
-            assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.LABELS_PER_TASK);
+            assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.LABELS_PER_TASK);
             assertThat(ex.getBody().getProperties()).containsEntry("max", 3);
         });
     }

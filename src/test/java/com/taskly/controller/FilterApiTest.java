@@ -1,12 +1,14 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.service.FilterDeletedEvent;
 import com.taskly.service.FilterService;
 import com.taskly.support.M2ApiTestBase;
@@ -62,7 +64,7 @@ class FilterApiTest extends M2ApiTestBase {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("filter-syntax"))
                 .andExpect(jsonPath("$.position").value(12))
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_SYNTAX));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_SYNTAX)));
         apiGet(token, FILTERS).andExpect(jsonPath("$.length()").value(0));
     }
 
@@ -71,14 +73,14 @@ class FilterApiTest extends M2ApiTestBase {
         String token = registerUser(uniqueEmail()).accessToken();
 
         apiPost(token, FILTERS, "{\"name\": \"  \", \"query\": \"p1\"}").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_NAME_SIZE));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_NAME_SIZE)));
         apiPost(token, FILTERS, "{\"name\": \"" + "n".repeat(121) + "\", \"query\": \"p1\"}")
                 .andExpect(status().isBadRequest());
         apiPost(token, FILTERS, "{\"name\": \"ok\", \"query\": \"  \"}").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_QUERY_SIZE));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_QUERY_SIZE)));
         apiPost(token, FILTERS, "{\"name\": \"ok\", \"query\": \"" + "p1|".repeat(342) + "p1\"}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_QUERY_SIZE));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_QUERY_SIZE)));
         apiPost(token, FILTERS, "{\"name\": \"ok\"}").andExpect(status().isBadRequest());
     }
 
@@ -164,7 +166,7 @@ class FilterApiTest extends M2ApiTestBase {
                 .andExpect(jsonPath("$.position").value(0));
         apiPost(token, FILTERS + "/validate", "{\"query\": \"" + "p1|".repeat(342) + "p1\"}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_QUERY_SIZE));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_QUERY_SIZE)));
     }
 
     @Test
@@ -272,7 +274,7 @@ class FilterApiTest extends M2ApiTestBase {
         UUID filter = create(alice, "{\"name\": \"A\", \"query\": \"p1\"}");
 
         apiPatch(bob, FILTERS + "/" + filter, "{\"name\": \"B\"}").andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.FILTER_NOT_FOUND));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.FILTER_NOT_FOUND)));
         apiDelete(bob, FILTERS + "/" + filter).andExpect(status().isNotFound());
         apiPut(bob, FILTERS + "/" + filter + "/favorite", null).andExpect(status().isNotFound());
         apiGet(bob, FILTERS).andExpect(jsonPath("$.length()").value(0));

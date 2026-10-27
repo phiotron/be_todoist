@@ -1,10 +1,12 @@
 package com.taskly.service.display;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.entity.DueFilter;
 import com.taskly.entity.GroupBy;
 import com.taskly.entity.SortBy;
@@ -27,7 +29,7 @@ class DisplayParamsTest {
         assertThatThrownBy(() -> DisplayParams.fromQuery(kind, query))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                    assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.DISPLAY_INVALID);
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.DISPLAY_INVALID);
                 });
     }
 
@@ -214,7 +216,7 @@ class DisplayParamsTest {
         assertThatThrownBy(() -> DisplayRules.validate(ViewKind.TODAY,
                 new DisplayOptions(SortBy.DATE, SortDirection.ASC, GroupBy.NONE, null, null, DueFilter.NO_DATE)))
                 .isInstanceOfSatisfying(ApiException.class,
-                        ex -> assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.DISPLAY_INVALID));
+                        ex -> assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.DISPLAY_INVALID));
     }
 
     /**

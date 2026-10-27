@@ -1,6 +1,5 @@
 package com.taskly.dto.task;
 
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.BatchAction;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -19,11 +18,11 @@ import java.util.UUID;
  * Trường không thuộc action → 400 (TaskBatchService.validate).
  */
 public record BatchTasksRequest(
-        @NotNull(message = ProblemTexts.BATCH_ACTION_REQUIRED)
+        @NotNull(message = "{error.batch-action-required}")
         BatchAction action,
 
-        @NotNull(message = ProblemTexts.BATCH_IDS_SIZE)
-        @Size(min = 1, max = 200, message = ProblemTexts.BATCH_IDS_SIZE)
+        @NotNull(message = "{error.batch-ids-size}")
+        @Size(min = 1, max = 200, message = "{error.batch-ids-size}")
         List<UUID> taskIds,
 
         Boolean undo,
@@ -36,8 +35,8 @@ public record BatchTasksRequest(
                 description = "Chỉ SCHEDULE: bắt buộc có khoá; null = bỏ due (xoá duration, nhắc tương đối)")
         Optional<LocalDate> date,
 
-        @Min(value = 1, message = ProblemTexts.PRIORITY_RANGE)
-        @Max(value = 4, message = ProblemTexts.PRIORITY_RANGE)
+        @Min(value = 1, message = "{error.priority-range}")
+        @Max(value = 4, message = "{error.priority-range}")
         Integer priority,
 
         @Schema(description = "Chỉ ADD_LABELS / REMOVE_LABELS (bắt buộc, không rỗng)")

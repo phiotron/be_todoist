@@ -1,7 +1,7 @@
 package com.taskly.common.web;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,7 +36,7 @@ public final class CursorCodec {
             return DEFAULT_LIMIT;
         }
         if (requested < 1 || requested > MAX_LIMIT) {
-            throw ApiException.badRequest(ProblemTexts.INVALID_LIMIT);
+            throw ApiException.badRequest(ErrorMessage.INVALID_LIMIT);
         }
         return requested;
     }
@@ -75,7 +75,7 @@ public final class CursorCodec {
     }
 
     private static ApiException invalid() {
-        return ApiException.badRequest(ProblemTexts.INVALID_CURSOR);
+        return ApiException.badRequest(ErrorMessage.INVALID_CURSOR);
     }
 
     /** Giá trị khoá đã giải mã; getter đổi kiểu, lỗi định dạng → 400 (con trỏ do client sửa bậy). */

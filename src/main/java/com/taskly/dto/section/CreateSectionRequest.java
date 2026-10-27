@@ -1,6 +1,5 @@
 package com.taskly.dto.section;
 
-import com.taskly.common.error.ProblemTexts;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -15,11 +14,11 @@ public record CreateSectionRequest(
         @Schema(type = "string", format = "uuid", description = "Tuỳ chọn: id do client sinh (idempotent theo id)")
         UUID id,
 
-        @NotNull(message = ProblemTexts.SECTION_NAME_SIZE)
-        @Size(min = 1, max = 2048, message = ProblemTexts.SECTION_NAME_SIZE)
+        @NotNull(message = "{error.section-name-size}")
+        @Size(min = 1, max = 2048, message = "{error.section-name-size}")
         String name,
 
-        @Size(max = 16383, message = ProblemTexts.DESCRIPTION_SIZE)
+        @Size(max = 16383, message = "{error.description-size}")
         String description,
 
         @Schema(type = "string", format = "uuid", nullable = true,

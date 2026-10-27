@@ -1,11 +1,13 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.support.M2ApiTestBase;
 import com.taskly.support.M2TestData.TaskSpec;
 import java.time.Instant;
@@ -94,7 +96,7 @@ class LabelFilterViewApiTest extends M2ApiTestBase {
         tagged(TaskSpec.of(data.inboxOf(other.id()), "Của người khác"), foreignLabel);
 
         apiGet(token, TASKS, "labelId", foreignLabel.toString()).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NOT_FOUND));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NOT_FOUND)));
         apiGet(token, TASKS, "labelId", UUID.randomUUID().toString()).andExpect(status().isNotFound());
         assertThat(byLabel()).isEmpty();
     }
@@ -216,7 +218,7 @@ class LabelFilterViewApiTest extends M2ApiTestBase {
         UUID foreign = data.label(registerUser(uniqueEmail()).id(), "x");
 
         apiGet(token, TASKS, "labelId", label, "filter", "p1").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.TASK_LIST_SELECTOR));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.TASK_LIST_SELECTOR)));
         apiGet(token, TASKS, "labelId", label, "view", "today").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "labelId", label, "projectId", inbox.toString()).andExpect(status().isBadRequest());
         apiGet(token, TASKS, "labelId", label, "completed", "true").andExpect(status().isBadRequest());
@@ -229,7 +231,7 @@ class LabelFilterViewApiTest extends M2ApiTestBase {
                 {"order", "up"}, {"group", "section"}, {"filterPriority", "5"}, {"filterDue", "soon"},
                 {"filterLabelId", "xyz"}}) {
             apiGet(token, TASKS, "labelId", label, bad[0], bad[1]).andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                    .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         }
         apiGet(token, TASKS, "labelId", label, "filterLabelId", foreign.toString()).andExpect(status().isNotFound());
         apiGet(token, TASKS, "labelId", label, "limit", "0").andExpect(status().isBadRequest());
@@ -317,6 +319,6 @@ class LabelFilterViewApiTest extends M2ApiTestBase {
         apiGet(token, TASKS, "filter", "").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("filter-syntax"));
         apiGet(token, TASKS, "filter", "p1", "view", "today").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.TASK_LIST_SELECTOR));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.TASK_LIST_SELECTOR)));
     }
 }

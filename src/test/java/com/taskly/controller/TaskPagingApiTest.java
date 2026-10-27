@@ -1,12 +1,14 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.IntegrationTestBase;
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.common.web.CursorCodec;
 import com.taskly.support.TestData.TaskRow;
 import java.time.Instant;
@@ -184,7 +186,7 @@ class TaskPagingApiTest extends IntegrationTestBase {
         authGet(user.accessToken(), "/api/v1/tasks?view=bogus").andExpect(status().isBadRequest());
         authGet(user.accessToken(), "/api/v1/tasks?view=inbox").andExpect(status().isBadRequest()); // bản 3 bỏ view=inbox
         authGet(user.accessToken(), "/api/v1/tasks").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.TASK_LIST_SELECTOR));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.TASK_LIST_SELECTOR)));
         authGet(user.accessToken(), "/api/v1/tasks?view=today&projectId=" + inbox).andExpect(status().isBadRequest());
         authGet(user.accessToken(), "/api/v1/tasks?view=upcoming").andExpect(status().isOk()); // from mặc định = hôm nay (3.1)
         authGet(user.accessToken(), "/api/v1/tasks?view=today&from=2026-10-20").andExpect(status().isBadRequest())

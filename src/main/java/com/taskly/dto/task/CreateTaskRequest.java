@@ -1,7 +1,6 @@
 package com.taskly.dto.task;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.taskly.common.error.ProblemTexts;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,15 +32,15 @@ public record CreateTaskRequest(
 
         UUID parentId,
 
-        @NotNull(message = ProblemTexts.TASK_CONTENT_SIZE)
-        @Size(min = 1, max = 500, message = ProblemTexts.TASK_CONTENT_SIZE)
+        @NotNull(message = "{error.task-content-size}")
+        @Size(min = 1, max = 500, message = "{error.task-content-size}")
         String content,
 
-        @Size(max = 16383, message = ProblemTexts.DESCRIPTION_SIZE)
+        @Size(max = 16383, message = "{error.description-size}")
         String description,
 
-        @Min(value = 1, message = ProblemTexts.PRIORITY_RANGE)
-        @Max(value = 4, message = ProblemTexts.PRIORITY_RANGE)
+        @Min(value = 1, message = "{error.priority-range}")
+        @Max(value = 4, message = "{error.priority-range}")
         Integer priority,
 
         LocalDate dueDate,
@@ -49,8 +48,8 @@ public record CreateTaskRequest(
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm[:ss]")
         LocalDateTime dueDatetime,
 
-        @Min(value = 1, message = ProblemTexts.DURATION_RANGE)
-        @Max(value = 1440, message = ProblemTexts.DURATION_RANGE)
+        @Min(value = 1, message = "{error.duration-range}")
+        @Max(value = 1440, message = "{error.duration-range}")
         Integer durationMinutes,
 
         LocalDate deadlineDate,

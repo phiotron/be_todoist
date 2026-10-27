@@ -1,8 +1,8 @@
 package com.taskly.service.filterquery;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
 
 /** Lỗi cú pháp filter: vị trí ký tự (0-based UTF-16 trong cả query) + mã lý do máy đọc được. */
 public class FilterSyntaxException extends RuntimeException {
@@ -26,7 +26,7 @@ public class FilterSyntaxException extends RuntimeException {
 
     /** 400 ProblemDetail: code "filter-syntax", position, reason (spec 12.10). */
     public ApiException toApiException() {
-        return ApiException.badRequest(ProblemTexts.FILTER_SYNTAX)
+        return ApiException.badRequest(ErrorMessage.FILTER_SYNTAX)
                 .withCode(ProblemCodes.FILTER_SYNTAX)
                 .withProperty("position", position)
                 .withProperty("reason", reason);

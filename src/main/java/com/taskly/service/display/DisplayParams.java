@@ -1,7 +1,7 @@
 package com.taskly.service.display;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.DueFilter;
 import com.taskly.entity.GroupBy;
 import com.taskly.entity.SortBy;
@@ -65,6 +65,6 @@ public final class DisplayParams {
     }
 
     private static ApiException invalid() {
-        return ApiException.badRequest(ProblemTexts.DISPLAY_INVALID);
+        return ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
     }
 }

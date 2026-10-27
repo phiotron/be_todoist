@@ -1,11 +1,13 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.repository.TaskLabelRepository;
 import com.taskly.support.M2ApiTestBase;
 import java.util.List;
@@ -120,7 +122,7 @@ class TaskBatchLabelsApiTest extends M2ApiTestBase {
 
         batch("ADD_LABELS", List.of(empty, full), "\"labelIds\": [\"" + fourth + "\"]")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABELS_PER_TASK));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABELS_PER_TASK)));
 
         assertThat(labelsOf(empty)).isEmpty();
         assertThat(labelsOf(full)).hasSize(3);
@@ -132,9 +134,9 @@ class TaskBatchLabelsApiTest extends M2ApiTestBase {
         UUID task = data.task(inbox, "Việc");
 
         batch("ADD_LABELS", List.of(task), "").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.BATCH_LABEL_IDS));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.BATCH_LABEL_IDS)));
         batch("REMOVE_LABELS", List.of(task), "\"labelIds\": []").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.BATCH_LABEL_IDS));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.BATCH_LABEL_IDS)));
         batch("ADD_LABELS", List.of(task), "\"labelIds\": null").andExpect(status().isBadRequest());
         batch("PRIORITY", List.of(task), "\"priority\": 1, \"labelIds\": [\"" + home + "\"]")
                 .andExpect(status().isBadRequest());

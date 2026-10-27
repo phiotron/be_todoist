@@ -9,3 +9,6 @@ app:
 taskly:
   limits:
     labels-per-task: 3
+  totp:
+    # base64 của chuỗi ASCII "test-only-totp-key-not-for-prod!" (32 byte) — khoá GIẢ chỉ cho test.
+    encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LW5vdC1mb3ItcHJvZCE=

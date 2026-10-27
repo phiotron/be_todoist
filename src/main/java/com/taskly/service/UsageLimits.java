@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.entity.LimitKind;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -70,7 +70,7 @@ public class UsageLimits {
         }
         int max = max(kind);
         if (currentCount + adding > max) {
-            throw ApiException.unprocessable(ProblemTexts.LIMIT_REACHED)
+            throw ApiException.unprocessable(ErrorMessage.LIMIT_REACHED)
                     .withCode(ProblemCodes.LIMIT_REACHED)
                     .withProperty("limit", kind.name())
                     .withProperty("max", max);
@@ -93,7 +93,7 @@ public class UsageLimits {
     /** Số label của MỘT task sau thao tác. Vượt → 400 kèm thuộc tính `max` (spec 12.10). */
     public void checkLabelsPerTask(int count) {
         if (count > maxLabelsPerTask) {
-            throw ApiException.badRequest(ProblemTexts.LABELS_PER_TASK).withProperty("max", maxLabelsPerTask);
+            throw ApiException.badRequest(ErrorMessage.LABELS_PER_TASK).withProperty("max", maxLabelsPerTask);
         }
     }
 

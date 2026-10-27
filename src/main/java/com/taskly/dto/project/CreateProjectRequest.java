@@ -1,6 +1,5 @@
 package com.taskly.dto.project;
 
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.ProjectColor;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -17,13 +16,13 @@ public record CreateProjectRequest(
         @Schema(type = "string", format = "uuid", description = "Tuỳ chọn: id do client sinh (idempotent theo id)")
         UUID id,
 
-        @NotNull(message = ProblemTexts.PROJECT_NAME_SIZE)
-        @Size(min = 1, max = 120, message = ProblemTexts.PROJECT_NAME_SIZE)
+        @NotNull(message = "{error.project-name-size}")
+        @Size(min = 1, max = 120, message = "{error.project-name-size}")
         String name,
 
         ProjectColor color,
 
-        @Size(max = 16383, message = ProblemTexts.DESCRIPTION_SIZE)
+        @Size(max = 16383, message = "{error.description-size}")
         String description,
 
         UUID parentId,

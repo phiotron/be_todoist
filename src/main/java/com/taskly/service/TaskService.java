@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.task.CreateTaskRequest;
 import com.taskly.dto.task.TaskResponse;
@@ -117,7 +117,7 @@ public class TaskService {
         if (request.projectId() != null) {
             project = projectService.requireReadable(userId, request.projectId());
         } else if (parent != null) {
-            project = projectService.requireReadable(userId, parent.getProjectId(), ProblemTexts.TASK_NOT_FOUND);
+            project = projectService.requireReadable(userId, parent.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
         } else {
             project = projectService.inboxOf(userId); // quyết định Q9: vắng projectId, không cha → Inbox
         }
@@ -126,20 +126,20 @@ public class TaskService {
         if (parent != null) {
             // Dòng 3: 400 — con luôn cùng dự án + section với cha; vượt 4 cấp
             if (!parent.getProjectId().equals(project.getId())) {
-                throw ApiException.badRequest(ProblemTexts.PARENT_NOT_IN_PROJECT);
+                throw ApiException.badRequest(ErrorMessage.PARENT_NOT_IN_PROJECT);
             }
             if (request.sectionId() != null && !request.sectionId().equals(parent.getSectionId())) {
-                throw ApiException.badRequest(ProblemTexts.PARENT_NOT_IN_SECTION);
+                throw ApiException.badRequest(ErrorMessage.PARENT_NOT_IN_SECTION);
             }
             sectionId = parent.getSectionId();
             if (subtaskTreeService.depth(tree(project.getId()), parent.getId()) + 1 > SubtaskTreeService.MAX_DEPTH) {
-                throw ApiException.badRequest(ProblemTexts.SUBTASK_TOO_DEEP);
+                throw ApiException.badRequest(ErrorMessage.SUBTASK_TOO_DEEP);
             }
             // Dòng 4, 5, 6: 409 — CHA ở dự án lưu trữ → CHA ở section lưu trữ → cha đã hoàn thành (đúng thứ tự này)
-            projectService.requireWritable(userId, parent.getProjectId(), ProblemTexts.TASK_NOT_FOUND);
+            projectService.requireWritable(userId, parent.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
             requireSectionNotArchived(parent);
             if (parent.getCompletedAt() != null) {
-                throw ApiException.conflict(ProblemTexts.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
+                throw ApiException.conflict(ErrorMessage.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
             }
         } else {
             sectionId = request.sectionId();
@@ -158,14 +158,14 @@ public class TaskService {
             refresh(parent); // 404 nếu cha vừa bị xoá
             if (!parent.getProjectId().equals(project.getId())) {
                 // cha vừa chuyển sang dự án khác: chèn con với project_id cũ sẽ làm cây lệch dự án
-                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+                throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
             }
             sectionId = parent.getSectionId(); // cha vừa đổi section (move trong dự án) → con theo section mới
             if (sectionId != null) {
                 sectionService.recheckAfterLock(sectionId, true); // 409 section-archived
             }
             if (parent.getCompletedAt() != null) {
-                throw ApiException.conflict(ProblemTexts.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
+                throw ApiException.conflict(ErrorMessage.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
             }
         } else if (sectionId != null) {
             sectionService.recheckAfterLock(sectionId, false); // 404 (vừa xoá) / 422 target-archived
@@ -187,7 +187,7 @@ public class TaskService {
     public TaskResponse update(UUID userId, UUID taskId, UpdateTaskRequest request) {
         Task task = requireWritable(userId, taskId);
         if (request.version() != task.getVersion()) {
-            throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT)
+            throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT)
                     .withCode(ProblemCodes.VERSION_CONFLICT)
                     .withProperty("current", toResponse(userId, taskId));
         }
@@ -255,16 +255,16 @@ public class TaskService {
     /** Task trong dự án user đọc được, không thì 404 "Không tìm thấy công việc". */
     public Task requireReadable(UUID userId, UUID taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
-        projectService.requireReadable(userId, task.getProjectId(), ProblemTexts.TASK_NOT_FOUND);
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
+        projectService.requireReadable(userId, task.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
         return task;
     }
 
     /** Như requireReadable + dự án lưu trữ → 409 project-archived; section lưu trữ → 409 section-archived. */
     public Task requireWritable(UUID userId, UUID taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
-        projectService.requireWritable(userId, task.getProjectId(), ProblemTexts.TASK_NOT_FOUND);
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
+        projectService.requireWritable(userId, task.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
         requireSectionNotArchived(task);
         return task;
     }
@@ -280,10 +280,10 @@ public class TaskService {
         usageLimits.lockProject(projectId);
         entityManager.flush();
         Task fresh = taskRepository.findById(task.getId())
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
         refresh(fresh);
         if (!fresh.getProjectId().equals(projectId)) {
-            throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+            throw ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
         }
         projectService.recheckWritableAfterLock(projectId);
         if (fresh.getSectionId() != null && sectionService.isArchivedNow(fresh.getSectionId())) {
@@ -299,7 +299,7 @@ public class TaskService {
 
     /** Nạp lại entity sau khi một native UPDATE đã xoá persistence context (không kiểm quyền — caller đã kiểm). */
     public Task reload(UUID taskId) {
-        return taskRepository.findById(taskId).orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+        return taskRepository.findById(taskId).orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
     }
 
     /** Đọc lại hàng từ DB (sau khi đã khoá dự án) → entity phản ánh bản đã commit mới nhất. Hàng đã bị xoá → 404. */
@@ -307,7 +307,7 @@ public class TaskService {
         try {
             entityManager.refresh(task);
         } catch (jakarta.persistence.EntityNotFoundException e) {
-            throw ApiException.notFound(ProblemTexts.TASK_NOT_FOUND);
+            throw ApiException.notFound(ErrorMessage.TASK_NOT_FOUND);
         }
         return task;
     }
@@ -427,7 +427,7 @@ public class TaskService {
     public TaskResponse toResponse(UUID userId, UUID taskId) {
         taskRepository.flush();
         TaskView view = taskViewRepository.findOne(accessPolicy.readableWorkspaceIds(userId), taskId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
         return TaskMapper.toResponse(view, TaskDueRules.localNow(clock.instant(), userService.timeZoneOf(userId)));
     }
 
@@ -440,7 +440,7 @@ public class TaskService {
      */
     private Created<TaskResponse> replayOrConflict(UUID userId, Task existing, CreateTaskRequest request) {
         if (!accessPolicy.canRead(userId, existing.getWorkspaceId()) || !sameContent(userId, existing, request)) {
-            throw ApiException.conflict(ProblemTexts.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
+            throw ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
         }
         return Created.replay(toResponse(userId, existing.getId()));
     }

@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.section.CreateSectionRequest;
 import com.taskly.dto.section.SectionResponse;
@@ -66,7 +66,7 @@ public class SectionService {
     }
 
     public Created<SectionResponse> create(UUID userId, UUID projectId, CreateSectionRequest request) {
-        projectService.requireReadable(userId, projectId, ProblemTexts.PROJECT_NOT_FOUND); // 404 trước (dự án người khác)
+        projectService.requireReadable(userId, projectId, ErrorMessage.PROJECT_NOT_FOUND); // 404 trước (dự án người khác)
         if (request.id() != null) { // `id` client-sinh đã có → replay / 409 id-conflict (spec 12.11)
             Optional<Section> existing = sectionRepository.findById(request.id());
             if (existing.isPresent()) {
@@ -99,14 +99,14 @@ public class SectionService {
                 && existing.getName().equals(request.name())
                 && (request.description() == null ? "" : request.description()).equals(existing.getDescription());
         if (!same) {
-            throw ApiException.conflict(ProblemTexts.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
+            throw ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
         }
         return Created.replay(toResponse(existing));
     }
 
     /** Đổi tên / mô tả — được cả với section lưu trữ; dự án lưu trữ → 409. */
     public SectionResponse update(UUID userId, UUID projectId, UUID sectionId, UpdateSectionRequest request) {
-        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
         // cùng quy tắc mọi ghi dưới dự án: khoá P rồi đọc lại, TRƯỚC khi nạp section (xoá / lưu trữ song song)
         usageLimits.lockProject(projectId);
         projectService.recheckAfterLock(project, false);
@@ -123,7 +123,7 @@ public class SectionService {
 
     /** Xoá VĨNH VIỄN section + mọi task của nó (đang mở + đã xong, kèm cây con) — spec 5.7. Dự án lưu trữ → 409. */
     public void delete(UUID userId, UUID projectId, UUID sectionId) {
-        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
         // khoá P TRƯỚC khi xoá: task create vừa kiểm section xong (đang chờ P) sẽ chèn xong rồi mới tới lượt xoá (cascade),
         // thay vì chèn vào section đã biến mất (lỗi toàn vẹn chung)
         usageLimits.lockProject(projectId);
@@ -138,7 +138,7 @@ public class SectionService {
      * cùng thời điểm (qua SectionArchivedEvent → TaskService). Lặp lại → 200 không đổi. Dự án lưu trữ → 409.
      */
     public SectionResponse archive(UUID userId, UUID projectId, UUID sectionId) {
-        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
         // chống đua (spec 8.2 #9): tuần tự hoá với tạo / chuyển task cùng dự án (chúng khoá dự án rồi đọc lại cờ
         // lưu trữ) → không còn task mở trong section đã lưu trữ. Khoá TRƯỚC khi nạp section.
         usageLimits.lockProject(projectId);
@@ -158,7 +158,7 @@ public class SectionService {
      * <= 100) KHÔNG đổi khi khôi phục nên không kiểm lại.
      */
     public SectionResponse unarchive(UUID userId, UUID projectId, UUID sectionId) {
-        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
         // cùng quy tắc mọi ghi dưới dự án: khoá P → đọc lại dự án → MỚI nạp section (xoá / lưu trữ / khôi phục song song)
         usageLimits.lockProject(projectId);
         projectService.recheckAfterLock(project, false);
@@ -176,14 +176,14 @@ public class SectionService {
     /** Section của đúng dự án trong path, không thì 404. Quyền với dự án do caller kiểm trước. */
     public Section requireInProject(UUID projectId, UUID sectionId) {
         return sectionRepository.findByIdAndProjectId(sectionId, projectId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.SECTION_NOT_FOUND));
     }
 
     /** Section theo id (reorder): 404; dự án lưu trữ → 409 project-archived; section lưu trữ → 409 section-archived. */
     public Section requireWritable(UUID userId, UUID sectionId) {
         Section section = sectionRepository.findById(sectionId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND));
-        projectService.requireWritable(userId, section.getProjectId(), ProblemTexts.SECTION_NOT_FOUND);
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.SECTION_NOT_FOUND));
+        projectService.requireWritable(userId, section.getProjectId(), ErrorMessage.SECTION_NOT_FOUND);
         if (section.isArchived()) {
             throw sectionArchived();
         }
@@ -196,13 +196,13 @@ public class SectionService {
      */
     public Section requireTargetSection(UUID userId, UUID projectId, UUID sectionId) {
         Section section = sectionRepository.findById(sectionId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND));
-        projectService.requireReadable(userId, section.getProjectId(), ProblemTexts.SECTION_NOT_FOUND);
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.SECTION_NOT_FOUND));
+        projectService.requireReadable(userId, section.getProjectId(), ErrorMessage.SECTION_NOT_FOUND);
         if (!section.getProjectId().equals(projectId)) {
-            throw ApiException.badRequest(ProblemTexts.SECTION_NOT_IN_PROJECT);
+            throw ApiException.badRequest(ErrorMessage.SECTION_NOT_IN_PROJECT);
         }
         if (section.isArchived()) {
-            throw ApiException.unprocessable(ProblemTexts.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
+            throw ApiException.unprocessable(ErrorMessage.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
         }
         return section;
     }
@@ -213,11 +213,11 @@ public class SectionService {
      */
     public void recheckAfterLock(UUID sectionId, boolean parentContext) {
         if (!sectionRepository.existsById(sectionId)) {
-            throw ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND);
+            throw ApiException.notFound(ErrorMessage.SECTION_NOT_FOUND);
         }
         if (sectionRepository.existsByIdAndArchivedAtIsNotNull(sectionId)) {
             throw parentContext ? sectionArchived()
-                    : ApiException.unprocessable(ProblemTexts.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
+                    : ApiException.unprocessable(ErrorMessage.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
         }
     }
 
@@ -226,7 +226,7 @@ public class SectionService {
         try {
             entityManager.refresh(section);
         } catch (jakarta.persistence.EntityNotFoundException e) {
-            throw ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND);
+            throw ApiException.notFound(ErrorMessage.SECTION_NOT_FOUND);
         }
         if (section.isArchived()) {
             throw sectionArchived();
@@ -250,7 +250,7 @@ public class SectionService {
     }
 
     public static ApiException sectionArchived() {
-        return ApiException.conflict(ProblemTexts.SECTION_ARCHIVED).withCode(ProblemCodes.SECTION_ARCHIVED);
+        return ApiException.conflict(ErrorMessage.SECTION_ARCHIVED).withCode(ProblemCodes.SECTION_ARCHIVED);
     }
 
     // ---- nội bộ ----

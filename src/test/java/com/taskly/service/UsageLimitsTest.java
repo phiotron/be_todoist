@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,7 +32,7 @@ class UsageLimitsTest {
         assertThatThrownBy(() -> limits.check(LimitKind.PROJECT_SECTIONS, 20, 1))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(422);
-                    assertThat(ex.getBody().getDetail()).isEqualTo("Đã đạt giới hạn cho phép");
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.LIMIT_REACHED);
                     assertThat(ex.getBody().getProperties())
                             .containsEntry("code", "limit-reached")
                             .containsEntry("limit", "PROJECT_SECTIONS")

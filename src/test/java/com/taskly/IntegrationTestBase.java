@@ -9,10 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.security.AuthRateLimiter;
-import com.taskly.support.MutableClock;
-import com.taskly.support.TestClockConfiguration;
+import com.taskly.security.PasswordResetRateLimiter;
+import com.taskly.security.TwoFactorRateLimiter;
 import com.taskly.service.UsageLimits;
+import com.taskly.support.MutableClock;
+import com.taskly.support.RecordingMailSender;
+import com.taskly.support.TestClockConfiguration;
 import com.taskly.support.TestData;
+import com.taskly.support.TestMailConfiguration;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,14 +34,14 @@ import org.springframework.test.web.servlet.ResultActions;
 
 /**
  * Nền chung cho test tích hợp: Postgres thật (Testcontainers), MockMvc có Spring Security,
- * profile "test" (JWT secret giả) và MutableClock để dời "bây giờ".
+ * profile "test" (JWT secret giả), MutableClock để dời "bây giờ" và MailSender giả (mailbox) ghi lại thư.
  * Mọi class con dùng chung MỘT Spring context và MỘT container (context cache).
  * Dữ liệu không bị xoá giữa các test → luôn dùng uniqueEmail().
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({TestcontainersConfiguration.class, TestClockConfiguration.class})
+@Import({TestcontainersConfiguration.class, TestClockConfiguration.class, TestMailConfiguration.class})
 public abstract class IntegrationTestBase {
 
     /** Mật khẩu fixture cho test tự động — không phải mật khẩu thật của ai. */
@@ -52,8 +56,18 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected MutableClock clock;
 
+    /** Hộp thư giả: thư service đã "gửi" trong test. */
+    @Autowired
+    protected RecordingMailSender mailbox;
+
     @Autowired
     private AuthRateLimiter authRateLimiter;
+
+    @Autowired
+    private TwoFactorRateLimiter twoFactorRateLimiter;
+
+    @Autowired
+    private PasswordResetRateLimiter passwordResetRateLimiter;
 
     /** Chèn dữ liệu mẫu bằng SQL; tạo mới trước mỗi test. */
     protected TestData testData;
@@ -71,10 +85,17 @@ public abstract class IntegrationTestBase {
         clock.reset();
     }
 
+    @BeforeEach
+    protected void resetMailbox() {
+        mailbox.reset();
+    }
+
     /** Bộ đếm rate limit sống suốt context → xoá trước mỗi test để test không ảnh hưởng nhau. */
     @BeforeEach
     protected void resetRateLimits() {
         authRateLimiter.clear();
+        twoFactorRateLimiter.clear();
+        passwordResetRateLimiter.clear();
     }
 
     @BeforeEach

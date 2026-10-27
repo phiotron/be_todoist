@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.entity.IdempotencyKey;
 import com.taskly.repository.IdempotencyKeyRepository;
 import java.time.Clock;
@@ -95,7 +95,7 @@ public class IdempotencyService {
                 continue;
             }
             if (!record.getRequestHash().equals(requestHash)) {
-                throw ApiException.unprocessable(ProblemTexts.IDEMPOTENCY_MISMATCH)
+                throw ApiException.unprocessable(ErrorMessage.IDEMPOTENCY_MISMATCH)
                         .withCode(ProblemCodes.IDEMPOTENCY_MISMATCH);
             }
             if (record.isInProgress()) {
@@ -151,6 +151,6 @@ public class IdempotencyService {
     }
 
     private static ApiException inProgress() {
-        return ApiException.conflict(ProblemTexts.IDEMPOTENCY_IN_PROGRESS).withCode(ProblemCodes.IDEMPOTENCY_IN_PROGRESS);
+        return ApiException.conflict(ErrorMessage.IDEMPOTENCY_IN_PROGRESS).withCode(ProblemCodes.IDEMPOTENCY_IN_PROGRESS);
     }
 }

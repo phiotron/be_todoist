@@ -12,6 +12,15 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  mail:
+    # SMTP — khi dev là Mailpit trong docker-compose (xem thư ở http://localhost:8025). Timeout ngắn để Mailpit tắt
+    # thì request quên mật khẩu trả 503 nhanh thay vì treo.
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
 
 app:
   jwt:
@@ -19,6 +28,12 @@ app:
     issuer: taskly
     access-ttl: 15m
     refresh-ttl: 30d
+  mail:
+    from: ${MAIL_FROM:no-reply@taskly.local}
+  password-reset:
+    # Token nối ngay sau link-base; app mobile mở deep link này (từ M5 dev build) hoặc người dùng dán mã.
+    link-base: taskly://reset-password/
+    token-ttl: 30m
   idempotency:
     ttl-hours: 24
   jobs:
@@ -30,9 +45,26 @@ app:
     refresh:
       max-requests: 30
       window-seconds: 60
+    # Theo tài khoản (spec mục 5.9): 5 lần / 5 phút; vượt → 429 + Retry-After. two-factor = mã 2FA (dùng chung mọi
+    # endpoint nhận mã); account-password = sai mật khẩu ở DELETE me và me/2fa/disable.
+    two-factor:
+      max-requests: 5
+      window-seconds: 300
+    account-password:
+      max-requests: 5
+      window-seconds: 300
+    # Quên mật khẩu (spec mục 5.9): 5 lần / giờ / email; vượt vẫn trả 200 nhưng không gửi thư.
+    password-reset:
+      max-requests: 5
+      window-seconds: 3600
 
-# Giới hạn theo gói Pro của Todoist (spec 2.1) — đọc DUY NHẤT ở UsageLimits. Vượt → 422 code limit-reached.
 taskly:
+  totp:
+    # Khoá AES-256 (base64 của 32 byte) mã hoá secret 2FA — biến TOTP_ENCRYPTION_KEY trong .env (xem .env.example).
+    # Thiếu / sai → server không khởi động. Mất khoá → người đã bật 2FA chỉ đăng nhập được bằng mã khôi phục.
+    encryption-key: ${TOTP_ENCRYPTION_KEY:}
+    issuer: Taskly
+  # Giới hạn theo gói Pro của Todoist (spec 2.1) — đọc DUY NHẤT ở UsageLimits. Vượt → 422 code limit-reached.
   limits:
     active-projects: 300
     projects: 500

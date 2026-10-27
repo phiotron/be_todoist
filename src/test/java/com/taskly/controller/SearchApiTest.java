@@ -1,10 +1,12 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.support.M2ApiTestBase;
 import com.taskly.support.M2TestData.TaskSpec;
 import java.time.Instant;
@@ -149,7 +151,7 @@ class SearchApiTest extends M2ApiTestBase {
                 .andExpect(jsonPath("$.nextCursor").doesNotExist());
         apiGet(token, SEARCH).andExpect(status().isOk()).andExpect(jsonPath("$.items").isEmpty());
         apiGet(token, SEARCH, "q", "a".repeat(101)).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.SEARCH_QUERY_TOO_LONG));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.SEARCH_QUERY_TOO_LONG)));
         apiGet(token, SEARCH, "q", "a".repeat(100)).andExpect(status().isOk());
     }
 

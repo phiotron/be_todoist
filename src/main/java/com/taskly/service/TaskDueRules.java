@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -73,14 +73,14 @@ public final class TaskDueRules {
 
     public static void checkSingleDue(LocalDate dueDate, LocalDateTime dueDatetime) {
         if (dueDate != null && dueDatetime != null) {
-            throw ApiException.badRequest(ProblemTexts.DUE_CONFLICT);
+            throw ApiException.badRequest(ErrorMessage.DUE_CONFLICT);
         }
     }
 
     /** Duration chỉ có khi task có giờ (spec 5.2) — gửi duration cho task không có giờ → 400. */
     public static void checkDuration(LocalDateTime dueDatetime, Integer durationMinutes) {
         if (durationMinutes != null && dueDatetime == null) {
-            throw ApiException.badRequest(ProblemTexts.DURATION_NEEDS_TIME);
+            throw ApiException.badRequest(ErrorMessage.DURATION_NEEDS_TIME);
         }
     }
 

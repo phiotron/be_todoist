@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -132,14 +132,14 @@ public class SubtaskTreeService {
             return;
         }
         if (movingId != null && (movingId.equals(newParentId) || descendants(tree, movingId).contains(newParentId))) {
-            throw ApiException.badRequest(ProblemTexts.SUBTASK_CYCLE);
+            throw ApiException.badRequest(ErrorMessage.SUBTASK_CYCLE);
         }
         int subtreeHeight = movingId == null ? 1 : height(tree, movingId);
         if (depth(tree, newParentId) + subtreeHeight > MAX_DEPTH) {
-            throw ApiException.badRequest(ProblemTexts.SUBTASK_TOO_DEEP);
+            throw ApiException.badRequest(ErrorMessage.SUBTASK_TOO_DEEP);
         }
         if (tree.node(newParentId).completed()) {
-            throw ApiException.conflict(ProblemTexts.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
+            throw ApiException.conflict(ErrorMessage.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
         }
     }
 

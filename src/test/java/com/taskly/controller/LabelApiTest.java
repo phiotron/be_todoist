@@ -1,12 +1,14 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.service.LabelService;
 import com.taskly.support.M2ApiTestBase;
 import java.sql.Timestamp;
@@ -63,10 +65,10 @@ class LabelApiTest extends M2ApiTestBase {
         String token = registerUser(uniqueEmail()).accessToken();
 
         apiPost(token, LABELS, "{\"name\": \"hai từ\"}").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NAME_CHARS));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NAME_CHARS)));
         apiPost(token, LABELS, "{\"name\": \"a@b\"}").andExpect(status().isBadRequest());
         apiPost(token, LABELS, "{\"name\": \"" + "x".repeat(61) + "\"}").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NAME_SIZE));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NAME_SIZE)));
         apiPost(token, LABELS, "{}").andExpect(status().isBadRequest());
         apiPost(token, LABELS, "{\"name\": \"ok\", \"color\": \"purple\"}").andExpect(status().isBadRequest());
         assertThat(getOk(token, LABELS)).isEqualTo("[]");
@@ -80,7 +82,7 @@ class LabelApiTest extends M2ApiTestBase {
         apiPost(token, LABELS, "{\"name\": \"gẤP\"}")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("label-name-taken"))
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NAME_TAKEN));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NAME_TAKEN)));
 
         String other = registerUser(uniqueEmail()).accessToken();
         create(other, "{\"name\": \"gấp\"}"); // user khác được trùng tên
@@ -279,7 +281,7 @@ class LabelApiTest extends M2ApiTestBase {
         UUID label = create(alice, "{\"name\": \"nha\"}");
 
         apiPatch(bob, LABELS + "/" + label, "{\"color\": \"red\"}").andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.LABEL_NOT_FOUND));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.LABEL_NOT_FOUND)));
         apiDelete(bob, LABELS + "/" + label).andExpect(status().isNotFound());
         apiPut(bob, LABELS + "/" + label + "/favorite", null).andExpect(status().isNotFound());
         apiDelete(bob, LABELS + "/" + label + "/favorite").andExpect(status().isNotFound());

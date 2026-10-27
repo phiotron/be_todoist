@@ -1,7 +1,7 @@
 package com.taskly.dto.search;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +36,7 @@ public record SearchQuery(String normalized, List<String> terms) {
         }
         String trimmed = EDGE_WHITESPACE.matcher(Normalizer.normalize(raw, Normalizer.Form.NFC)).replaceAll("");
         if (trimmed.codePointCount(0, trimmed.length()) > MAX_LENGTH) {
-            throw ApiException.badRequest(ProblemTexts.SEARCH_QUERY_TOO_LONG);
+            throw ApiException.badRequest(ErrorMessage.SEARCH_QUERY_TOO_LONG);
         }
         if (trimmed.isEmpty()) {
             return Optional.empty();

@@ -1,5 +1,7 @@
 package com.taskly.common.web;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -13,10 +15,10 @@ import org.junit.jupiter.api.Test;
 
 class CursorCodecTest {
 
-    private static void assertBadRequest(Runnable action, String detail) {
+    private static void assertBadRequest(Runnable action, ErrorMessage detail) {
         assertThatThrownBy(action::run).isInstanceOfSatisfying(ApiException.class, ex -> {
             assertThat(ex.getStatusCode().value()).isEqualTo(400);
-            assertThat(ex.getBody().getDetail()).isEqualTo(detail);
+            assertThat(ex.getErrorMessage()).isEqualTo(detail);
         });
     }
 
@@ -41,23 +43,23 @@ class CursorCodecTest {
     @Test
     void cursorOfAnotherKindOrWrongArity_isRejected() {
         String cursor = CursorCodec.encode("today", List.of("a", "b"));
-        assertBadRequest(() -> CursorCodec.decode("upcoming", cursor, 2), "Con trỏ phân trang không hợp lệ");
-        assertBadRequest(() -> CursorCodec.decode("today", cursor, 3), "Con trỏ phân trang không hợp lệ");
+        assertBadRequest(() -> CursorCodec.decode("upcoming", cursor, 2), ErrorMessage.INVALID_CURSOR);
+        assertBadRequest(() -> CursorCodec.decode("today", cursor, 3), ErrorMessage.INVALID_CURSOR);
     }
 
     @Test
     void garbageCursor_isRejected() {
-        assertBadRequest(() -> CursorCodec.decode("today", "%%%not-base64%%%", 1), "Con trỏ phân trang không hợp lệ");
-        assertBadRequest(() -> CursorCodec.decode("today", "", 1), "Con trỏ phân trang không hợp lệ");
-        assertBadRequest(() -> CursorCodec.decode("today", "a".repeat(5000), 1), "Con trỏ phân trang không hợp lệ");
+        assertBadRequest(() -> CursorCodec.decode("today", "%%%not-base64%%%", 1), ErrorMessage.INVALID_CURSOR);
+        assertBadRequest(() -> CursorCodec.decode("today", "", 1), ErrorMessage.INVALID_CURSOR);
+        assertBadRequest(() -> CursorCodec.decode("today", "a".repeat(5000), 1), ErrorMessage.INVALID_CURSOR);
     }
 
     @Test
     void valueOfWrongType_isRejected() {
         CursorCodec.Cursor decoded = CursorCodec.decode("k", CursorCodec.encode("k", List.of("abc")), 1);
-        assertBadRequest(() -> decoded.uuid(0), "Con trỏ phân trang không hợp lệ");
-        assertBadRequest(() -> decoded.instant(0), "Con trỏ phân trang không hợp lệ");
-        assertBadRequest(() -> decoded.longValue(0), "Con trỏ phân trang không hợp lệ");
+        assertBadRequest(() -> decoded.uuid(0), ErrorMessage.INVALID_CURSOR);
+        assertBadRequest(() -> decoded.instant(0), ErrorMessage.INVALID_CURSOR);
+        assertBadRequest(() -> decoded.longValue(0), ErrorMessage.INVALID_CURSOR);
     }
 
     @Test
@@ -65,8 +67,8 @@ class CursorCodecTest {
         assertThat(CursorCodec.limit(null)).isEqualTo(50);
         assertThat(CursorCodec.limit(1)).isEqualTo(1);
         assertThat(CursorCodec.limit(200)).isEqualTo(200);
-        assertBadRequest(() -> CursorCodec.limit(0), "limit phải từ 1 đến 200");
-        assertBadRequest(() -> CursorCodec.limit(201), "limit phải từ 1 đến 200");
+        assertBadRequest(() -> CursorCodec.limit(0), ErrorMessage.INVALID_LIMIT);
+        assertBadRequest(() -> CursorCodec.limit(201), ErrorMessage.INVALID_LIMIT);
     }
 
     @Test

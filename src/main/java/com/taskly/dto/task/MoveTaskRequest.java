@@ -1,6 +1,5 @@
 package com.taskly.dto.task;
 
-import com.taskly.common.error.ProblemTexts;
 import jakarta.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,7 +12,7 @@ import java.util.UUID;
  * TaskBatchService (Part 3) tạo request với afterId = null (= cuối).
  */
 public record MoveTaskRequest(
-        @NotNull(message = ProblemTexts.PROJECT_ID_REQUIRED)
+        @NotNull(message = "{error.project-id-required}")
         UUID projectId,
 
         UUID sectionId,

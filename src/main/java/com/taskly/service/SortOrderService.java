@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class SortOrderService {
                 }
             }
             if (index < 0) {
-                throw ApiException.badRequest(ProblemTexts.AFTER_ID_NOT_IN_CONTAINER);
+                throw ApiException.badRequest(ErrorMessage.AFTER_ID_NOT_IN_CONTAINER);
             }
         }
         long previous = index < 0 ? 0 : siblings.get(index).sortOrder();

@@ -1,8 +1,8 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.label.CreateLabelRequest;
 import com.taskly.dto.label.LabelResponse;
@@ -136,7 +136,7 @@ public class LabelService {
     @Transactional(readOnly = true)
     public Label requireOwned(UUID userId, UUID labelId) {
         return labelRepository.findByIdAndUserId(labelId, userId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.LABEL_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.LABEL_NOT_FOUND));
     }
 
     /**
@@ -156,7 +156,7 @@ public class LabelService {
             return;
         }
         if (labelRepository.findByUserIdAndIdIn(userId, wanted).size() != wanted.size()) {
-            throw ApiException.notFound(ProblemTexts.LABEL_NOT_FOUND);
+            throw ApiException.notFound(ErrorMessage.LABEL_NOT_FOUND);
         }
     }
 
@@ -199,11 +199,11 @@ public class LabelService {
     }
 
     private static ApiException nameTaken() {
-        return ApiException.conflict(ProblemTexts.LABEL_NAME_TAKEN).withCode(ProblemCodes.LABEL_NAME_TAKEN);
+        return ApiException.conflict(ErrorMessage.LABEL_NAME_TAKEN).withCode(ProblemCodes.LABEL_NAME_TAKEN);
     }
 
     /** `id` client trùng id có sẵn nhưng khác nội dung / của người khác (spec 12.11) — không lộ gì thêm. */
     private static ApiException idConflict() {
-        return ApiException.conflict(ProblemTexts.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
+        return ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
     }
 }

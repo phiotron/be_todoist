@@ -1,5 +1,7 @@
 package com.taskly.security;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,9 +28,9 @@ class AccessPolicyTest extends IntegrationTestBase {
         UUID workspace = workspaceOf(alice.id());
 
         assertThat(accessPolicy.canRead(alice.id(), workspace)).isTrue();
-        assertThatCode(() -> accessPolicy.checkRead(alice.id(), workspace, "Không tìm thấy dự án"))
+        assertThatCode(() -> accessPolicy.checkRead(alice.id(), workspace, ErrorMessage.PROJECT_NOT_FOUND))
                 .doesNotThrowAnyException();
-        assertThatCode(() -> accessPolicy.checkWrite(alice.id(), workspace, "Không tìm thấy dự án"))
+        assertThatCode(() -> accessPolicy.checkWrite(alice.id(), workspace, ErrorMessage.PROJECT_NOT_FOUND))
                 .doesNotThrowAnyException();
         assertThat(accessPolicy.readableWorkspaceIds(alice.id())).containsExactly(workspace);
     }
@@ -40,10 +42,10 @@ class AccessPolicyTest extends IntegrationTestBase {
         UUID aliceWorkspace = workspaceOf(alice.id());
 
         assertThat(accessPolicy.canRead(bob.id(), aliceWorkspace)).isFalse();
-        assertThatThrownBy(() -> accessPolicy.checkWrite(bob.id(), aliceWorkspace, "Không tìm thấy công việc"))
+        assertThatThrownBy(() -> accessPolicy.checkWrite(bob.id(), aliceWorkspace, ErrorMessage.TASK_NOT_FOUND))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(404);
-                    assertThat(ex.getBody().getDetail()).isEqualTo("Không tìm thấy công việc");
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.TASK_NOT_FOUND);
                 });
         assertThat(accessPolicy.readableWorkspaceIds(bob.id())).doesNotContain(aliceWorkspace);
     }

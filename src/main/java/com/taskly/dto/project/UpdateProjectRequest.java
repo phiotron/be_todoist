@@ -1,6 +1,5 @@
 package com.taskly.dto.project;
 
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.ProjectColor;
 import jakarta.validation.constraints.Size;
 
@@ -9,12 +8,12 @@ import jakarta.validation.constraints.Size;
  * Đổi cha dùng POST projects/{id}/move (Task 13).
  */
 public record UpdateProjectRequest(
-        @Size(min = 1, max = 120, message = ProblemTexts.PROJECT_NAME_SIZE)
+        @Size(min = 1, max = 120, message = "{error.project-name-size}")
         String name,
 
         ProjectColor color,
 
-        @Size(max = 16383, message = ProblemTexts.DESCRIPTION_SIZE)
+        @Size(max = 16383, message = "{error.description-size}")
         String description) {
 
     public UpdateProjectRequest {

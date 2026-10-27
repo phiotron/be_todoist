@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,11 +68,11 @@ class TaskDueRulesTest {
         LocalDateTime nine = LocalDateTime.of(2026, 10, 25, 9, 0);
         assertThatThrownBy(() -> TaskDueRules.checkSingleDue(LocalDate.of(2026, 10, 25), nine))
                 .isInstanceOfSatisfying(ApiException.class, ex ->
-                        assertThat(ex.getBody().getDetail()).isEqualTo("Chỉ được đặt một trong dueDate hoặc dueDatetime"));
+                        assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.DUE_CONFLICT));
         assertThatThrownBy(() -> TaskDueRules.checkDuration(null, 30))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                    assertThat(ex.getBody().getDetail()).isEqualTo("Chỉ đặt được thời lượng cho công việc có giờ");
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.DURATION_NEEDS_TIME);
                 });
         assertThatCode(() -> TaskDueRules.checkDuration(nine, 30)).doesNotThrowAnyException();
         assertThatCode(() -> TaskDueRules.checkDuration(null, null)).doesNotThrowAnyException();

@@ -1,10 +1,12 @@
 package com.taskly.repository.listing;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,7 +65,7 @@ class KeysetSqlTest {
                 () -> KeyKind.ID.bind("nope"),
                 () -> KeyKind.LONG_ARRAY.bind("1,a"))) {
             assertThatThrownBy(bad::run).isInstanceOfSatisfying(ApiException.class,
-                    ex -> assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.INVALID_CURSOR));
+                    ex -> assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.INVALID_CURSOR));
         }
     }
 }

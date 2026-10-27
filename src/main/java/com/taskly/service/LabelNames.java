@@ -1,7 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import java.text.Normalizer;
 import java.util.regex.Pattern;
 
@@ -17,15 +17,15 @@ public final class LabelNames {
 
     public static String normalize(String raw) {
         if (raw == null) {
-            throw ApiException.badRequest(ProblemTexts.LABEL_NAME_SIZE);
+            throw ApiException.badRequest(ErrorMessage.LABEL_NAME_SIZE);
         }
         String name = Normalizer.normalize(raw, Normalizer.Form.NFC).strip();
         int length = name.codePointCount(0, name.length());
         if (length < 1 || length > MAX_LENGTH) {
-            throw ApiException.badRequest(ProblemTexts.LABEL_NAME_SIZE);
+            throw ApiException.badRequest(ErrorMessage.LABEL_NAME_SIZE);
         }
         if (FORBIDDEN.matcher(name).find()) {
-            throw ApiException.badRequest(ProblemTexts.LABEL_NAME_CHARS);
+            throw ApiException.badRequest(ErrorMessage.LABEL_NAME_CHARS);
         }
         return name;
     }

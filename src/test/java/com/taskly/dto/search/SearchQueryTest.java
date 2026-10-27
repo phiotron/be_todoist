@@ -1,10 +1,12 @@
 package com.taskly.dto.search;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+
 import org.junit.jupiter.api.Test;
 
 /** Unit thuần: chuẩn hoá từ khoá, tách từ, giới hạn 100 ký tự, escape LIKE, '*' đại diện (spec 12.6, 5.9). */
@@ -45,7 +47,7 @@ class SearchQueryTest {
         assertThatThrownBy(() -> SearchQuery.parse(raw))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                    assertThat(ex.getBody().getDetail()).isEqualTo(ProblemTexts.SEARCH_QUERY_TOO_LONG);
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.SEARCH_QUERY_TOO_LONG);
                 });
     }
 

@@ -1,11 +1,13 @@
 package com.taskly.controller;
 
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.support.Texts;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.taskly.common.error.ProblemTexts;
+
 import com.taskly.support.M2ApiTestBase;
 import com.taskly.support.M2TestData.TaskSpec;
 import java.time.Instant;
@@ -122,7 +124,7 @@ class TaskDisplayApiTest extends M2ApiTestBase {
     @Test
     void today_filterDueNoDateIs400_upcomingNoDateAndOverdueAre400() throws Exception {
         apiGet(token, TASKS, join(TODAY, "filterDue", "no_date")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         apiGet(token, TASKS, "view", "upcoming", "filterDue", "no_date").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "view", "upcoming", "filterDue", "overdue").andExpect(status().isBadRequest());
         apiGet(token, TASKS, join(TODAY, "filterDue", "overdue")).andExpect(status().isOk());
@@ -137,19 +139,19 @@ class TaskDisplayApiTest extends M2ApiTestBase {
             apiGet(token, TASKS, join(TODAY, bad)).andExpect(status().isBadRequest());
         }
         apiGet(token, TASKS, "view", "today", "sort", "manual").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         apiGet(token, TASKS, "view", "overdue", "sort", "date").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         apiGet(token, TASKS, "view", "completed", "sort", "date").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));   // màn Completed toàn cục là của M1
+                .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));   // màn Completed toàn cục là của M1
         apiGet(token, TASKS, "view", "today", "since", "2026-11-01", "sort", "date").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "view", "today", "to", "2026-11-09", "sort", "date").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "view", "today", "projectId", inbox.toString(), "sort", "date")
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.detail").value(ProblemTexts.TASK_LIST_SELECTOR));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.TASK_LIST_SELECTOR)));
         apiGet(token, TASKS, "view", "today", "from", "2026-11-05", "sort", "date").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "view", "today", "completed", "true", "sort", "date").andExpect(status().isBadRequest());
         apiGet(token, TASKS, "projectId", inbox.toString(), "completed", "true", "sort", "name")
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.detail").value(ProblemTexts.DISPLAY_INVALID));
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
     }
 
     @Test

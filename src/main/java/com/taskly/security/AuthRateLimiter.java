@@ -1,7 +1,7 @@
 package com.taskly.security;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
@@ -43,7 +43,7 @@ public class AuthRateLimiter {
     private void enforce(RateLimiter target, String action, HttpServletRequest request) {
         RateLimiter.Decision decision = target.tryAcquire(action + ":" + request.getRemoteAddr(), clock.instant());
         if (!decision.allowed()) {
-            throw ApiException.tooManyRequests(ProblemTexts.TOO_MANY_REQUESTS, decision.retryAfterSeconds());
+            throw ApiException.tooManyRequests(ErrorMessage.TOO_MANY_REQUESTS, decision.retryAfterSeconds());
         }
     }
 

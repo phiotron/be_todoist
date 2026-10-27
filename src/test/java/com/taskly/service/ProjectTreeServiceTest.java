@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,10 +36,10 @@ class ProjectTreeServiceTest {
                 new Node(a2, a, 1024)));
     }
 
-    private static void assertBadRequest(Runnable action, String detail) {
+    private static void assertBadRequest(Runnable action, ErrorMessage detail) {
         assertThatThrownBy(action::run).isInstanceOfSatisfying(ApiException.class, ex -> {
             assertThat(ex.getStatusCode().value()).isEqualTo(400);
-            assertThat(ex.getBody().getDetail()).isEqualTo(detail);
+            assertThat(ex.getErrorMessage()).isEqualTo(detail);
         });
     }
 
@@ -63,10 +65,10 @@ class ProjectTreeServiceTest {
     void attach_respectsMaxThreeLevels_includingMovedSubtreeHeight() {
         Tree tree = tree();
         assertThatCode(() -> service.checkCanAttach(tree, null, a1)).doesNotThrowAnyException(); // mới ở cấp 3
-        assertBadRequest(() -> service.checkCanAttach(tree, null, a11), "Dự án con tối đa 3 cấp");
+        assertBadRequest(() -> service.checkCanAttach(tree, null, a11), ErrorMessage.PROJECT_TOO_DEEP);
         assertThatCode(() -> service.checkCanAttach(tree, b, a1)).doesNotThrowAnyException();
         assertThatCode(() -> service.checkCanAttach(tree, a1, b)).doesNotThrowAnyException(); // cao 2 dưới cấp 1 → 3
-        assertBadRequest(() -> service.checkCanAttach(tree, a1, a2), "Dự án con tối đa 3 cấp"); // cao 2 dưới cấp 2 → 4
+        assertBadRequest(() -> service.checkCanAttach(tree, a1, a2), ErrorMessage.PROJECT_TOO_DEEP); // cao 2 dưới cấp 2 → 4
         assertThatCode(() -> service.checkCanAttach(tree, a1, null)).doesNotThrowAnyException(); // thành gốc
     }
 
@@ -74,8 +76,8 @@ class ProjectTreeServiceTest {
     void attachUnderItselfOrDescendant_isCycle() {
         Tree tree = tree();
         assertBadRequest(() -> service.checkCanAttach(tree, a, a),
-                "Không thể đặt dự án làm con của chính nó hoặc của dự án con của nó");
+                ErrorMessage.PROJECT_CYCLE);
         assertBadRequest(() -> service.checkCanAttach(tree, a, a11),
-                "Không thể đặt dự án làm con của chính nó hoặc của dự án con của nó");
+                ErrorMessage.PROJECT_CYCLE);
     }
 }

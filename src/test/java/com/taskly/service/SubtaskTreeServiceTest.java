@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,10 +42,10 @@ class SubtaskTreeServiceTest {
                 new Node(s, null, 2048, null)));
     }
 
-    private static void assertBadRequest(Runnable action, String detail) {
+    private static void assertBadRequest(Runnable action, ErrorMessage detail) {
         assertThatThrownBy(action::run).isInstanceOfSatisfying(ApiException.class, ex -> {
             assertThat(ex.getStatusCode().value()).isEqualTo(400);
-            assertThat(ex.getBody().getDetail()).isEqualTo(detail);
+            assertThat(ex.getErrorMessage()).isEqualTo(detail);
         });
     }
 
@@ -67,7 +69,7 @@ class SubtaskTreeServiceTest {
     void newSubtaskUnderLevel3_isAllowed_underLevel4_isTooDeep() {
         Tree tree = tree();
         assertThatCode(() -> service.checkCanAttach(tree, null, a1)).doesNotThrowAnyException();
-        assertBadRequest(() -> service.checkCanAttach(tree, null, a11), "Công việc con tối đa 4 cấp");
+        assertBadRequest(() -> service.checkCanAttach(tree, null, a11), ErrorMessage.SUBTASK_TOO_DEEP);
     }
 
     @Test
@@ -76,16 +78,16 @@ class SubtaskTreeServiceTest {
         // a (cao 3) dưới s (cấp 1) → sâu nhất cấp 4: được
         assertThatCode(() -> service.checkCanAttach(tree, a, s)).doesNotThrowAnyException();
         // a (cao 3) dưới b (cấp 2) → cấp 5: quá sâu (kiểm trước "cha đã xong")
-        assertBadRequest(() -> service.checkCanAttach(tree, a, b), "Công việc con tối đa 4 cấp");
+        assertBadRequest(() -> service.checkCanAttach(tree, a, b), ErrorMessage.SUBTASK_TOO_DEEP);
     }
 
     @Test
     void attachingUnderItselfOrDescendant_isCycle() {
         Tree tree = tree();
         assertBadRequest(() -> service.checkCanAttach(tree, a, a),
-                "Không thể đặt công việc làm con của chính nó hoặc của con cháu nó");
+                ErrorMessage.SUBTASK_CYCLE);
         assertBadRequest(() -> service.checkCanAttach(tree, r, a11),
-                "Không thể đặt công việc làm con của chính nó hoặc của con cháu nó");
+                ErrorMessage.SUBTASK_CYCLE);
     }
 
     @Test
@@ -93,7 +95,7 @@ class SubtaskTreeServiceTest {
         Tree tree = tree();
         assertThatThrownBy(() -> service.checkCanAttach(tree, s, b)).isInstanceOfSatisfying(ApiException.class, ex -> {
             assertThat(ex.getStatusCode().value()).isEqualTo(409);
-            assertThat(ex.getBody().getDetail()).isEqualTo("Công việc cha đã hoàn thành");
+            assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.PARENT_COMPLETED);
             assertThat(ex.getBody().getProperties()).containsEntry("code", "parent-completed");
         });
         assertThatThrownBy(() -> service.checkCanAttach(tree, null, b)).isInstanceOf(ApiException.class);

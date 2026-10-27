@@ -1,6 +1,7 @@
 package com.taskly.security;
 
 import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.repository.WorkspaceMemberRepository;
 import java.util.List;
 import java.util.UUID;
@@ -24,13 +25,13 @@ public class AccessPolicy {
         return memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId);
     }
 
-    public void checkRead(UUID userId, UUID workspaceId, String notFoundDetail) {
+    public void checkRead(UUID userId, UUID workspaceId, ErrorMessage notFoundDetail) {
         if (!canRead(userId, workspaceId)) {
             throw ApiException.notFound(notFoundDetail);
         }
     }
 
-    public void checkWrite(UUID userId, UUID workspaceId, String notFoundDetail) {
+    public void checkWrite(UUID userId, UUID workspaceId, ErrorMessage notFoundDetail) {
         checkRead(userId, workspaceId, notFoundDetail);
     }
 

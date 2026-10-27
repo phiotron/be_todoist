@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -66,7 +68,7 @@ class SortOrderServiceTest {
         assertThatThrownBy(() -> service.placeAfter(List.of(new Item(a, 1024)), UUID.randomUUID()))
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(400);
-                    assertThat(ex.getBody().getDetail()).isEqualTo("afterId phải cùng vùng chứa");
+                    assertThat(ex.getErrorMessage()).isEqualTo(ErrorMessage.AFTER_ID_NOT_IN_CONTAINER);
                 });
     }
 

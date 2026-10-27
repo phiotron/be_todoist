@@ -1,6 +1,6 @@
 package com.taskly.security;
 
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.util.UUID;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
@@ -16,7 +16,7 @@ public final class CurrentUser {
         try {
             return UUID.fromString(jwt.getSubject());
         } catch (IllegalArgumentException | NullPointerException e) {
-            throw new InvalidBearerTokenException(ProblemTexts.SESSION_INVALID);
+            throw new InvalidBearerTokenException(ErrorMessage.SESSION_INVALID.key());
         }
     }
 }

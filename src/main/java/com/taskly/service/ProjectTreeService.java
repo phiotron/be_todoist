@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -114,11 +114,11 @@ public class ProjectTreeService {
             return;
         }
         if (movingId != null && (movingId.equals(newParentId) || descendants(tree, movingId).contains(newParentId))) {
-            throw ApiException.badRequest(ProblemTexts.PROJECT_CYCLE);
+            throw ApiException.badRequest(ErrorMessage.PROJECT_CYCLE);
         }
         int subtreeHeight = movingId == null ? 1 : height(tree, movingId);
         if (depth(tree, newParentId) + subtreeHeight > MAX_DEPTH) {
-            throw ApiException.badRequest(ProblemTexts.PROJECT_TOO_DEEP);
+            throw ApiException.badRequest(ErrorMessage.PROJECT_TOO_DEEP);
         }
     }
 }

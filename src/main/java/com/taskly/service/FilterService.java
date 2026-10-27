@@ -1,8 +1,8 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.filter.CreateFilterRequest;
 import com.taskly.dto.filter.FilterResponse;
@@ -145,7 +145,7 @@ public class FilterService {
     @Transactional(readOnly = true)
     public ValidateFilterResponse validate(UUID userId, String query) {
         if (query.length() > FilterQueryParser.MAX_LENGTH) {
-            throw ApiException.badRequest(ProblemTexts.FILTER_QUERY_SIZE);
+            throw ApiException.badRequest(ErrorMessage.FILTER_QUERY_SIZE);
         }
         try {
             FilterQueryParser.parseAll(query, dateOrder(userId));
@@ -159,7 +159,7 @@ public class FilterService {
     @Transactional(readOnly = true)
     public Filter requireOwned(UUID userId, UUID filterId) {
         return filterRepository.findByIdAndUserId(filterId, userId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.FILTER_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.FILTER_NOT_FOUND));
     }
 
     /**
@@ -178,12 +178,12 @@ public class FilterService {
 
     private static String normalizeName(String raw) {
         if (raw == null) {
-            throw ApiException.badRequest(ProblemTexts.FILTER_NAME_SIZE);
+            throw ApiException.badRequest(ErrorMessage.FILTER_NAME_SIZE);
         }
         String name = Normalizer.normalize(raw, Normalizer.Form.NFC).strip();
         int length = name.codePointCount(0, name.length());
         if (length < 1 || length > MAX_NAME_LENGTH) {
-            throw ApiException.badRequest(ProblemTexts.FILTER_NAME_SIZE);
+            throw ApiException.badRequest(ErrorMessage.FILTER_NAME_SIZE);
         }
         return name;
     }
@@ -191,7 +191,7 @@ public class FilterService {
     /** Query lưu nguyên văn: rỗng / > 1024 → FILTER_QUERY_SIZE; cú pháp sai ở bất kỳ phần nào → filter-syntax. */
     private static String checkQuery(String raw, DateOrder order) {
         if (raw == null || raw.isBlank() || raw.length() > FilterQueryParser.MAX_LENGTH) {
-            throw ApiException.badRequest(ProblemTexts.FILTER_QUERY_SIZE);
+            throw ApiException.badRequest(ErrorMessage.FILTER_QUERY_SIZE);
         }
         try {
             FilterQueryParser.parseAll(raw, order);
@@ -232,7 +232,7 @@ public class FilterService {
 
     /** `id` client trùng id có sẵn nhưng khác nội dung / của người khác (spec 12.11) — không lộ gì thêm. */
     private static ApiException idConflict() {
-        return ApiException.conflict(ProblemTexts.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
+        return ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
     }
 }
 

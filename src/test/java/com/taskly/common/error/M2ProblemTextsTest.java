@@ -2,31 +2,32 @@ package com.taskly.common.error;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.taskly.support.Texts;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** Mọi câu lỗi M2 nằm ở ProblemTexts, mọi `code` M2 nằm ở ProblemCodes (M3 sẽ chuyển câu thành key i18n như hằng M1). */
+/** Mọi câu lỗi M2 nằm ở ErrorMessage + messages_vi.properties, mọi `code` M2 nằm ở ProblemCodes (M3 sẽ chuyển câu thành key i18n như hằng M1). */
 class M2ProblemTextsTest {
 
     @Test
     void m2Texts_areNonBlankAndDistinct() {
         List<String> texts = List.of(
-                ProblemTexts.SEARCH_QUERY_TOO_LONG,
-                ProblemTexts.LABEL_NOT_FOUND,
-                ProblemTexts.LABEL_NAME_SIZE,
-                ProblemTexts.LABEL_NAME_CHARS,
-                ProblemTexts.LABEL_NAME_TAKEN,
-                ProblemTexts.LABELS_PER_TASK,
-                ProblemTexts.FILTER_NOT_FOUND,
-                ProblemTexts.FILTER_NAME_SIZE,
-                ProblemTexts.FILTER_QUERY_SIZE,
-                ProblemTexts.FILTER_SYNTAX,
-                ProblemTexts.VIEW_KEY_INVALID,
-                ProblemTexts.DISPLAY_INVALID,
-                ProblemTexts.TASK_LIST_SELECTOR,
-                ProblemTexts.BATCH_LABEL_IDS,
-                ProblemTexts.ID_CONFLICT,
-                ProblemTexts.UPCOMING_WINDOW_INVALID);
+                Texts.vi(ErrorMessage.SEARCH_QUERY_TOO_LONG),
+                Texts.vi(ErrorMessage.LABEL_NOT_FOUND),
+                Texts.vi(ErrorMessage.LABEL_NAME_SIZE),
+                Texts.vi(ErrorMessage.LABEL_NAME_CHARS),
+                Texts.vi(ErrorMessage.LABEL_NAME_TAKEN),
+                Texts.vi(ErrorMessage.LABELS_PER_TASK),
+                Texts.vi(ErrorMessage.FILTER_NOT_FOUND),
+                Texts.vi(ErrorMessage.FILTER_NAME_SIZE),
+                Texts.vi(ErrorMessage.FILTER_QUERY_SIZE),
+                Texts.vi(ErrorMessage.FILTER_SYNTAX),
+                Texts.vi(ErrorMessage.VIEW_KEY_INVALID),
+                Texts.vi(ErrorMessage.DISPLAY_INVALID),
+                Texts.vi(ErrorMessage.TASK_LIST_SELECTOR),
+                Texts.vi(ErrorMessage.BATCH_LABEL_IDS),
+                Texts.vi(ErrorMessage.ID_CONFLICT),
+                Texts.vi(ErrorMessage.UPCOMING_WINDOW_INVALID));
 
         assertThat(texts).doesNotHaveDuplicates().allSatisfy(text -> assertThat(text).isNotBlank());
     }
@@ -43,9 +44,9 @@ class M2ProblemTextsTest {
     /** Câu M2 đã được các task thuần dùng tạm ở nơi khác — gộp về ProblemTexts, giữ nguyên từng chữ. */
     @Test
     void m2Texts_keepWordingUsedByPureTasks() {
-        assertThat(ProblemTexts.SEARCH_QUERY_TOO_LONG).isEqualTo("Từ khoá tìm kiếm tối đa 100 ký tự");
-        assertThat(ProblemTexts.FILTER_SYNTAX).isEqualTo("Truy vấn filter sai cú pháp");
-        assertThat(ProblemTexts.VIEW_KEY_INVALID).isEqualTo("Khoá view không hợp lệ");
-        assertThat(ProblemTexts.DISPLAY_INVALID).isEqualTo("Tuỳ chọn hiển thị không hợp lệ với view này");
+        assertThat(Texts.vi(ErrorMessage.SEARCH_QUERY_TOO_LONG)).isEqualTo("Từ khoá tìm kiếm tối đa 100 ký tự");
+        assertThat(Texts.vi(ErrorMessage.FILTER_SYNTAX)).isEqualTo("Truy vấn filter sai cú pháp");
+        assertThat(Texts.vi(ErrorMessage.VIEW_KEY_INVALID)).isEqualTo("Khoá view không hợp lệ");
+        assertThat(Texts.vi(ErrorMessage.DISPLAY_INVALID)).isEqualTo("Tuỳ chọn hiển thị không hợp lệ với view này");
     }
 }

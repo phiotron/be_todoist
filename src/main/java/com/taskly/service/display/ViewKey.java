@@ -1,7 +1,7 @@
 package com.taskly.service.display;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -22,7 +22,7 @@ public record ViewKey(ViewKind kind, UUID id) {
         }
         Matcher matcher = raw == null ? null : ENTITY_KEY.matcher(raw);
         if (matcher == null || !matcher.matches()) {
-            throw ApiException.badRequest(ProblemTexts.VIEW_KEY_INVALID);
+            throw ApiException.badRequest(ErrorMessage.VIEW_KEY_INVALID);
         }
         return new ViewKey(ViewKind.valueOf(matcher.group(1).toUpperCase(Locale.ROOT)),
                 UUID.fromString(matcher.group(2)));

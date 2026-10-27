@@ -2,7 +2,7 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.project.CreateProjectRequest;
 import com.taskly.dto.project.MoveProjectRequest;
@@ -177,7 +177,7 @@ public class ProjectService {
     public ProjectResponse move(UUID userId, UUID projectId, MoveProjectRequest request) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         requireNotArchived(project);
         UUID workspaceId = project.getWorkspace().getId();
         usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): hai move ngược chiều không tạo vòng lặp
@@ -204,7 +204,7 @@ public class ProjectService {
     public ProjectResponse archive(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước: tuần tự hoá với create / move / unarchive
         refresh(project); // bản nạp trước khoá có thể cũ: archive khác vừa commit → không ghi đè archived_at
         if (!project.isArchived()) {
@@ -224,7 +224,7 @@ public class ProjectService {
     public ProjectResponse unarchive(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         UUID workspaceId = project.getWorkspace().getId();
         usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): khoá TRƯỚC khi đếm
         refresh(project); // đọc lại sau khoá: unarchive khác song song đã khôi phục / detach xong → không kiểm trên bản cũ
@@ -255,7 +255,7 @@ public class ProjectService {
     public void delete(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước, rồi hàng dự án id TĂNG DẦN: DB cascade xoá
         refresh(project);                                          // theo thứ tự tuỳ ý → khoá trước để không deadlock
         List<UUID> ids = withDescendants(project);                 // với archive / task move
@@ -269,11 +269,11 @@ public class ProjectService {
     // ---- Tra cứu cho service khác ----
 
     public Project requireReadable(UUID userId, UUID projectId) {
-        return requireReadable(userId, projectId, ProblemTexts.PROJECT_NOT_FOUND);
+        return requireReadable(userId, projectId, ErrorMessage.PROJECT_NOT_FOUND);
     }
 
     /** notFoundDetail: câu 404 theo ngữ cảnh (vd tra dự án của một task → "Không tìm thấy công việc"). */
-    public Project requireReadable(UUID userId, UUID projectId, String notFoundDetail) {
+    public Project requireReadable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ApiException.notFound(notFoundDetail));
         accessPolicy.checkRead(userId, project.getWorkspace().getId(), notFoundDetail);
@@ -281,11 +281,11 @@ public class ProjectService {
     }
 
     public Project requireWritable(UUID userId, UUID projectId) {
-        return requireWritable(userId, projectId, ProblemTexts.PROJECT_NOT_FOUND);
+        return requireWritable(userId, projectId, ErrorMessage.PROJECT_NOT_FOUND);
     }
 
     /** Như requireReadable + dự án lưu trữ là chỉ đọc → 409 project-archived (spec 5.7). */
-    public Project requireWritable(UUID userId, UUID projectId, String notFoundDetail) {
+    public Project requireWritable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
         Project project = requireReadable(userId, projectId, notFoundDetail);
         accessPolicy.checkWrite(userId, project.getWorkspace().getId(), notFoundDetail);
         requireNotArchived(project);
@@ -295,7 +295,7 @@ public class ProjectService {
     /** Dự án đích khi tạo / chuyển task (BR-08): không thấy → 404; của mình nhưng đang lưu trữ → 422 target-archived. */
     public Project requireTarget(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         if (project.isArchived()) {
             throw targetArchived();
         }
@@ -336,7 +336,7 @@ public class ProjectService {
     /** Như recheckAfterLock(Project, false) nhưng theo id (caller chưa có thực thể): nạp rồi đọc lại. */
     public Project recheckWritableAfterLock(UUID projectId) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.PROJECT_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.PROJECT_NOT_FOUND));
         return recheckAfterLock(project, false);
     }
 
@@ -352,7 +352,7 @@ public class ProjectService {
 
     public Project inboxOf(UUID userId) {
         return projectRepository.findInboxOfUser(userId)
-                .orElseThrow(() -> ApiException.unauthorized(ProblemTexts.SESSION_INVALID));
+                .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
     }
 
     /** Vùng chứa sắp xếp: dự án thường cùng (workspace, parentId) theo (sortOrder, id), gồm cả lưu trữ. */
@@ -366,10 +366,10 @@ public class ProjectService {
     private Project requireParent(UUID userId, UUID workspaceId, UUID parentId) {
         Project parent = requireReadable(userId, parentId);
         if (parent.isInbox()) {
-            throw ApiException.badRequest(ProblemTexts.INBOX_NOT_NESTABLE);
+            throw ApiException.badRequest(ErrorMessage.INBOX_NOT_NESTABLE);
         }
         if (!parent.getWorkspace().getId().equals(workspaceId)) {
-            throw ApiException.badRequest(ProblemTexts.CROSS_WORKSPACE_MOVE);
+            throw ApiException.badRequest(ErrorMessage.CROSS_WORKSPACE_MOVE);
         }
         if (parent.isArchived()) {
             throw targetArchived();
@@ -393,7 +393,7 @@ public class ProjectService {
         try {
             entityManager.refresh(project);
         } catch (jakarta.persistence.EntityNotFoundException e) {
-            throw ApiException.notFound(ProblemTexts.PROJECT_NOT_FOUND);
+            throw ApiException.notFound(ErrorMessage.PROJECT_NOT_FOUND);
         }
     }
 
@@ -434,18 +434,18 @@ public class ProjectService {
 
     private static void rejectInbox(Project project) {
         if (project.isInbox()) {
-            throw ApiException.forbidden(ProblemTexts.INBOX_PROTECTED);
+            throw ApiException.forbidden(ErrorMessage.INBOX_PROTECTED);
         }
     }
 
     private static void requireNotArchived(Project project) {
         if (project.isArchived()) {
-            throw ApiException.conflict(ProblemTexts.PROJECT_ARCHIVED).withCode(ProblemCodes.PROJECT_ARCHIVED);
+            throw ApiException.conflict(ErrorMessage.PROJECT_ARCHIVED).withCode(ProblemCodes.PROJECT_ARCHIVED);
         }
     }
 
     private static ApiException targetArchived() {
-        return ApiException.unprocessable(ProblemTexts.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
+        return ApiException.unprocessable(ErrorMessage.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
     }
 
     private static List<SortOrderService.Item> items(List<Project> projects) {
@@ -461,7 +461,7 @@ public class ProjectService {
                                                       CreateProjectRequest request) {
         boolean mine = existing.getWorkspace().getId().equals(workspace.getId());
         if (!mine || !sameContent(existing, request)) {
-            throw ApiException.conflict(ProblemTexts.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
+            throw ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
         }
         return Created.replay(toResponse(userId, existing));
     }

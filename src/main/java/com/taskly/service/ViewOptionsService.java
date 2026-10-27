@@ -1,7 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
 import com.taskly.dto.display.PutViewOptionsRequest;
 import com.taskly.dto.display.ViewOptionsResponse;
 import com.taskly.entity.ViewOption;
@@ -50,7 +50,7 @@ public class ViewOptionsService {
                 request.groupBy(), request.filterPriority(), request.filterLabelId(), request.filterDue()));
         boolean showCompleted = Boolean.TRUE.equals(request.showCompleted());
         if (showCompleted && !DisplayRules.allowsShowCompleted(key.kind())) {
-            throw ApiException.badRequest(ProblemTexts.DISPLAY_INVALID);
+            throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
         }
         if (request.filterLabelId() != null) {
             labelService.requireOwned(userId, request.filterLabelId());

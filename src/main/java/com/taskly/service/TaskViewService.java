@@ -1,7 +1,7 @@
 package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
-import com.taskly.common.error.ProblemTexts;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.web.CursorCodec;
 import com.taskly.dto.common.Page;
 import com.taskly.dto.task.TaskResponse;
@@ -72,16 +72,16 @@ public class TaskViewService {
     public Page<TaskResponse> list(UUID userId, TaskViewType view, UUID projectId, Boolean completed, LocalDate from,
                                    LocalDate to, LocalDate since, LocalDate until, String cursor, Integer limit) {
         if ((view == null) == (projectId == null)) {
-            throw ApiException.badRequest(ProblemTexts.TASK_LIST_SELECTOR);
+            throw ApiException.badRequest(ErrorMessage.TASK_LIST_SELECTOR);
         }
         if ((from != null || to != null) && view != TaskViewType.upcoming) {
-            throw ApiException.badRequest(ProblemTexts.FROM_ONLY_UPCOMING);
+            throw ApiException.badRequest(ErrorMessage.FROM_ONLY_UPCOMING);
         }
         if ((since != null || until != null) && view != TaskViewType.completed) {
-            throw ApiException.badRequest(ProblemTexts.SINCE_ONLY_COMPLETED);
+            throw ApiException.badRequest(ErrorMessage.SINCE_ONLY_COMPLETED);
         }
         if (Boolean.TRUE.equals(completed) && projectId == null) {
-            throw ApiException.badRequest(ProblemTexts.COMPLETED_ONLY_PROJECT);
+            throw ApiException.badRequest(ErrorMessage.COMPLETED_ONLY_PROJECT);
         }
         return projectId != null
                 ? listProject(userId, projectId, Boolean.TRUE.equals(completed), cursor, limit)
@@ -145,7 +145,7 @@ public class TaskViewService {
         LocalDate horizon = today.plusYears(UPCOMING_MAX_YEARS);
         if (last.isBefore(first) || ChronoUnit.DAYS.between(first, last) > UPCOMING_MAX_SPAN_DAYS
                 || first.isAfter(horizon) || last.isAfter(horizon)) {
-            throw ApiException.badRequest(ProblemTexts.UPCOMING_WINDOW_INVALID);
+            throw ApiException.badRequest(ErrorMessage.UPCOMING_WINDOW_INVALID);
         }
         return new UpcomingWindow(first, last);
     }
@@ -157,7 +157,7 @@ public class TaskViewService {
     private static Keyset completedKeyset(LocalDate since, LocalDate until, ZoneId zone,
                                           MapSqlParameterSource params) {
         if (since != null && until != null && since.isAfter(until)) {
-            throw ApiException.badRequest(ProblemTexts.COMPLETED_RANGE_INVALID);
+            throw ApiException.badRequest(ErrorMessage.COMPLETED_RANGE_INVALID);
         }
         StringBuilder filter = new StringBuilder("t.completed_at is not null and p.archived_at is null");
         if (since != null) {
@@ -194,7 +194,7 @@ public class TaskViewService {
     public List<TaskResponse> subtasks(UUID userId, UUID taskId) {
         List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
         repository.findOne(workspaceIds, taskId)
-                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
         Map<UUID, List<TaskView>> children = childrenByParent(repository.findSubtrees(workspaceIds, List.of(taskId)));
         List<TaskView> ordered = new ArrayList<>();
         appendChildren(taskId, children, ordered);
