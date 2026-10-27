@@ -2,6 +2,7 @@ package com.taskly.controller;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -233,5 +234,60 @@ class OpenApiDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.errors.type").value("array"))
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.status").exists())
                 .andExpect(jsonPath("$.components.schemas.ProblemDetail.properties.detail").exists());
+    }
+
+    @Test
+    void apiDocs_listsAllM2Endpoints() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/search'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/search/objects'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels/{labelId}'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels/{labelId}'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels/{labelId}/favorite'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/labels/{labelId}/favorite'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/validate'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/{filterId}'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/{filterId}'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/{filterId}/favorite'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/{filterId}/favorite'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/view-options'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/view-options/{viewKey}'].put").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/view-options/{viewKey}'].delete").exists());
+    }
+
+    @Test
+    void apiDocs_tasksListDeclaresM2Parameters() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/tasks'].get.parameters[*].name", hasItems("labelId", "filter",
+                        "sort", "order", "group", "filterPriority", "filterLabelId", "filterDue")))
+                .andExpect(jsonPath("$.paths['/api/v1/search'].get.parameters[*].name",
+                        hasItems("q", "completed", "cursor", "limit")));
+    }
+
+    @Test
+    void apiDocs_m2SchemasMatchContractForTypeGeneration() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.components.schemas.LabelResponse.required")
+                        .value(containsInAnyOrder("id", "name", "color", "isFavorite", "sortOrder")))
+                .andExpect(jsonPath("$.components.schemas.FilterResponse.required")
+                        .value(containsInAnyOrder("id", "name", "query", "color", "isFavorite", "sortOrder")))
+                .andExpect(jsonPath("$.components.schemas.ViewOptionsResponse.required").value(containsInAnyOrder(
+                        "viewKey", "sortBy", "sortDirection", "groupBy", "filterPriority", "filterLabelId",
+                        "filterDue", "showCompleted")))
+                .andExpect(jsonPath("$.components.schemas.ValidateFilterResponse.required").value(containsInAnyOrder("parts")))
+                .andExpect(jsonPath("$.components.schemas.SearchObjectsResponse.required")
+                        .value(containsInAnyOrder("projects", "sections", "labels", "filters")))
+                .andExpect(jsonPath("$.components.schemas.SectionSearchItem.required")
+                        .value(containsInAnyOrder("id", "projectId", "projectName", "name")))
+                .andExpect(jsonPath("$.components.schemas.CreateLabelRequest.properties.id").exists())
+                .andExpect(jsonPath("$.components.schemas.CreateFilterRequest.properties.id").exists())
+                .andExpect(jsonPath("$.components.schemas.TaskResponse.properties.labelIds").exists())
+                .andExpect(jsonPath("$.components.schemas.TaskResponse.required", hasItems("labelIds")))
+                .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum",
+                        hasItems("ADD_LABELS", "REMOVE_LABELS")));
     }
 }
