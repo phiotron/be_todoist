@@ -43,7 +43,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             "/api/v1/projects/{projectId}/sections",
             "/api/v1/tasks",
             "/api/v1/tasks/{taskId}/duplicate",
-            "/api/v1/tasks/batch").stream().map(PathPatternParser.defaultInstance::parse).toList();
+            "/api/v1/tasks/batch",
+            "/api/v1/tasks/{taskId}/reminders").stream().map(PathPatternParser.defaultInstance::parse).toList();
 
     /** Đường dẫn (requestURI) có nằm trong danh sách POST được bảo vệ không — test đơn vị gọi trực tiếp. */
     public static boolean covers(String requestUri) {

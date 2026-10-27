@@ -16,8 +16,6 @@ public record ReminderWindow(LocalDateTime now) {
 
     public static final int DEFAULT_LIMIT = 50;
     public static final int MAX_LIMIT = 50;
-    /** minuteOffset tối đa của nhắc tương đối = 7 ngày (spec 5.9). */
-    public static final int MAX_MINUTE_OFFSET = 10_080;
     public static final String AUTO_KEY_PREFIX = "auto:";
 
     public static ReminderWindow at(Instant instant, ZoneId zone) {
