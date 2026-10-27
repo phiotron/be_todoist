@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import com.taskly.common.web.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -58,6 +59,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             if (!(ex instanceof ApiException) && !(ex instanceof MethodArgumentNotValidException)) {
                 problem.setDetail(ProblemTexts.defaultDetail(problem.getStatus()));
             }
+            addRequestId(problem);
         }
         return response;
     }
@@ -105,6 +107,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
         body.setType(BLANK_TYPE);
         body.setTitle(ProblemTexts.title(status.value()));
+        addRequestId(body);
         return ResponseEntity.status(status).body(body);
+    }
+
+    /** Mọi ProblemDetail kèm requestId để người dùng báo lỗi và dev tra log (mục 5.9). */
+    private static void addRequestId(ProblemDetail problem) {
+        String requestId = RequestIdFilter.current();
+        if (requestId != null) {
+            problem.setProperty("requestId", requestId);
+        }
     }
 }

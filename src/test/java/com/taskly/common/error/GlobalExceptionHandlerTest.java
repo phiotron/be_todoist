@@ -1,5 +1,7 @@
 package com.taskly.common.error;
 
+import org.slf4j.MDC;
+
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.access.AccessDeniedException;
@@ -161,5 +163,27 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(409);
         assertThat(problem.getProperties()).containsEntry("code", "project-archived");
         assertThat(problem.getDetail()).isEqualTo("Dự án đã lưu trữ");
+    }
+
+    @Test
+    void problemDetail_includesRequestIdFromMdc() {
+        MDC.put("requestId", "rid-123");
+        try {
+            ProblemDetail problem = problemOf(handler.handleUnexpected(new IllegalStateException("x")));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-123");
+        } finally {
+            MDC.remove("requestId");
+        }
+    }
+
+    @Test
+    void frameworkProblemDetail_includesRequestIdFromMdc() throws Exception {
+        MDC.put("requestId", "rid-456");
+        try {
+            ProblemDetail problem = problemOf(handler.handleException(ApiException.notFound("Không tìm thấy dự án"), request()));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-456");
+        } finally {
+            MDC.remove("requestId");
+        }
     }
 }
