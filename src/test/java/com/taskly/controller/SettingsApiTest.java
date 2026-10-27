@@ -101,7 +101,7 @@ class SettingsApiTest extends IntegrationTestBase {
                         {"theme": "KALE", "appearance": "DARK", "locale": "en", "timeZone": "Europe/London",
                          "startDay": 7, "nextWeek": 5, "weekendStartDay": 7, "dateFormat": "MDY", "timeFormat": "H12",
                          "startPage": "UPCOMING", "smartDateRecognition": false, "swipeLeft": "DELETE",
-                         "swipeRight": "NONE", "navTabs": ["TODAY", "SEARCH", "INBOX", "FILTERS_LABELS", "BROWSE"]}
+                         "swipeRight": "NONE", "navTabs": ["TODAY", "UPCOMING", "INBOX", "BROWSE"]}
                         """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.theme").value("KALE"))
@@ -117,18 +117,18 @@ class SettingsApiTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.smartDateRecognition").value(false))
                 .andExpect(jsonPath("$.swipeLeft").value("DELETE"))
                 .andExpect(jsonPath("$.swipeRight").value("NONE"))
-                .andExpect(jsonPath("$.navTabs", contains("TODAY", "SEARCH", "INBOX", "FILTERS_LABELS", "BROWSE")));
+                .andExpect(jsonPath("$.navTabs", contains("TODAY", "UPCOMING", "INBOX", "BROWSE")));
 
         mockMvc.perform(getSettings(user.accessToken()))
                 .andExpect(jsonPath("$.theme").value("KALE"))
-                .andExpect(jsonPath("$.navTabs", contains("TODAY", "SEARCH", "INBOX", "FILTERS_LABELS", "BROWSE")));
+                .andExpect(jsonPath("$.navTabs", contains("TODAY", "UPCOMING", "INBOX", "BROWSE")));
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, bearer(user.accessToken())))
                 .andExpect(jsonPath("$.locale").value("en"))
                 .andExpect(jsonPath("$.timeZone").value("Europe/London"));
         Map<String, Object> row = jdbcTemplate.queryForMap(
                 "select theme, appearance, nav_tabs from users where id = ?", user.id());
         assertThat(row).containsEntry("theme", "KALE").containsEntry("appearance", "DARK")
-                .containsEntry("nav_tabs", "TODAY,SEARCH,INBOX,FILTERS_LABELS,BROWSE");
+                .containsEntry("nav_tabs", "TODAY,UPCOMING,INBOX,BROWSE");
     }
 
     @Test
@@ -269,7 +269,7 @@ class SettingsApiTest extends IntegrationTestBase {
         mockMvc.perform(patchSettings(user.accessToken(), """
                         {"theme": "LAVENDER", "appearance": "DARK", "locale": "en", "timeZone": "Europe/London",
                          "startDay": 7, "dateFormat": "MDY", "startPage": "INBOX", "smartDateRecognition": false,
-                         "swipeRight": "DELETE", "navTabs": ["SEARCH", "TODAY", "BROWSE"]}
+                         "swipeRight": "DELETE", "navTabs": ["UPCOMING", "TODAY", "BROWSE"]}
                         """))
                 .andExpect(status().isOk());
 

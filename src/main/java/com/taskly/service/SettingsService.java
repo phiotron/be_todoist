@@ -1,5 +1,9 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.common.error.FieldErrorItem;
+import com.taskly.common.validation.SettingsTargets;
 import com.taskly.dto.settings.SettingsResponse;
 import com.taskly.dto.settings.UpdateSettingsRequest;
 import com.taskly.entity.Appearance;
@@ -9,6 +13,8 @@ import com.taskly.entity.Theme;
 import com.taskly.entity.TimeFormat;
 import com.taskly.entity.User;
 import com.taskly.mapper.SettingsMapper;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +27,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class SettingsService {
 
-    private final UserService userService;
+    /** Key câu lỗi của errors[].message khi mục ghim không đọc được (messages_vi/en). */
+    static final String TARGET_UNAVAILABLE_KEY = "validation.settings.target-unavailable";
 
-    public SettingsService(UserService userService) {
+    private final UserService userService;
+    private final PinnedTargetChecker pinnedTargetChecker;
+
+    public SettingsService(UserService userService, PinnedTargetChecker pinnedTargetChecker) {
         this.userService = userService;
+        this.pinnedTargetChecker = pinnedTargetChecker;
     }
 
     @Transactional(readOnly = true)
@@ -35,6 +46,7 @@ public class SettingsService {
     /** PATCH từng phần: field null = giữ nguyên (DTO đã kiểm giá trị / định dạng). */
     public SettingsResponse update(UUID userId, UpdateSettingsRequest request) {
         User user = userService.requireUser(userId);
+        requirePinnedTargetsReadable(userId, request);
         if (request.theme() != null) {
             user.changeTheme(Theme.valueOf(request.theme()));
         }
@@ -85,5 +97,23 @@ public class SettingsService {
         User user = userService.requireUser(userId);
         user.resetSettings();
         return SettingsMapper.toResponse(user);
+    }
+
+    /** Kiểm xong mới sửa → request lỗi không đổi dòng nào (kể cả field hợp lệ gửi cùng). */
+    private void requirePinnedTargetsReadable(UUID userId, UpdateSettingsRequest request) {
+        List<FieldErrorItem> errors = new ArrayList<>();
+        if (request.startPage() != null && SettingsTargets.pinned(request.startPage())
+                .filter(target -> !pinnedTargetChecker.isReadable(userId, target)).isPresent()) {
+            errors.add(new FieldErrorItem("startPage", TARGET_UNAVAILABLE_KEY));
+        }
+        if (request.navTabs() != null
+                && (request.navTabs().stream().anyMatch(tab -> !pinnedTargetChecker.isTabAvailable(tab))
+                || SettingsTargets.pinnedIn(request.navTabs()).stream()
+                .anyMatch(target -> !pinnedTargetChecker.isReadable(userId, target)))) {
+            errors.add(new FieldErrorItem("navTabs", TARGET_UNAVAILABLE_KEY));
+        }
+        if (!errors.isEmpty()) {
+            throw ApiException.badRequest(ErrorMessage.VALIDATION_FAILED).withProperty("errors", errors);
+        }
     }
 }
