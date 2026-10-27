@@ -46,12 +46,13 @@ public class TaskBatchService {
     private final UsageLimits usageLimits;
     private final UserService userService;
     private final ProjectService projectService;
+    private final TaskLabelService taskLabelService;
     private final Clock clock;
 
     public TaskBatchService(TaskService taskService, TaskCompletionService taskCompletionService,
                             TaskMoveService taskMoveService, SubtaskTreeService subtaskTreeService,
                             UsageLimits usageLimits, UserService userService, ProjectService projectService,
-                            Clock clock) {
+                            TaskLabelService taskLabelService, Clock clock) {
         this.projectService = projectService;
         this.taskService = taskService;
         this.taskCompletionService = taskCompletionService;
@@ -59,6 +60,7 @@ public class TaskBatchService {
         this.subtaskTreeService = subtaskTreeService;
         this.usageLimits = usageLimits;
         this.userService = userService;
+        this.taskLabelService = taskLabelService;
         this.clock = clock;
     }
 
@@ -96,6 +98,14 @@ public class TaskBatchService {
             case DELETE -> delete(userId, tasks);
             case SCHEDULE -> schedule(tasks, request.date().orElse(null));
             case PRIORITY -> priority(tasks, request.priority());
+            case ADD_LABELS -> {
+                taskLabelService.addToTasks(userId, ids, request.labelIds());
+                yield new LinkedHashSet<>(ids); // mọi taskIds gửi lên, kể cả task không đổi (spec 12.5)
+            }
+            case REMOVE_LABELS -> {
+                taskLabelService.removeFromTasks(userId, ids, request.labelIds());
+                yield new LinkedHashSet<>(ids);
+            }
         };
         return new AffectedTasksResponse(List.copyOf(affected));
     }
@@ -261,6 +271,11 @@ public class TaskBatchService {
             throw ApiException.badRequest(ProblemTexts.BATCH_IDS_DUPLICATE);
         }
         BatchAction action = request.action();
+        boolean labelAction = action == BatchAction.ADD_LABELS || action == BatchAction.REMOVE_LABELS;
+        boolean hasLabels = request.labelIds() != null && !request.labelIds().isEmpty();
+        if (labelAction != hasLabels || (!labelAction && request.labelIds() != null)) {
+            throw ApiException.badRequest(ProblemTexts.BATCH_LABEL_IDS);
+        }
         boolean extra = (request.undo() != null && action != BatchAction.REOPEN)
                 || ((request.projectId() != null || request.sectionId() != null) && action != BatchAction.MOVE)
                 || (request.date() != null && action != BatchAction.SCHEDULE)

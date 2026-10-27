@@ -14,7 +14,7 @@ import java.util.UUID;
 
 /**
  * POST tasks/batch (spec 12.5). Trường theo action: REOPEN → undo; MOVE → projectId (+ sectionId, vắng = không
- * section); SCHEDULE → date (BẮT BUỘC có khoá: ngày yyyy-MM-dd hoặc null = bỏ due); PRIORITY → priority 1–4.
+ * section); SCHEDULE → date (BẮT BUỘC có khoá: ngày yyyy-MM-dd hoặc null = bỏ due); PRIORITY → priority 1–4; ADD_LABELS / REMOVE_LABELS → labelIds (không rỗng).
  * date là Optional để phân biệt "vắng khoá" (null) với "gửi null = bỏ due" (Optional.empty) — quyết định Q7 / Q36.
  * Trường không thuộc action → 400 (TaskBatchService.validate).
  */
@@ -38,5 +38,8 @@ public record BatchTasksRequest(
 
         @Min(value = 1, message = ProblemTexts.PRIORITY_RANGE)
         @Max(value = 4, message = ProblemTexts.PRIORITY_RANGE)
-        Integer priority) {
+        Integer priority,
+
+        @Schema(description = "Chỉ ADD_LABELS / REMOVE_LABELS (bắt buộc, không rỗng)")
+        List<UUID> labelIds) {
 }

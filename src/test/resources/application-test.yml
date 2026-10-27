@@ -5,3 +5,7 @@ app:
   # Job nền (dọn Idempotency-Key) tắt trong test; test gọi thẳng method của service với Clock cố định.
   jobs:
     enabled: false
+
+taskly:
+  limits:
+    labels-per-task: 3

@@ -127,3 +127,40 @@ Các mốc sau dựa vào tên dưới đây (chi tiết: plan M1 backend part 1
 - `IdempotencyFilter.COVERED` — M2 thêm `labels`, `filters`; M4 thêm `tasks/{id}/reminders`.
 - `FavoriteService` (`add`, `remove`, `removeAllFor`), sự kiện `ProjectsDeletedEvent`, `TaskTimeClearedEvent`.
 - `IntegrationTestBase` / `TestData` / `MutableClock` cho test; Flyway `V3` trở đi do M2+ thêm theo thứ tự gộp M1 → M5.
+
+## API mốc M2 — Tìm kiếm, Label & Bộ lọc
+
+Migration `V3__m2_search_labels_filters.sql` bật `unaccent` + `pg_trgm` (có sẵn trong `postgres:16`), hàm `f_unaccent`,
+6 chỉ mục trigram và tạo `labels`, `task_labels`, `filters`, `view_options`. Mọi endpoint cần JWT.
+
+| Method | Path | Kết quả |
+|---|---|---|
+| GET | `/search?q=&completed=false\|true&cursor=&limit=` | `{items: TaskResponse[], nextCursor}`; không phân biệt hoa thường / dấu; `*` đại diện; nhiều từ = AND; `completed=true` chỉ task đã xong (mới xong trước; gồm task trong section lưu trữ, loại dự án lưu trữ); `q` rỗng → rỗng; > 100 ký tự → 400 |
+| GET | `/search/objects?q=` | `{projects, sections, labels, filters}` mỗi loại ≤ 20 (không có dự án / section lưu trữ) |
+| GET / POST | `/labels` | danh sách (không phân trang) / tạo `{id?, name, color?}` (`Idempotency-Key`; `id` UUID do client sinh: đã có + cùng nội dung → 200 kèm `Idempotent-Replay: true`, khác / của người khác → 409 `id-conflict`; trùng tên → 409 `label-name-taken`; thứ 501 → 422 `limit-reached`, khoá chống đua) |
+| PATCH / DELETE | `/labels/{id}` | sửa `{name?, color?}` / xoá (gỡ khỏi mọi task) |
+| PUT / DELETE | `/labels/{id}/favorite` | yêu thích → `LabelResponse` |
+| GET / POST | `/filters` | danh sách / tạo `{id?, name, query, color?}` (`id` client như label; query sai → 400 `filter-syntax` + `position`; thứ 151 → 422) |
+| PATCH / DELETE | `/filters/{id}`, PUT / DELETE `/filters/{id}/favorite` | như label |
+| POST | `/filters/validate` | `{parts: string[]}` (tách theo `,` cấp ngoài) hoặc 400 `filter-syntax` |
+| GET | `/tasks?labelId=` · `/tasks?filter=` | task đang mở có label / khớp một danh sách filter; phân trang; nhận Display |
+| GET | `/tasks?view=today\|upcoming` · `/tasks?projectId=` + Display | sort / group / lọc phía server |
+| GET / PUT / DELETE | `/view-options`, `/view-options/{viewKey}` | Display lưu theo tài khoản (server không tự áp khi liệt kê) |
+| POST | `/reorder` `{type: LABEL\|FILTER, id, afterId}` | sắp xếp label / filter |
+| POST | `/tasks/batch` `{action: ADD_LABELS\|REMOVE_LABELS, taskIds, labelIds}` | gắn / bỏ label hàng loạt |
+| POST / PATCH | `/tasks` | thêm `labelIds` (PATCH: vắng = giữ, `[]` = bỏ hết, mảng = thay toàn bộ); `TaskResponse.labelIds` |
+
+**Display** (`sort=manual|date|deadline|priority|name|added`, `order=asc|desc`, `group=none|date|deadline|priority|project|label`,
+`filterPriority=1..4`, `filterLabelId=<uuid>`, `filterDue=today|this_week|next_7_days|this_month|next_30_days|no_date|overdue`):
+chỉ cho phép theo bảng spec 12.7 (sai → 400); server sắp **nhóm → khoá sắp → id**; không có ngày / deadline / label luôn
+cuối. Chỉ dùng **đúng một** trong `view`, `projectId`, `labelId`, `filter`. `filterDue=no_date` ở Today → 400; `no_date` /
+`overdue` ở Upcoming → 400; `filterDue=overdue` và filter `overdue` / `od` theo `isOverdue` (giờ đã qua) — **khác** khối
+Quá hạn của Today (`due_day < hôm nay`). `view=completed` (màn Completed toàn cục) là của M1 và không nhận Display.
+
+**Cú pháp filter:** `|` `&` `!` `( )` `,` `\` `*`; `today` `tomorrow` `yesterday` `overdue`/`od` `no date` `no time` `date:` /
+`date before:` / `date after:` (ngày hoặc ngày-giờ floating `yyyy-MM-ddTHH:mm[:ss]`) `next N days` `deadline:` … `no deadline` `p1`–`p4` `no priority` `#Dự án` `##Dự án`
+`/Section` `/*` `@label` / `%label` `no labels` `search:` `created:` … `subtask` `recurring`; bí danh tiếng Việt `hôm nay`,
+`ngày mai`, `hôm qua`, `quá hạn`, `không có ngày`. Filter không trả task đã xong.
+
+Test hiệu năng 10 000 task (không chạy mặc định): `.\mvnw test "-Dtest=M2PerformanceTest" "-Dtaskly.perf=true" "-Dgroups=perf"`.
+Sau khi đổi API: ở repo `mobile` chạy `npm run gen:api` + `npx tsc --noEmit`.

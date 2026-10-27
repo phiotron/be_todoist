@@ -86,6 +86,21 @@ public class UsageLimits {
         overrides.clear();
     }
 
+    // ---- M2: label mỗi task (spec 2.1: vượt → 400, không phải 422; không khoá vì spec 8.2 #9 không liệt kê) ----
+    @Value("${taskly.limits.labels-per-task:100}")
+    private int maxLabelsPerTask;
+
+    /** Số label của MỘT task sau thao tác. Vượt → 400 kèm thuộc tính `max` (spec 12.10). */
+    public void checkLabelsPerTask(int count) {
+        if (count > maxLabelsPerTask) {
+            throw ApiException.badRequest(ProblemTexts.LABELS_PER_TASK).withProperty("max", maxLabelsPerTask);
+        }
+    }
+
+    public int maxLabelsPerTask() {
+        return maxLabelsPerTask;
+    }
+
     @Autowired
     public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;

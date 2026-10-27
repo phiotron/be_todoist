@@ -20,6 +20,9 @@ public final class ProblemCodes {
     public static final String ID_CONFLICT = "id-conflict";
     public static final String IDEMPOTENCY_IN_PROGRESS = "idempotency-in-progress";
     public static final String IDEMPOTENCY_MISMATCH = "idempotency-mismatch";
+    // ---- M2 (spec 12.10)
+    public static final String FILTER_SYNTAX = "filter-syntax";
+    public static final String LABEL_NAME_TAKEN = "label-name-taken";
 
     private ProblemCodes() {
     }

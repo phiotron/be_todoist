@@ -16,6 +16,6 @@ public final class TaskMapper {
         return new TaskResponse(v.id(), v.projectId(), v.sectionId(), v.parentId(), v.content(), v.description(),
                 v.priority(), v.dueDate(), v.dueDatetime(), v.durationMinutes(), v.deadlineDate(), v.dueString(),
                 overdue, v.completedAt(), v.subtaskCount(), v.completedSubtaskCount(), v.sortOrder(), v.version(),
-                v.createdAt(), v.updatedAt(), v.projectName(), v.parentContent());
+                v.createdAt(), v.updatedAt(), v.projectName(), v.parentContent(), v.labelIds());
     }
 }

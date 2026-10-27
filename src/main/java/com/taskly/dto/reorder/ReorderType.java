@@ -4,5 +4,7 @@ package com.taskly.dto.reorder;
 public enum ReorderType {
     PROJECT,
     SECTION,
-    TASK
+    TASK,
+    LABEL,
+    FILTER
 }

@@ -58,6 +58,7 @@ public class TaskService {
     private final SortOrderService sortOrderService;
     private final SubtaskTreeService subtaskTreeService;
     private final UsageLimits usageLimits;
+    private final TaskLabelService taskLabelService;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
@@ -65,6 +66,7 @@ public class TaskService {
                        ProjectService projectService, SectionService sectionService, UserService userService,
                        AccessPolicy accessPolicy, SortOrderService sortOrderService,
                        SubtaskTreeService subtaskTreeService, UsageLimits usageLimits,
+                       TaskLabelService taskLabelService,
                        ApplicationEventPublisher events, Clock clock) {
         this.taskRepository = taskRepository;
         this.taskViewRepository = taskViewRepository;
@@ -75,6 +77,7 @@ public class TaskService {
         this.sortOrderService = sortOrderService;
         this.subtaskTreeService = subtaskTreeService;
         this.usageLimits = usageLimits;
+        this.taskLabelService = taskLabelService;
         this.events = events;
         this.clock = clock;
     }
@@ -105,6 +108,8 @@ public class TaskService {
         LocalDateTime dueDatetime = TaskDueRules.normalize(request.dueDatetime());
         TaskDueRules.checkSingleDue(request.dueDate(), dueDatetime);
         TaskDueRules.checkDuration(dueDatetime, request.durationMinutes());
+        // labelIds: bỏ trùng, kiểm số lượng (400) và quyền (404) TRƯỚC khi ghi gì; replay (dòng 1) không đến đây
+        List<UUID> labelIds = taskLabelService.validate(userId, request.labelIds());
 
         // Dòng 2: 404 — parent / project / section không tồn tại hoặc không thuộc quyền
         Task parent = request.parentId() == null ? null : requireReadable(userId, request.parentId());
@@ -174,6 +179,8 @@ public class TaskService {
                 request.dueDate(), dueDatetime, request.durationMinutes(), request.deadlineDate(), sortOrder);
         task.assignId(request.id()); // null → BaseEntity tự sinh ở @PrePersist
         taskRepository.save(task);
+        taskRepository.flush(); // task phải nằm trong DB trước khi chèn task_labels (FK)
+        taskLabelService.attach(task.getId(), labelIds);
         return Created.fresh(toResponse(userId, task.getId()));
     }
 
@@ -208,6 +215,13 @@ public class TaskService {
         applyDue(task, dueDate, dueDatetime, duration);
         if (request.deadlineDate() != null) {
             task.setDeadlineDate(request.deadlineDate().orElse(null));
+        }
+        // labelIds vắng / null = giữ (quyết định chưa chốt với người dùng); [] = bỏ hết; mảng = thay toàn bộ.
+        if (request.labelIds() != null && taskLabelService.replace(userId, taskId, request.labelIds())) {
+            taskRepository.flush(); // field khác đổi → JPA đã tăng version ở đây
+            if (task.getVersion() == request.version()) {
+                taskLabelService.touch(List.of(taskId)); // chỉ label đổi → version + 1 đúng một lần bằng SQL
+            }
         }
         // Hibernate chỉ UPDATE (tăng version, đổi updated_at) khi giá trị thực sự khác — PATCH không đổi gì giữ nguyên.
         return toResponse(userId, taskId);
@@ -316,6 +330,10 @@ public class TaskService {
 
     public List<Task> loadAll(Collection<UUID> ids) {
         return ids.isEmpty() ? List.of() : taskRepository.findAllById(ids);
+    }
+
+    public void flush() {
+        taskRepository.flush();
     }
 
     public Task save(Task task) {

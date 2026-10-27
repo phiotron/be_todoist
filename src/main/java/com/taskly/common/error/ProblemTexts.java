@@ -62,7 +62,6 @@ public final class ProblemTexts {
     public static final String TASK_COMPLETED = "Công việc đã hoàn thành";
 
     // ---- Danh sách công việc
-    public static final String LIST_QUERY_INVALID = "Cần đúng một trong hai tham số view hoặc projectId";
     public static final String FROM_ONLY_UPCOMING = "Tham số from và to chỉ dùng với view=upcoming";
     public static final String SINCE_ONLY_COMPLETED = "Tham số since và until chỉ dùng với view=completed";
     public static final String COMPLETED_RANGE_INVALID = "since không được sau until";
@@ -87,6 +86,25 @@ public final class ProblemTexts {
     public static final String IDEMPOTENCY_KEY_INVALID = "Idempotency-Key phải từ 1 đến 64 ký tự";
     public static final String IDEMPOTENCY_IN_PROGRESS = "Yêu cầu trước với cùng Idempotency-Key đang được xử lý";
     public static final String IDEMPOTENCY_MISMATCH = "Idempotency-Key đã được dùng cho nội dung khác";
+
+    // ---- M2: tìm kiếm, label, filter, Display (ID_CONFLICT / UPCOMING_WINDOW_INVALID đã có từ M1)
+    public static final String SEARCH_QUERY_TOO_LONG = "Từ khoá tìm kiếm tối đa 100 ký tự";
+    public static final String LABEL_NOT_FOUND = "Không tìm thấy label";
+    public static final String LABEL_NAME_SIZE = "Tên label phải từ 1 đến 60 ký tự";
+    public static final String LABEL_NAME_CHARS =
+            "Tên label không được chứa khoảng trắng và các ký tự @ % # / , ( ) | & ! \\ *";
+    public static final String LABEL_NAME_TAKEN = "Đã có label cùng tên";
+    public static final String LABELS_PER_TASK = "Task đã đạt số label tối đa";
+    public static final String FILTER_NOT_FOUND = "Không tìm thấy filter";
+    public static final String FILTER_NAME_SIZE = "Tên filter phải từ 1 đến 120 ký tự";
+    public static final String FILTER_QUERY_SIZE = "Truy vấn filter phải từ 1 đến 1024 ký tự";
+    public static final String FILTER_SYNTAX = "Truy vấn filter sai cú pháp";
+    public static final String VIEW_KEY_INVALID = "Khoá view không hợp lệ";
+    public static final String DISPLAY_INVALID = "Tuỳ chọn hiển thị không hợp lệ với view này";
+    public static final String TASK_LIST_SELECTOR =
+            "Dùng đúng một trong view, projectId, labelId, filter (completed chỉ đi với projectId, from / to chỉ đi với view=upcoming, since / until chỉ đi với view=completed)";
+    public static final String BATCH_LABEL_IDS =
+            "labelIds bắt buộc với ADD_LABELS / REMOVE_LABELS và chỉ dùng cho hai thao tác này";
 
     private ProblemTexts() {
     }

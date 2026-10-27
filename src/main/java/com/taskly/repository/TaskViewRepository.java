@@ -36,7 +36,9 @@ public class TaskViewRepository {
             t.sort_order, t.version, t.created_at, t.updated_at, p.name as project_name, pt.content as parent_content,
             (select count(*) from tasks c where c.parent_id = t.id) as subtask_count,
             (select count(*) from tasks c where c.parent_id = t.id and c.completed_at is not null)
-                    as completed_subtask_count
+                    as completed_subtask_count,
+            array(select tl.label_id from task_labels tl join labels l on l.id = tl.label_id
+                  where tl.task_id = t.id order by l.sort_order, l.id) as label_ids
             """;
 
     /**
@@ -221,7 +223,13 @@ public class TaskViewRepository {
                 instant(rs, "created_at"),
                 instant(rs, "updated_at"),
                 rs.getString("project_name"),
-                rs.getString("parent_content"));
+                rs.getString("parent_content"),
+                labelIds(rs));
+    }
+
+    static List<UUID> labelIds(ResultSet rs) throws SQLException {
+        java.sql.Array array = rs.getArray("label_ids");
+        return array == null ? List.of() : List.of((UUID[]) array.getArray());
     }
 
     static Instant instant(ResultSet rs, String column) throws SQLException {
