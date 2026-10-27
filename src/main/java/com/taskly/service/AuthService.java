@@ -113,7 +113,10 @@ public class AuthService {
     public AuthResponse verifyTwoFactor(TwoFactorVerifyRequest request) {
         UUID userId = twoFactorTokens.verify(request.twoFactorToken())
                 .orElseThrow(AuthService::twoFactorTokenInvalid);
-        User user = userService.requireUser(userId);
+        // User bị xoá, hoặc 2FA bị tắt, giữa hai bước → phiên bước 2 không còn nghĩa: token-invalid (app về Đăng nhập).
+        User user = userService.findById(userId)
+                .filter(found -> twoFactorService.isEnabled(found.getId()))
+                .orElseThrow(AuthService::twoFactorTokenInvalid);
         if (!twoFactorService.verifyCode(userId, request.code())) {
             throw ApiException.unauthorized(ErrorMessage.TWO_FACTOR_CODE_INVALID)
                     .withCode(ProblemCodes.TWO_FACTOR_CODE_INVALID);

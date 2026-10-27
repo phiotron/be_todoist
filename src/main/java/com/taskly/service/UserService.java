@@ -36,6 +36,11 @@ public class UserService {
                 .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
     }
 
+    /** Không ném lỗi nếu user không còn (vd auth/2fa/verify: user xoá giữa hai bước → token coi như vô hiệu). */
+    public Optional<User> findById(UUID userId) {
+        return userRepository.findById(userId);
+    }
+
     /** Đổi tên hiển thị. Tên giống hệt hiện tại → không UPDATE, updated_at giữ nguyên (BR-10). */
     @Transactional
     public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {

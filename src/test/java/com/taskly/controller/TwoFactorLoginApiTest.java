@@ -281,6 +281,40 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void verify_whenTheUserWasDeletedBetweenTheTwoSteps_isTokenInvalidNotSessionInvalid() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
+        String token = twoFactorToken(user.email());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\": \"%s\", \"code\": \"%s\"}".formatted(
+                                FIXTURE_PASSWORD, enabled.recoveryCodes().get(0))))
+                .andExpect(status().isNoContent());
+
+        verify(token, enabled.recoveryCodes().get(1))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("two-factor-token-invalid"));
+    }
+
+    @Test
+    void verify_whenTwoFactorWasTurnedOffBetweenTheTwoSteps_isTokenInvalid() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
+        String token = twoFactorToken(user.email());
+        mockMvc.perform(post("/api/v1/me/2fa/disable")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(user.accessToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\": \"%s\", \"code\": \"%s\"}".formatted(
+                                FIXTURE_PASSWORD, enabled.recoveryCodes().get(0))))
+                .andExpect(status().isNoContent());
+
+        verify(token, enabled.recoveryCodes().get(1))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("two-factor-token-invalid"));
+    }
+
+    @Test
     void twoFactorToken_cannotBeUsedAsBearerAccessToken() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
