@@ -105,13 +105,21 @@ public class AuthService {
         if (user.isEmpty() || !passwordMatches) {
             throw ApiException.unauthorized(ErrorMessage.INVALID_CREDENTIALS);
         }
-        User found = user.get();
-        if (twoFactorService.isEnabled(found.getId())) {
+        return completeSignIn(user.get());
+    }
+
+    /**
+     * Bước cuối chung của mọi kiểu đăng nhập đã qua yếu tố thứ nhất - mật khẩu (login) và Google (M5, spec 12.1 bản 3):
+     * tài khoản bật 2FA → 401 code "two-factor-required" kèm twoFactorToken (M3); không bật → cặp token, mở họ mới.
+     * Khi ném 401 không ghi gì vào DB (không refresh token).
+     */
+    public AuthResponse completeSignIn(User user) {
+        if (twoFactorService.isEnabled(user.getId())) {
             throw ApiException.unauthorized(ErrorMessage.TWO_FACTOR_REQUIRED)
                     .withCode(ProblemCodes.TWO_FACTOR_REQUIRED)
-                    .withProperty(TWO_FACTOR_TOKEN_PROPERTY, twoFactorTokens.issue(found.getId()));
+                    .withProperty(TWO_FACTOR_TOKEN_PROPERTY, twoFactorTokens.issue(user.getId()));
         }
-        return issueTokens(found, UUID.randomUUID());
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /**

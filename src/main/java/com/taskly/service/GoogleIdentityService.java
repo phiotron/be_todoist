@@ -44,7 +44,8 @@ public class GoogleIdentityService {
 
     /**
      * POST auth/google. Thứ tự kiểm tra là cố ý:
-     * 1) sub đã liên kết → đăng nhập (không dùng email nên không cần email_verified);
+     * 1) sub đã liên kết → đăng nhập qua AuthService.completeSignIn (bật 2FA → 401 two-factor-required; không dùng email
+     *    nên không cần email_verified);
      * 2) email chưa xác minh → 403 (không dùng email đó để tạo hay liên kết — kể cả không phát linkToken);
      * 3) email trùng tài khoản có sẵn → 409 link-required (KHÔNG tự liên kết);
      * 4) còn lại → tạo tài khoản không mật khẩu + workspace + Inbox + liên kết.
@@ -53,7 +54,8 @@ public class GoogleIdentityService {
         GoogleIdentity google = verifyIdToken(idToken, GoogleAuthErrors::invalidIdToken);    // tình huống 6
         Optional<User> linked = userService.findByIdentity(IdentityProvider.GOOGLE, google.subject());
         if (linked.isPresent()) {
-            return authService.issueTokens(linked.get());                                    // tình huống 4
+            // Tình huống 4. Spec bản 3: tài khoản bật 2FA → 401 two-factor-required + twoFactorToken, như auth/login.
+            return authService.completeSignIn(linked.get());
         }
         if (!google.emailVerified()) {
             throw GoogleAuthErrors.emailNotVerified();                                       // tình huống 5

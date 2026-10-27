@@ -2,10 +2,14 @@ package com.taskly;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.support.GoogleTestTokens;
+import com.taskly.support.TotpTestCodes;
+import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -102,5 +106,60 @@ public abstract class GoogleIntegrationTestBase extends IntegrationTestBase {
 
     protected int countUsersByEmail(String email) {
         return jdbcTemplate.queryForObject("select count(*) from users where email = ?", Integer.class, email);
+    }
+
+    protected static final String TWO_FACTOR_VERIFY = "/api/v1/auth/2fa/verify";
+
+    /** Secret base32 + 10 mã khôi phục trả về lúc bật 2FA (chỉ dùng trong test, không in ra log). */
+    protected record TwoFactorSetup(String secret, List<String> recoveryCodes) {
+    }
+
+    /**
+     * Bật 2FA qua API của M3: setup → enable bằng mã TOTP tính từ secret (cùng Clock với server). Dời đồng hồ 30 giây
+     * sau khi bật: M3 không nhận lại một bước TOTP đã dùng (spec 5.9) nên mã kế tiếp phải thuộc bước mới.
+     */
+    protected TwoFactorSetup enableTwoFactor(String accessToken) throws Exception {
+        String setup = body(mockMvc.perform(post("/api/v1/me/2fa/setup")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken)))
+                .andExpect(status().is2xxSuccessful())
+                .andReturn());
+        String secret = JsonPath.read(setup, "$.secret");
+        String enabled = body(mockMvc.perform(post("/api/v1/me/2fa/enable")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code": "%s"}
+                                """.formatted(TotpTestCodes.code(secret, clock.instant()))))
+                .andExpect(status().is2xxSuccessful())
+                .andReturn());
+        List<String> recoveryCodes = JsonPath.read(enabled, "$.recoveryCodes");
+        clock.advance(Duration.ofSeconds(30));
+        return new TwoFactorSetup(secret, recoveryCodes);
+    }
+
+    /** Mã TOTP của bước hiện tại theo đồng hồ test. */
+    protected String currentTotp(TwoFactorSetup twoFactor) {
+        return TotpTestCodes.code(twoFactor.secret(), clock.instant());
+    }
+
+    protected ResultActions postTwoFactorVerify(String twoFactorToken, String code) throws Exception {
+        return mockMvc.perform(post(TWO_FACTOR_VERIFY).with(randomRemoteAddress())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"twoFactorToken": "%s", "code": "%s"}
+                        """.formatted(twoFactorToken, code)));
+    }
+
+    /** auth/google mong đợi 401 two-factor-required; trả twoFactorToken. */
+    protected String requestTwoFactorTokenWithGoogle(GoogleTestTokens.IdToken token) throws Exception {
+        return JsonPath.read(body(postGoogleSignIn(token.sign())
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("two-factor-required"))
+                .andReturn()), "$.twoFactorToken");
+    }
+
+    protected int countRefreshTokens(UUID userId) {
+        return jdbcTemplate.queryForObject(
+                "select count(*) from refresh_tokens where user_id = ?", Integer.class, userId);
     }
 }
