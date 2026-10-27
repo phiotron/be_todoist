@@ -40,6 +40,26 @@ public final class TwoFactorSteps {
         return TotpCodec.code(TotpCodec.fromBase32(secret), TotpCodec.step(clock.instant()));
     }
 
+    /**
+     * Mã 6 số SAI chắc chắn: khác mã của mọi bước trong [hiện tại − 2, hiện tại + 2] (cửa sổ server nhận là ±1) — không dùng
+     * "000000" cố định vì có xác suất nhỏ trùng một mã hợp lệ.
+     */
+    public static String wrongCode(String secret, Clock clock) {
+        byte[] raw = TotpCodec.fromBase32(secret);
+        long current = TotpCodec.step(clock.instant());
+        for (int candidate = 0; candidate < 1_000_000; candidate += 111_111) {
+            String wrong = String.format(java.util.Locale.ROOT, "%06d", candidate);
+            boolean collides = false;
+            for (long step = current - 2; step <= current + 2; step++) {
+                collides |= wrong.equals(TotpCodec.code(raw, step));
+            }
+            if (!collides) {
+                return wrong;
+            }
+        }
+        throw new IllegalStateException("Không chọn được mã sai");
+    }
+
     /** Sang bước 30 giây kế tiếp rồi trả mã của bước đó (mã trước đã dùng thì không dùng lại được). */
     public static String nextCode(String secret, MutableClock clock) {
         clock.advance(Duration.ofSeconds(TotpCodec.PERIOD_SECONDS));

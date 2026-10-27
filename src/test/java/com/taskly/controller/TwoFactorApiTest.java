@@ -110,7 +110,7 @@ class TwoFactorApiTest extends IntegrationTestBase {
     void enable_wrongCode_returns400_andStaysDisabled() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         String secret = TwoFactorSteps.setup(mockMvc, user.accessToken());
-        String wrong = TwoFactorSteps.code(secret, clock).equals("000000") ? "111111" : "000000";
+        String wrong = TwoFactorSteps.wrongCode(secret, clock);
 
         enable(user.accessToken(), wrong)
                 .andExpect(status().isBadRequest())
@@ -163,7 +163,7 @@ class TwoFactorApiTest extends IntegrationTestBase {
         disable(user.accessToken(), null, code)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Mật khẩu hiện tại không đúng"));
-        disable(user.accessToken(), FIXTURE_PASSWORD, "000000".equals(code) ? "111111" : "000000")
+        disable(user.accessToken(), FIXTURE_PASSWORD, TwoFactorSteps.wrongCode(enabled.secret(), clock))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Mã xác minh không đúng"));
         disable(user.accessToken(), FIXTURE_PASSWORD, code)

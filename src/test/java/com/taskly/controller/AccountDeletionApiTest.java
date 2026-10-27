@@ -96,7 +96,7 @@ class AccountDeletionApiTest extends IntegrationTestBase {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Mã xác minh không đúng"));
         deleteMe(user.accessToken(), "{\"password\": \"" + FIXTURE_PASSWORD + "\", \"code\": \""
-                        + ("000000".equals(code) ? "111111" : "000000") + "\"}")
+                        + TwoFactorSteps.wrongCode(enabled.secret(), clock) + "\"}")
                 .andExpect(status().isBadRequest());
         assertThat(count("select count(*) from users where id = ?", user.id())).isOne();
 

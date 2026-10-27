@@ -115,7 +115,7 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
         String token = twoFactorToken(user.email());
         String code = TwoFactorSteps.nextCode(enabled.secret(), clock);
 
-        verify(token, "000000".equals(code) ? "111111" : "000000")
+        verify(token, TwoFactorSteps.wrongCode(enabled.secret(), clock))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("two-factor-code-invalid"))
                 .andExpect(jsonPath("$.detail").value("Mã xác minh không đúng"));
@@ -131,7 +131,7 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
         String token = twoFactorToken(user.email());
         String right = TwoFactorSteps.nextCode(enabled.secret(), clock);
 
-        verify(token, "000000".equals(right) ? "111111" : "000000")
+        verify(token, TwoFactorSteps.wrongCode(enabled.secret(), clock))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("two-factor-code-invalid"));
 
@@ -174,7 +174,7 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
         TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
         String token = twoFactorToken(user.email());
         String right = TwoFactorSteps.nextCode(enabled.secret(), clock);
-        String wrong = "000000".equals(right) ? "111111" : "000000";
+        String wrong = TwoFactorSteps.wrongCode(enabled.secret(), clock);
 
         mockMvc.perform(post("/api/v1/auth/2fa/verify").contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.ACCEPT_LANGUAGE, "en")
