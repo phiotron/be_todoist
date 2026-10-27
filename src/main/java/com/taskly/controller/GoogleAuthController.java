@@ -4,10 +4,12 @@ import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.auth.AuthResponse;
 import com.taskly.dto.auth.GoogleSignInRequest;
 import com.taskly.dto.user.GoogleLinkRequest;
+import com.taskly.security.AuthRateLimiter;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.GoogleIdentityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,10 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class GoogleAuthController {
 
-    private final GoogleIdentityService googleIdentityService;
+    /** Bộ đếm riêng của đăng nhập Google trong AuthRateLimiter (M1): 10 lần / phút / IP như login. */
+    static final String RATE_LIMIT_ACTION = "google";
 
-    public GoogleAuthController(GoogleIdentityService googleIdentityService) {
+    private final GoogleIdentityService googleIdentityService;
+    private final AuthRateLimiter authRateLimiter;
+
+    public GoogleAuthController(GoogleIdentityService googleIdentityService, AuthRateLimiter authRateLimiter) {
         this.googleIdentityService = googleIdentityService;
+        this.authRateLimiter = authRateLimiter;
     }
 
     /** Luôn 200 khi thành công — kể cả lần đầu tạo tài khoản (app không cần phân biệt). */
@@ -37,7 +44,8 @@ public class GoogleAuthController {
                     + "409 khi email đã có tài khoản mật khẩu: ProblemDetail có code = \"link-required\" và linkToken "
                     + "(hạn 10 phút) — đăng nhập bằng mật khẩu rồi gọi POST /api/v1/me/identities/google {linkToken}.")
     @PostMapping("/auth/google")
-    public AuthResponse signIn(@Valid @RequestBody GoogleSignInRequest request) {
+    public AuthResponse signIn(@Valid @RequestBody GoogleSignInRequest request, HttpServletRequest httpRequest) {
+        authRateLimiter.check(RATE_LIMIT_ACTION, httpRequest); // vượt → 429 + Retry-After
         return googleIdentityService.signIn(request.idToken());
     }
 
