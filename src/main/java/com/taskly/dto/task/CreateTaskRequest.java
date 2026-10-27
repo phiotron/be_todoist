@@ -4,10 +4,12 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.taskly.common.error.ProblemTexts;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,7 +55,10 @@ public record CreateTaskRequest(
 
         LocalDate deadlineDate,
 
-        Optional<UUID> afterId) {
+        Optional<UUID> afterId,
+
+        @Schema(description = "M2: label gắn cho task (label của mình, tối đa theo giới hạn; trùng bị bỏ)")
+        List<UUID> labelIds) {
 
     public CreateTaskRequest {
         content = content == null ? null : content.strip();

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -39,5 +40,7 @@ public record TaskResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String projectName,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String parentContent) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String parentContent,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M2: label của task, theo thứ tự label")
+        List<UUID> labelIds) {
 }

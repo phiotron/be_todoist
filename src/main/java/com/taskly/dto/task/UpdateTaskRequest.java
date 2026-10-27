@@ -10,7 +10,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Sửa task (PATCH, spec 12.3). version bắt buộc (optimistic lock, spec 5.6). content/description/priority: null =
@@ -40,7 +42,9 @@ public record UpdateTaskRequest(
         Optional<@Min(value = 1, message = ProblemTexts.DURATION_RANGE)
                  @Max(value = 1440, message = ProblemTexts.DURATION_RANGE) Integer> durationMinutes,
 
-        Optional<LocalDate> deadlineDate) {
+        Optional<LocalDate> deadlineDate,
+
+        @Schema(description = "M2: vắng / null = giữ; [] = bỏ hết; mảng = thay toàn bộ") List<UUID> labelIds) {
 
     public UpdateTaskRequest {
         content = content == null ? null : content.strip();

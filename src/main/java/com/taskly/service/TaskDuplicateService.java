@@ -25,10 +25,13 @@ public class TaskDuplicateService {
 
     private final TaskService taskService;
     private final SubtaskTreeService subtaskTreeService;
+    private final TaskLabelService taskLabelService;
 
-    public TaskDuplicateService(TaskService taskService, SubtaskTreeService subtaskTreeService) {
+    public TaskDuplicateService(TaskService taskService, SubtaskTreeService subtaskTreeService,
+                                TaskLabelService taskLabelService) {
         this.taskService = taskService;
         this.subtaskTreeService = subtaskTreeService;
+        this.taskLabelService = taskLabelService;
     }
 
     public TaskResponse duplicate(UUID userId, UUID taskId) {
@@ -60,6 +63,8 @@ public class TaskDuplicateService {
                 rootCopyId = copyId;
             }
         }
+        taskService.flush();
+        taskLabelService.copyLabels(copyIdByOriginal); // chép label của bản gốc + mọi con được chép (spec 10.1)
         return taskService.toResponse(userId, rootCopyId);
     }
 }
