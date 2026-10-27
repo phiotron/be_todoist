@@ -15,7 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-/** spec 12.1: auth/login vào tài khoản không có mật khẩu (chỉ Google) → 401 GIỐNG HỆT sai mật khẩu (chống dò). */
+/** spec 12.1: auth/login vào tài khoản không có mật khẩu (chỉ Google) → 401 GIỐNG HỆT sai mật khẩu (chống dò).\s*/
 class PasswordlessLoginApiTest extends IntegrationTestBase {
 
     @Autowired
@@ -25,6 +25,10 @@ class PasswordlessLoginApiTest extends IntegrationTestBase {
         return post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"email": "%s", "password": "%s"}
                 """.formatted(email, password));
+    }
+
+    private static String withoutRequestId(String json) {
+        return json.replaceAll("\"requestId\"\s*:\s*\"[^\"]*\",?", "");
     }
 
     @Test
@@ -40,7 +44,8 @@ class PasswordlessLoginApiTest extends IntegrationTestBase {
                 .andExpect(status().isUnauthorized())
                 .andReturn();
 
-        assertThat(body(passwordless)).isEqualTo(body(unknown));
+        // requestId (M1) khác nhau theo từng request — bỏ ra trước khi so, mọi phần còn lại phải giống hệt.
+        assertThat(withoutRequestId(body(passwordless))).isEqualTo(withoutRequestId(body(unknown)));
         assertThat(Set.copyOf(passwordless.getResponse().getHeaderNames()))
                 .isEqualTo(Set.copyOf(unknown.getResponse().getHeaderNames()));
     }

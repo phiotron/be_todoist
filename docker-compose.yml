@@ -25,7 +25,7 @@ services:
     container_name: taskly-mailpit
     restart: unless-stopped
     ports:
-      - "1025:1025" # SMTP cho backend gửi email mời
+      - "1025:1025" # SMTP cho backend gửi email (đặt lại mật khẩu, lời mời)
       - "8025:8025" # Giao diện xem hộp thư giả: http://localhost:8025
 
 volumes:

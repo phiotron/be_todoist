@@ -22,6 +22,12 @@ class GoogleLinkTokenFlowApiTest extends GoogleIntegrationTestBase {
     @Autowired
     private GoogleLinkTokens googleLinkTokens;
 
+    @Autowired
+    private org.springframework.security.oauth2.jwt.JwtEncoder jwtEncoder;
+
+    @Autowired
+    private com.taskly.security.JwtProperties jwtProperties;
+
     private String requestLinkToken(GoogleTestTokens.IdToken token) throws Exception {
         return JsonPath.read(body(postGoogleSignIn(token.sign())
                 .andExpect(status().isConflict())
@@ -111,5 +117,36 @@ class GoogleLinkTokenFlowApiTest extends GoogleIntegrationTestBase {
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, bearer(existing.accessToken())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.linkedProviders").isEmpty());
+    }
+
+    /** Ký bằng khoá server một JWT mang iss + aud + sub của access token, chỉ khác typ — chứng minh chính typ chặn Bearer. */
+    private String craftWithAccessClaims(java.util.UUID userId, String typ) {
+        java.time.Instant now = java.time.Instant.now(clock);
+        org.springframework.security.oauth2.jwt.JwtClaimsSet claims =
+                org.springframework.security.oauth2.jwt.JwtClaimsSet.builder()
+                        .issuer(jwtProperties.issuer())
+                        .audience(java.util.List.of(com.taskly.security.JwtTokenIssuer.ACCESS_AUDIENCE))
+                        .claim(com.taskly.security.JwtTokenIssuer.TYPE_CLAIM, typ)
+                        .subject(userId.toString())
+                        .issuedAt(now)
+                        .expiresAt(now.plus(Duration.ofMinutes(10)))
+                        .build();
+        org.springframework.security.oauth2.jwt.JwsHeader header = org.springframework.security.oauth2.jwt.JwsHeader
+                .with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build();
+        return jwtEncoder.encode(org.springframework.security.oauth2.jwt.JwtEncoderParameters.from(header, claims))
+                .getTokenValue();
+    }
+
+    @Test
+    void linkTokenSignedWithAccessIssuerAndAudience_isRejectedAsBearer() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+
+        // Đối chứng: cùng iss / aud / sub, typ = access → 200 (nên 401 bên dưới là do typ, không do lý do khác).
+        mockMvc.perform(get("/api/v1/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(craftWithAccessClaims(user.id(), "access"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/me")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(craftWithAccessClaims(user.id(), "google-link"))))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -12,6 +12,8 @@ public record UserResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String locale,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String timeZone,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Đã bật xác minh hai bước (M3)")
+        boolean twoFactorEnabled,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "false với tài khoản chỉ đăng nhập bằng Google (đặt mật khẩu qua Quên mật khẩu)")
         boolean hasPassword,

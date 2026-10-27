@@ -43,7 +43,7 @@ class GoogleIdentityServiceTest {
                 .isInstanceOfSatisfying(ApiException.class, ex -> {
                     assertThat(ex.getStatusCode().value()).isEqualTo(503);
                     assertThat(ex.getBody().getDetail())
-                            .isEqualTo("Không kết nối được tới Google, vui lòng thử lại sau");
+                            .isEqualTo("error.google.unavailable");
                 });
     }
 }

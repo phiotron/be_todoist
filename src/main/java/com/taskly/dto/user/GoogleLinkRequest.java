@@ -10,9 +10,9 @@ import jakarta.validation.constraints.Size;
  */
 @Schema(description = "Gửi đúng một trong hai: idToken hoặc linkToken")
 public record GoogleLinkRequest(
-        @Size(max = 4096, message = "idToken quá dài")
+        @Size(max = 4096, message = "{validation.google.token.too-long}")
         String idToken,
 
-        @Size(max = 4096, message = "linkToken quá dài")
+        @Size(max = 4096, message = "{validation.google.token.too-long}")
         String linkToken) {
 }

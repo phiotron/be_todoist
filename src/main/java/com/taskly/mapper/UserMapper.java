@@ -14,6 +14,7 @@ public final class UserMapper {
 
     public static UserResponse toResponse(User user) {
         return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(),
-                user.getLocale(), user.getTimeZone(), user.hasPassword(), user.linkedProviders());
+                user.getLocale(), user.getTimeZone(), user.isTwoFactorEnabled(), user.hasPassword(),
+                user.linkedProviders());
     }
 }

@@ -1,6 +1,9 @@
 package com.taskly.security;
 
+import com.taskly.common.web.IdempotencyFilter;
+import com.taskly.service.IdempotencyService;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * Chuỗi lọc stateless: không session, không CSRF (API dùng Bearer token, không cookie).
@@ -23,9 +28,10 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** Endpoint không cần JWT. */
+    /** Endpoint không cần JWT (chỉ POST). */
     static final String[] PUBLIC_AUTH_PATHS = {
-            "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/google"
+            "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/2fa/verify",
+            "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm", "/api/v1/auth/google"
     };
 
     private static final String[] PUBLIC_DOC_PATHS = {
@@ -35,7 +41,11 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             ProblemDetailAuthenticationEntryPoint entryPoint,
-                                            BearerTokenResolver bearerTokenResolver) throws Exception {
+                                            ProblemDetailAccessDeniedHandler accessDeniedHandler,
+                                            BearerTokenResolver bearerTokenResolver,
+                                            IdempotencyService idempotencyService,
+                                            @Qualifier("handlerExceptionResolver")
+                                            HandlerExceptionResolver handlerExceptionResolver) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -49,14 +59,20 @@ public class SecurityConfig {
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(bearerTokenResolver)
                         .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                         .jwt(Customizer.withDefaults()))
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint));
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
+                // Sau AuthorizationFilter: đã biết user (khoá theo user). Không phải bean → không chạy hai lần.
+                .addFilterAfter(new IdempotencyFilter(idempotencyService, handlerExceptionResolver),
+                        AuthorizationFilter.class);
         return http.build();
     }
 
     /**
-     * Bỏ qua header Authorization trên register/login/refresh/google: app mobile có thể gửi kèm access token
-     * đã hết hạn khi gọi refresh — nếu không bỏ qua, Resource Server sẽ trả 401 trước khi tới controller.
+     * Bỏ qua header Authorization trên các đường public (register/login/refresh/2fa-verify/password-reset/google): app mobile có
+     * thể gửi kèm access token đã hết hạn — nếu không bỏ qua, Resource Server sẽ trả 401 trước khi tới controller.
      */
     @Bean
     BearerTokenResolver bearerTokenResolver() {
