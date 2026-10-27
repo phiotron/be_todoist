@@ -206,8 +206,9 @@ public class TwoFactorService {
         try {
             secret = secretCipher.decrypt(totp.getUserId(), totp.getSecretEncrypted());
         } catch (IllegalStateException e) {
-            // Mất / đổi TOTP_ENCRYPTION_KEY (spec 17): mã TOTP không kiểm được, mã khôi phục vẫn dùng được. Không log secret.
-            log.error("Không giải mã được secret 2FA — kiểm tra TOTP_ENCRYPTION_KEY");
+            // Mất / đổi TOTP_ENCRYPTION_KEY (spec 17): mã TOTP không kiểm được, mã khôi phục vẫn dùng được. Là lỗi cấu hình
+            // nên WARN (không phải lỗi runtime), không stack trace, không bản mã / mã / secret — chỉ userId.
+            log.warn("Không giải mã được secret 2FA của user {} — kiểm tra TOTP_ENCRYPTION_KEY", totp.getUserId());
             return false;
         }
         OptionalLong step = TotpCodec.matchingStep(secret, compact, Instant.now(clock), totp.getLastUsedStep());

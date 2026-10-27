@@ -62,4 +62,31 @@ class TwoFactorLogHygieneTest extends IntegrationTestBase {
                 .doesNotContain(enabled.secret(), twoFactorToken, recovery, firstTotp, lastTotp, disableTotp,
                         FIXTURE_PASSWORD, accessToken, user.refreshToken());
     }
+
+    /** Mất / đổi khoá mã hoá là lỗi cấu hình, không phải lỗi runtime mỗi lần người dùng gõ mã: WARN, không stack trace, không dữ liệu. */
+    @Test
+    void undecryptableSecret_isLoggedAsWarning_withoutCiphertextOrCode(CapturedOutput output) throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
+        jdbcTemplate.update("update user_totp set secret_encrypted = 'v1:ban-ma-hong-khong-giai-duoc' where user_id = ?",
+                user.id());
+        String token = JsonPath.read(body(mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s", "password": "%s"}
+                                """.formatted(user.email(), FIXTURE_PASSWORD)))
+                .andExpect(status().isUnauthorized())
+                .andReturn()), "$.twoFactorToken");
+        String code = TwoFactorSteps.nextCode(enabled.secret(), clock);
+        mockMvc.perform(post("/api/v1/auth/2fa/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"twoFactorToken\": \"%s\", \"code\": \"%s\"}".formatted(token, code)))
+                .andExpect(status().isUnauthorized());
+
+        String line = output.getAll().lines().filter(l -> l.contains("TOTP_ENCRYPTION_KEY")).findFirst()
+                .orElseThrow();
+        assertThat(line).contains(" WARN ").doesNotContain(" ERROR ")
+                .doesNotContain("ban-ma-hong-khong-giai-duoc").doesNotContain(code).doesNotContain(enabled.secret());
+        assertThat(output.getAll()).as("không in stack trace của lỗi giải mã")
+                .doesNotContain("IllegalStateException: ");
+    }
 }
