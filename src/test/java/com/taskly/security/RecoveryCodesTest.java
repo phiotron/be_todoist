@@ -34,11 +34,4 @@ class RecoveryCodesTest {
         assertThat(RecoveryCodes.normalize("abcd-ef01")).as("0 và 1 không thuộc bảng chữ").isEmpty();
         assertThat(RecoveryCodes.normalize("123456")).as("mã TOTP không phải mã khôi phục").isEmpty();
     }
-
-    @Test
-    void hash_isSha256HexOfNormalizedCode() {
-        String hash = RecoveryCodes.hash("abcdef23");
-
-        assertThat(hash).hasSize(64).matches("[0-9a-f]{64}").isEqualTo(OpaqueTokens.sha256Hex("abcdef23"));
-    }
 }

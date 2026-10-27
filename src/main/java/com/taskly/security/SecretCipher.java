@@ -1,10 +1,12 @@
 package com.taskly.security;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -72,6 +74,20 @@ public final class SecretCipher {
             return cipher.doFinal(all, IV_BYTES, all.length - IV_BYTES);
         } catch (GeneralSecurityException | IllegalArgumentException e) {
             throw new IllegalStateException("Không giải mã được secret 2FA");
+        }
+    }
+
+    /**
+     * Khoá con 32 byte theo nhãn: HMAC-SHA256(khoá, nhãn) — để các mục đích khác (vd băm mã khôi phục) dùng chung
+     * TOTP_ENCRYPTION_KEY mà không lộ / dùng lại chính khoá AES. Không bao giờ log kết quả.
+     */
+    public byte[] deriveKey(String label) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key.getEncoded(), "HmacSHA256"));
+            return mac.doFinal(label.getBytes(StandardCharsets.UTF_8));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Không dẫn xuất được khoá con");
         }
     }
 

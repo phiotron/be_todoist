@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 
 /**
  * Mã khôi phục 2FA (spec mục 5.9): 10 mã dùng một lần, dạng "xxxx-xxxx" (8 ký tự a–z, 2–7 ≈ 40 bit). Người dùng gõ lại
- * có thể viết hoa / thiếu "-" / thừa khoảng trắng → normalize. DB chỉ lưu SHA-256 của dạng chuẩn hoá (đủ ngẫu nhiên để
- * không cần BCrypt; verify bị giới hạn 5 lần / 5 phút ở Task 13a).
+ * có thể viết hoa / thiếu "-" / thừa khoảng trắng → normalize. DB chỉ lưu HMAC-SHA256 (pepper phía server + userId) của
+ * dạng chuẩn hoá — xem RecoveryCodeHasher; verify bị giới hạn 5 lần / 5 phút ở Task 13a.
  */
 public final class RecoveryCodes {
 
@@ -45,10 +45,5 @@ public final class RecoveryCodes {
         }
         String compact = input.strip().replace("-", "").replace(" ", "").toLowerCase(Locale.ROOT);
         return NORMALIZED.matcher(compact).matches() ? Optional.of(compact) : Optional.empty();
-    }
-
-    /** Giá trị lưu ở user_recovery_codes.code_hash. */
-    public static String hash(String normalizedCode) {
-        return OpaqueTokens.sha256Hex(normalizedCode);
     }
 }

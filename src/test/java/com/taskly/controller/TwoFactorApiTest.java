@@ -12,11 +12,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import com.taskly.IntegrationTestBase;
 import com.taskly.security.OpaqueTokens;
+import com.taskly.security.RecoveryCodeHasher;
 import com.taskly.security.RecoveryCodes;
 import com.taskly.support.TwoFactorSteps;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -25,6 +27,9 @@ import org.springframework.test.web.servlet.ResultActions;
 class TwoFactorApiTest extends IntegrationTestBase {
 
     private static final String BASE = "/api/v1/me/2fa";
+
+    @Autowired
+    private RecoveryCodeHasher recoveryCodeHasher;
 
     private ResultActions status2fa(String accessToken) throws Exception {
         return mockMvc.perform(get(BASE).header(HttpHeaders.AUTHORIZATION, bearer(accessToken)));
@@ -127,8 +132,10 @@ class TwoFactorApiTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.recoveryCodesLeft").value(10));
         List<String> hashes = jdbcTemplate.queryForList(
                 "select code_hash from user_recovery_codes where user_id = ?", String.class, user.id());
-        String firstHash = RecoveryCodes.hash(RecoveryCodes.normalize(enabled.recoveryCodes().get(0)).orElseThrow());
-        assertThat(hashes).hasSize(10).contains(firstHash).doesNotContainAnyElementsOf(enabled.recoveryCodes());
+        String normalized = RecoveryCodes.normalize(enabled.recoveryCodes().get(0)).orElseThrow();
+        String firstHash = recoveryCodeHasher.hash(user.id(), normalized);
+        assertThat(hashes).hasSize(10).contains(firstHash).doesNotContainAnyElementsOf(enabled.recoveryCodes())
+                .doesNotContain(OpaqueTokens.sha256Hex(normalized));
     }
 
     @Test

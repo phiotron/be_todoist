@@ -13,6 +13,7 @@ import com.taskly.entity.UserRecoveryCode;
 import com.taskly.entity.UserTotp;
 import com.taskly.repository.UserRecoveryCodeRepository;
 import com.taskly.repository.UserTotpRepository;
+import com.taskly.security.RecoveryCodeHasher;
 import com.taskly.security.RecoveryCodes;
 import com.taskly.security.SecretCipher;
 import com.taskly.security.TotpCodec;
@@ -45,17 +46,19 @@ public class TwoFactorService {
     private final UserTotpRepository totpRepository;
     private final UserRecoveryCodeRepository recoveryCodeRepository;
     private final SecretCipher secretCipher;
+    private final RecoveryCodeHasher recoveryCodeHasher;
     private final TotpProperties totpProperties;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
     public TwoFactorService(UserService userService, UserTotpRepository totpRepository,
                             UserRecoveryCodeRepository recoveryCodeRepository, SecretCipher secretCipher,
-                            TotpProperties totpProperties, PasswordEncoder passwordEncoder, Clock clock) {
+                            RecoveryCodeHasher recoveryCodeHasher, TotpProperties totpProperties, PasswordEncoder passwordEncoder, Clock clock) {
         this.userService = userService;
         this.totpRepository = totpRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.secretCipher = secretCipher;
+        this.recoveryCodeHasher = recoveryCodeHasher;
         this.totpProperties = totpProperties;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
@@ -178,7 +181,7 @@ public class TwoFactorService {
         }
         return RecoveryCodes.normalize(code)
                 .flatMap(normalized -> recoveryCodeRepository.findByUserIdAndCodeHashAndUsedAtIsNull(
-                        user.getId(), RecoveryCodes.hash(normalized)))
+                        user.getId(), recoveryCodeHasher.hash(user.getId(), normalized)))
                 .map(recoveryCode -> {
                     recoveryCode.markUsed(Instant.now(clock));
                     return true;
@@ -207,7 +210,7 @@ public class TwoFactorService {
         List<String> codes = RecoveryCodes.generate();
         for (String code : codes) {
             String normalized = RecoveryCodes.normalize(code).orElseThrow();
-            recoveryCodeRepository.save(new UserRecoveryCode(user, RecoveryCodes.hash(normalized)));
+            recoveryCodeRepository.save(new UserRecoveryCode(user, recoveryCodeHasher.hash(user.getId(), normalized)));
         }
         return codes;
     }
