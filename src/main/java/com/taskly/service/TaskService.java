@@ -178,7 +178,8 @@ public class TaskService {
     }
 
     public TaskResponse update(UUID userId, UUID taskId, UpdateTaskRequest request) {
-        Task task = requireWritable(userId, taskId);
+        Task task = requireWritable(userId, taskId); // 404 / 409 theo thứ tự cũ
+        task = lockAndRecheck(task); // khoá P rồi đọc lại: dự án / section vừa lưu trữ, task vừa xoá / chuyển / đổi version
         if (request.version() != task.getVersion()) {
             throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT)
                     .withCode(ProblemCodes.VERSION_CONFLICT)
@@ -220,6 +221,7 @@ public class TaskService {
      */
     public void delete(UUID userId, UUID taskId) {
         Task task = requireWritable(userId, taskId);
+        task = lockAndRecheck(task); // khoá P rồi đọc lại (cùng cổng reopen / close / reorder): không xoá trong dự án vừa lưu trữ
         taskRepository.delete(task);
         taskRepository.flush();
     }
@@ -349,6 +351,21 @@ public class TaskService {
         if (hadTime && dueDatetime == null) {
             events.publishEvent(new TaskTimeClearedEvent(List.of(task.getId())));
         }
+    }
+
+    /**
+     * Như findOverdue nhưng KHOÁ P của mọi dự án có task quá hạn (id tăng dần) rồi truy vấn LẠI trên persistence context
+     * sạch: dự án vừa lưu trữ / task vừa xong / vừa dời ngày trong lúc chờ không bị ghi đè (Reschedule, spec 12.5).
+     */
+    public List<Task> findOverdueLocked(UUID userId) {
+        List<Task> first = findOverdue(userId);
+        if (first.isEmpty()) {
+            return first;
+        }
+        usageLimits.lockProjects(first.stream().map(Task::getProjectId).collect(java.util.stream.Collectors.toSet()));
+        entityManager.flush();
+        entityManager.clear(); // truy vấn bên dưới phải đọc hàng đã commit mới nhất, không trả entity cũ trong cache
+        return findOverdue(userId);
     }
 
     /** Mọi task trong khối Quá hạn (due_day < hôm nay, chưa xong, không tính dự án lưu trữ) của user — Reschedule (spec 12.5). */

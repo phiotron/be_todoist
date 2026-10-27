@@ -110,7 +110,7 @@ public class TaskBatchService {
             throw ApiException.badRequest(ProblemTexts.RESCHEDULE_DATE_PAST);
         }
         Set<UUID> affected = new LinkedHashSet<>();
-        for (Task task : taskService.findOverdue(userId)) {
+        for (Task task : taskService.findOverdueLocked(userId)) {
             reschedule(task, request.date());
             affected.add(task.getId());
         }
@@ -124,8 +124,23 @@ public class TaskBatchService {
      * task GỐC của lô (id có tổ tiên cũng trong danh sách bị bỏ qua: cha kéo con theo).
      */
     private Set<UUID> close(UUID userId, List<Task> tasks) {
-        // khoá P (id TĂNG DẦN) rồi đọc lại TRƯỚC khi dựng cây / ghi hàng task: cùng cổng reopen / reorder task nên không
-        // deadlock cấp hàng với reorder đánh số lại; task vừa chuyển dự án → 409, dự án / section vừa lưu trữ → 409
+        lockAndRecheckAll(tasks);
+        Set<UUID> affected = new LinkedHashSet<>();
+        Instant now = clock.instant();
+        UUID batchId = UUID.randomUUID();
+        Map<UUID, SubtaskTreeService.Tree> trees = treesByProject(tasks); // dựng MỘT lần cho mỗi dự án nguồn
+        Map<UUID, UUID> projectOf = tasks.stream().collect(Collectors.toMap(Task::getId, Task::getProjectId));
+        rootsWithSubtrees(tasks, trees).keySet().forEach(root ->
+                affected.addAll(taskCompletionService.closeWithin(trees.get(projectOf.get(root)), root, now, batchId)));
+        return affected;
+    }
+
+    /**
+     * Cổng khoá P chung của CLOSE / SCHEDULE / PRIORITY / DELETE: khoá mọi dự án chứa task theo id TĂNG DẦN rồi đọc lại
+     * từng task — vừa xoá → 404, vừa chuyển dự án → 409 version-conflict, dự án / section vừa lưu trữ → 409. Cùng cổng
+     * reopen / reorder task nên không deadlock cấp hàng với reorder đánh số lại.
+     */
+    private void lockAndRecheckAll(List<Task> tasks) {
         Set<UUID> toLock = tasks.stream().map(Task::getProjectId).collect(Collectors.toCollection(HashSet::new));
         usageLimits.lockProjects(toLock);
         for (Task task : tasks) {
@@ -140,14 +155,6 @@ public class TaskBatchService {
                 throw SectionService.sectionArchived();
             }
         });
-        Set<UUID> affected = new LinkedHashSet<>();
-        Instant now = clock.instant();
-        UUID batchId = UUID.randomUUID();
-        Map<UUID, SubtaskTreeService.Tree> trees = treesByProject(tasks); // dựng MỘT lần cho mỗi dự án nguồn
-        Map<UUID, UUID> projectOf = tasks.stream().collect(Collectors.toMap(Task::getId, Task::getProjectId));
-        rootsWithSubtrees(tasks, trees).keySet().forEach(root ->
-                affected.addAll(taskCompletionService.closeWithin(trees.get(projectOf.get(root)), root, now, batchId)));
-        return affected;
     }
 
     /**
@@ -188,6 +195,7 @@ public class TaskBatchService {
     }
 
     private Set<UUID> delete(UUID userId, List<Task> tasks) {
+        lockAndRecheckAll(tasks);
         Set<UUID> affected = new LinkedHashSet<>();
         rootsWithSubtrees(tasks, treesByProject(tasks)).forEach((root, descendants) -> { // tính TRƯỚC khi xoá
             affected.add(root);
@@ -198,6 +206,10 @@ public class TaskBatchService {
     }
 
     private Set<UUID> schedule(List<Task> tasks, LocalDate date) {
+        lockAndRecheckAll(tasks);
+        if (tasks.stream().anyMatch(task -> task.getCompletedAt() != null)) { // vừa hoàn thành trong lúc chờ khoá
+            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
+        }
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : tasks) {
             reschedule(task, date);
@@ -207,6 +219,7 @@ public class TaskBatchService {
     }
 
     private Set<UUID> priority(List<Task> tasks, int priority) {
+        lockAndRecheckAll(tasks);
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : tasks) {
             task.setPriority(priority);
