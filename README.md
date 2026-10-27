@@ -160,6 +160,8 @@ Các mốc sau dựa vào tên dưới đây (chi tiết: plan M1 backend part 1
   để dán vào app. Mã dùng một lần, hết hạn sau 30 phút; yêu cầu mới làm mã cũ hết hiệu lực; đặt lại thành công thu hồi
   mọi refresh token (đăng xuất mọi máy).
 - Đổi / đặt lại mật khẩu không vô hiệu access token đang cầm (JWT stateless, tối đa 15 phút).
+- Quên mật khẩu: tối đa 5 yêu cầu / giờ / email (`app.rate-limit.password-reset.*`, bộ đếm trong bộ nhớ); vượt thì vẫn
+  trả 200 nhưng không gửi thư (200 hay 429 khi vượt: chờ người dùng chốt).
 - SMTP cấu hình bằng `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` trong `.env` (mặc định Mailpit `localhost:1025`).
 - **2FA (TOTP RFC 6238, 6 số, 30 giây, lệch ±1 bước):** đăng nhập tài khoản bật 2FA trả **401** `code:
   "two-factor-required"` kèm `twoFactorToken` (5 phút) → gọi `/auth/2fa/verify` với mã 6 số hoặc một mã khôi phục

@@ -11,6 +11,7 @@ import com.taskly.integration.MailSender;
 import com.taskly.integration.OutgoingMail;
 import com.taskly.repository.PasswordResetTokenRepository;
 import com.taskly.security.OpaqueTokens;
+import com.taskly.security.PasswordResetRateLimiter;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Locale;
@@ -23,9 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Quên / đặt lại mật khẩu (spec mục 12.1). Sở hữu bảng password_reset_tokens.
+ * Quên / đặt lại mật khẩu (spec mục 12.1, 5.9). Sở hữu bảng password_reset_tokens.
  * Token = 32 byte ngẫu nhiên base64url (OpaqueTokens), DB chỉ lưu SHA-256, hết hạn 30 phút, dùng một lần.
- * KHÔNG log email hay token.
+ * Yêu cầu đặt lại: tối đa 5 lần / giờ / email (PasswordResetRateLimiter); vượt vẫn kết thúc bình thường (200) nhưng
+ * không làm gì. KHÔNG log email hay token.
  */
 @Service
 @Transactional
@@ -42,29 +44,37 @@ public class PasswordResetService {
     private final MailSender mailSender;
     private final MessageSource messageSource;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetRateLimiter rateLimiter;
     private final PasswordResetProperties properties;
     private final Clock clock;
 
     public PasswordResetService(UserService userService, AuthService authService,
                                 PasswordResetTokenRepository tokenRepository, MailSender mailSender,
                                 MessageSource messageSource, PasswordEncoder passwordEncoder,
-                                PasswordResetProperties properties, Clock clock) {
+                                PasswordResetRateLimiter rateLimiter, PasswordResetProperties properties,
+                                Clock clock) {
         this.userService = userService;
         this.authService = authService;
         this.tokenRepository = tokenRepository;
         this.mailSender = mailSender;
         this.messageSource = messageSource;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiter = rateLimiter;
         this.properties = properties;
         this.clock = clock;
     }
 
     /**
-     * Kết thúc bình thường (controller trả 200 giống nhau) dù email có tài khoản hay không.
-     * Có tài khoản: vô hiệu token cũ còn dùng được, tạo token mới, gửi thư theo ngôn ngữ của tài khoản.
-     * Gửi lỗi → 503 và rollback cả transaction: token mới biến mất, token cũ giữ nguyên như trước yêu cầu.
+     * Kết thúc bình thường (controller trả 200 giống nhau) dù email có tài khoản hay không, và cả khi vượt giới hạn.
+     * Có tài khoản và còn hạn mức: vô hiệu token cũ còn dùng được, tạo token mới, gửi thư theo ngôn ngữ của tài khoản.
+     * Gửi lỗi → 503 và rollback cả transaction: token mới biến mất, token cũ giữ nguyên như trước yêu cầu
+     * (bộ đếm giới hạn nằm trong bộ nhớ nên lần này vẫn bị tính).
      */
     public void requestReset(String normalizedEmail) {
+        if (!rateLimiter.tryAcquire(normalizedEmail)) {
+            log.info("Bỏ qua yêu cầu đặt lại mật khẩu: vượt giới hạn tần suất");
+            return;
+        }
         Optional<User> found = userService.findByEmail(normalizedEmail);
         if (found.isEmpty()) {
             return;

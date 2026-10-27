@@ -53,6 +53,10 @@ app:
     account-password:
       max-requests: 5
       window-seconds: 300
+    # Quên mật khẩu (spec mục 5.9): 5 lần / giờ / email; vượt vẫn trả 200 nhưng không gửi thư.
+    password-reset:
+      max-requests: 5
+      window-seconds: 3600
 
 taskly:
   totp:
