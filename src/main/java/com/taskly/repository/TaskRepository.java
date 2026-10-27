@@ -28,6 +28,9 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     // ---- truy vấn đọc (Task 15) ----
 
+    /** Task đang mở của một section (mọi cấp — sub-task cùng section với task gốc). */
+    List<Task> findBySectionIdAndCompletedAtIsNull(UUID sectionId);
+
     /** Vùng chứa của subtask: con trực tiếp của parentId. */
     List<Task> findByParentIdOrderBySortOrderAscIdAsc(UUID parentId);
 

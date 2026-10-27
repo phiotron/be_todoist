@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -197,6 +198,18 @@ public class TaskService {
         Task task = requireWritable(userId, taskId);
         taskRepository.delete(task);
         taskRepository.flush();
+    }
+
+    /**
+     * Lưu trữ section → mọi task đang mở của nó (kèm cây con: sub-task luôn cùng section với task gốc) thành đã
+     * xong cùng completed_at = archivedAt VÀ cùng một completion_batch_id mới (listener tự sinh, spec 5.1 / 10.2).
+     * Đổi qua entity nên mỗi task chuyển trạng thái tăng version (spec 5.6). Cùng transaction với SectionService.
+     */
+    @EventListener
+    public void onSectionArchived(SectionArchivedEvent event) {
+        UUID batchId = UUID.randomUUID();
+        taskRepository.findBySectionIdAndCompletedAtIsNull(event.sectionId())
+                .forEach(task -> task.complete(event.archivedAt(), batchId));
     }
 
     // ---- Dùng chung cho các service task khác ----
