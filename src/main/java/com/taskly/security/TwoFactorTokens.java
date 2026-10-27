@@ -100,6 +100,8 @@ public class TwoFactorTokens {
 
     /**
      * Đánh dấu token đã dùng (gọi SAU khi mã 2FA đúng). true = lần đầu; false = token sai / hết hạn / đã dùng rồi.
+     * Lưu ý (fail-closed): jti bị đốt NGAY trong bộ nhớ, không theo transaction DB — nếu bước sau (phát token phiên) lỗi và
+     * rollback thì token đã mất, người dùng phải đăng nhập lại; đổi lại không bao giờ có hai phiên từ một token.
      */
     public boolean consume(String twoFactorToken) {
         if (twoFactorToken == null || twoFactorToken.isBlank()) {

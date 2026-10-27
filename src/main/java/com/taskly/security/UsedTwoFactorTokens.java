@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * jti của twoFactorToken đã dùng (spec m10: dùng một lần). Bộ nhớ, tự dọn mục hết hạn: giữ tới exp + 2 phút (dung sai
  * đồng hồ của decoder là 60 giây). Mất khi khởi động lại và không chia sẻ nhiều instance — chấp nhận ở vòng 1.
+ * markUsed đốt jti ngay (không theo commit / rollback của DB): fail-closed — lỗi sau đó chỉ buộc đăng nhập lại.
  */
 @Component
 public class UsedTwoFactorTokens {
