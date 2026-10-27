@@ -1,6 +1,9 @@
 package com.taskly.security;
 
+import com.taskly.common.web.IdempotencyFilter;
+import com.taskly.service.IdempotencyService;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -14,6 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * Chuỗi lọc stateless: không session, không CSRF (API dùng Bearer token, không cookie).
@@ -36,7 +41,10 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             ProblemDetailAuthenticationEntryPoint entryPoint,
                                             ProblemDetailAccessDeniedHandler accessDeniedHandler,
-                                            BearerTokenResolver bearerTokenResolver) throws Exception {
+                                            BearerTokenResolver bearerTokenResolver,
+                                            IdempotencyService idempotencyService,
+                                            @Qualifier("handlerExceptionResolver")
+                                            HandlerExceptionResolver handlerExceptionResolver) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -54,7 +62,10 @@ public class SecurityConfig {
                         .jwt(Customizer.withDefaults()))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(entryPoint)
-                        .accessDeniedHandler(accessDeniedHandler));
+                        .accessDeniedHandler(accessDeniedHandler))
+                // Sau AuthorizationFilter: đã biết user (khoá theo user). Không phải bean → không chạy hai lần.
+                .addFilterAfter(new IdempotencyFilter(idempotencyService, handlerExceptionResolver),
+                        AuthorizationFilter.class);
         return http.build();
     }
 
