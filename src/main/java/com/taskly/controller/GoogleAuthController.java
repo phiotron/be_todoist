@@ -40,7 +40,9 @@ public class GoogleAuthController {
     /** Luôn 200 khi thành công — kể cả lần đầu tạo tài khoản (app không cần phân biệt). */
     @Operation(summary = "Đăng nhập / đăng ký bằng Google",
             description = "Xác minh ID token Google. 200 AuthResponse (kể cả lần đầu tạo tài khoản). "
-                    + "401 token sai / hết hạn / sai aud; 403 email Google chưa xác minh; 503 không kết nối được Google. "
+                    + "401 token sai / hết hạn / sai aud. 401 code = \"two-factor-required\" kèm twoFactorToken (5 phút) "
+                    + "khi tài khoản đã liên kết bật 2FA — gọi tiếp POST /api/v1/auth/2fa/verify {twoFactorToken, code}. "
+                    + "403 email Google chưa xác minh; 429 quá 10 lần / phút / IP; 503 không kết nối được Google. "
                     + "409 khi email đã có tài khoản mật khẩu: ProblemDetail có code = \"link-required\" và linkToken "
                     + "(hạn 10 phút) — đăng nhập bằng mật khẩu rồi gọi POST /api/v1/me/identities/google {linkToken}.")
     @PostMapping("/auth/google")
@@ -63,7 +65,8 @@ public class GoogleAuthController {
 
     /** Cần access JWT. 204; chưa liên kết → 404; tài khoản chưa có mật khẩu → 409. */
     @Operation(summary = "Bỏ liên kết Google",
-            description = "204; 404 nếu chưa liên kết Google; 409 nếu tài khoản chưa có mật khẩu.")
+            description = "204; 404 nếu chưa liên kết Google; 409 code = \"password-required\" nếu tài khoản chưa có "
+                    + "mật khẩu (đặt mật khẩu qua Quên mật khẩu trước).")
     @DeleteMapping("/me/identities/google")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH)

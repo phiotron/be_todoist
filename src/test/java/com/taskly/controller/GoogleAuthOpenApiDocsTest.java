@@ -39,4 +39,16 @@ class GoogleAuthOpenApiDocsTest extends IntegrationTestBase {
                         .value("array"))
                 .andExpect(jsonPath("$..linkedProviders..enum[*]", hasItem("GOOGLE")));
     }
+
+    @Test
+    void describesSpec3TwoFactorAndErrorCodes() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/google'].post.description",
+                        containsString("two-factor-required")))
+                .andExpect(jsonPath("$.paths['/api/v1/auth/google'].post.description",
+                        containsString("/api/v1/auth/2fa/verify")))
+                .andExpect(jsonPath("$.paths['/api/v1/me/identities/google'].delete.description",
+                        containsString("password-required")));
+    }
 }

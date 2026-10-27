@@ -189,9 +189,9 @@ RS256; tài khoản gắn theo claim `sub`, không theo email. Test tự động
 ### API
 | Method | Path | JWT | Kết quả |
 |---|---|---|---|
-| POST | `/auth/google` `{idToken}` | không | 200 `AuthResponse` (tạo tài khoản không mật khẩu nếu email mới); 401 token sai / hết hạn / sai aud; 403 email Google chưa xác minh; 409 `code=link-required` kèm `linkToken`; 503 không kết nối được Google |
+| POST | `/auth/google` `{idToken}` | không | 200 `AuthResponse` (tạo tài khoản không mật khẩu nếu email mới); 401 token sai / hết hạn / sai aud; 401 `code=two-factor-required` kèm `twoFactorToken` khi tài khoản bật 2FA (gọi tiếp `POST /auth/2fa/verify`); 403 email Google chưa xác minh; 409 `code=link-required` kèm `linkToken`; 429 quá 10 lần / phút / IP; 503 không kết nối được Google |
 | POST | `/me/identities/google` `{idToken}` hoặc `{linkToken}` | có | 204 (gửi lại đúng Google đã liên kết cũng 204); 400 token không dùng được / hết hạn / sai aud, email trong `linkToken` khác email tài khoản, hoặc gửi sai số trường (**không** 401 — app coi 401 là hết phiên); 403 email Google chưa xác minh; 409 Google đã gắn tài khoản khác / tài khoản đã gắn Google khác |
-| DELETE | `/me/identities/google` | có | 204; 404 chưa liên kết Google; 409 tài khoản chưa có mật khẩu |
+| DELETE | `/me/identities/google` | có | 204; 404 chưa liên kết Google; 409 `code=password-required` tài khoản chưa có mật khẩu |
 
 409 `link-required`:
 ```json
@@ -201,3 +201,9 @@ RS256; tài khoản gắn theo claim `sub`, không theo email. Test tự động
 ```
 App: đăng nhập bằng mật khẩu → gọi `POST /me/identities/google {linkToken}`. Tài khoản chỉ có Google đặt mật khẩu qua
 Quên mật khẩu (M3); đăng nhập mật khẩu vào tài khoản chưa có mật khẩu trả 401 giống sai mật khẩu.
+
+Tài khoản bật 2FA: đăng nhập Google cũng bị đòi mã như đăng nhập mật khẩu (`two-factor-required` → `auth/2fa/verify`);
+liên kết Google từ Cài đặt không đòi thêm mã. Xoá tài khoản (`DELETE /me`, M3) xoá luôn liên kết Google; tài khoản chỉ có
+Google phải đặt mật khẩu trước (409 `code=password-required`). Tắt 2FA với tài khoản chỉ có Google chỉ cần mã.
+
+`linkToken` là JWT HS256 `typ = google-link`, `aud = taskly-google-link`, hạn 10 phút (spec 3.1): không dùng được làm access token hay `twoFactorToken`, và ngược lại access token / `twoFactorToken` đưa vào `me/identities/google {linkToken}` → 400.
