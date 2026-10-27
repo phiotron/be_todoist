@@ -67,6 +67,14 @@ Tiền tố `/api/v1`, JSON camelCase. Lỗi luôn là ProblemDetail (`applicati
 | POST | `/me/settings/reset` | có | 200 `SettingsResponse` về mặc định (`TASKLY`, `AUTO`, `vi`…; giữ múi giờ) |
 | POST | `/auth/password-reset/request` `{email}` | không | luôn 200 body rỗng dù email có hay không; gửi thư lỗi 503 |
 | POST | `/auth/password-reset/confirm` `{token, newPassword}` | không | 204 (không tự đăng nhập); mã sai 404; hết hạn / đã dùng 410 |
+| POST | `/auth/2fa/verify` `{twoFactorToken, code}` | không | 200 `AuthResponse`; token sai / hết hạn hoặc mã sai 401 |
+| GET | `/me/2fa` | có | 200 `{enabled, recoveryCodesLeft}` |
+| POST | `/me/2fa/setup` | có | 200 `{secret, otpauthUri}` (tạo / thay secret chờ bật); đang bật 409 `two-factor-already-enabled` |
+| POST | `/me/2fa/enable` `{code}` | có | 200 `{recoveryCodes[10]}` (chỉ trả một lần); chưa setup 409 `two-factor-not-setup`; sai mã 400 |
+| POST | `/me/2fa/disable` `{password, code}` | có | 204; sai mật khẩu / mã 400; chưa bật 409 `two-factor-not-setup` |
+| POST | `/me/2fa/recovery-codes` `{code}` | có | 200 `{recoveryCodes[10]}` mới (mã cũ hết hiệu lực) |
+| POST | `/me/logout-all` | có | 204 — thu hồi mọi refresh token (đăng xuất mọi thiết bị) |
+| DELETE | `/me` `{password, code?}` | có | 204 — xoá vĩnh viễn tài khoản + dữ liệu; sai mật khẩu / mã 2FA 400; chưa có mật khẩu 409 `password-required` |
 
 - `SettingsResponse` = `{theme: TASKLY|MOONSTONE|TANGERINE|KALE|BLUEBERRY|LAVENDER|RASPBERRY, appearance: AUTO|LIGHT|DARK,
   locale: vi|en, timeZone (IANA), startDay / nextWeek / weekendStartDay: 1–7 (1 = Thứ Hai), dateFormat: DMY|MDY,
@@ -79,3 +87,11 @@ Tiền tố `/api/v1`, JSON camelCase. Lỗi luôn là ProblemDetail (`applicati
   mọi refresh token (đăng xuất mọi máy).
 - Đổi / đặt lại mật khẩu không vô hiệu access token đang cầm (JWT stateless, tối đa 15 phút).
 - SMTP cấu hình bằng `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM` trong `.env` (mặc định Mailpit `localhost:1025`).
+- **2FA (TOTP RFC 6238, 6 số, 30 giây, lệch ±1 bước):** đăng nhập tài khoản bật 2FA trả **401** `code:
+  "two-factor-required"` kèm `twoFactorToken` (5 phút) → gọi `/auth/2fa/verify` với mã 6 số hoặc một mã khôi phục
+  (`xxxx-xxxx`, dùng một lần). Mỗi mã TOTP chỉ dùng được một lần. Secret lưu mã hoá AES-256-GCM bằng
+  `TOTP_ENCRYPTION_KEY` trong `.env` (thiếu thì server không khởi động; mất khoá → chỉ đăng nhập được bằng mã khôi phục).
+  `UserResponse` có thêm `twoFactorEnabled`. Đặt lại mật khẩu không tắt 2FA.
+- Lỗi có `code` (để app phân biệt, không dựa vào câu chữ): `two-factor-required`, `two-factor-already-enabled`,
+  `two-factor-not-setup`, `password-required`; riêng `auth/2fa/verify` (401): `two-factor-code-invalid` (mã sai, token còn
+  sống — nhập lại) và `two-factor-token-invalid` (token hết hạn / đã dùng / không hợp lệ — đăng nhập lại).
