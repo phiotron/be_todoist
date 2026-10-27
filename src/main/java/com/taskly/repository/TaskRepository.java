@@ -3,6 +3,7 @@ package com.taskly.repository;
 import com.taskly.entity.Task;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -24,4 +25,33 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query(value = "update tasks set project_id = :projectId, section_id = cast(:sectionId as uuid), "
             + "workspace_id = :workspaceId, updated_at = :now where id in (:ids)", nativeQuery = true)
     int relocate(Collection<UUID> ids, UUID projectId, UUID sectionId, UUID workspaceId, Instant now);
+
+    // ---- truy vấn đọc (Task 15) ----
+
+    /** Vùng chứa của subtask: con trực tiếp của parentId. */
+    List<Task> findByParentIdOrderBySortOrderAscIdAsc(UUID parentId);
+
+    /** Vùng chứa task gốc "không thuộc section" của dự án. */
+    List<Task> findByProjectIdAndParentIdIsNullAndSectionIdIsNullOrderBySortOrderAscIdAsc(UUID projectId);
+
+    /** Vùng chứa task gốc của một section. */
+    List<Task> findByProjectIdAndParentIdIsNullAndSectionIdOrderBySortOrderAscIdAsc(UUID projectId, UUID sectionId);
+
+    /** Node của cây công việc con trong dự án: [id, parentId, sortOrder, completedAt, completionBatchId]. */
+    @Query("select t.id, t.parentId, t.sortOrder, t.completedAt, t.completionBatchId from Task t "
+            + "where t.projectId = :projectId")
+    List<Object[]> findTreeRows(UUID projectId);
+
+    /** JPQL (không native) để Hibernate tự flush thay đổi chưa ghi trước khi đếm — đếm đúng khi gọi nhiều lần / lô. */
+    @Query("select count(t) from Task t where t.projectId = :projectId and t.completedAt is null")
+    long countOpenInProject(UUID projectId);
+
+    default List<Task> findContainer(UUID projectId, UUID sectionId, UUID parentId) {
+        if (parentId != null) {
+            return findByParentIdOrderBySortOrderAscIdAsc(parentId);
+        }
+        return sectionId == null
+                ? findByProjectIdAndParentIdIsNullAndSectionIdIsNullOrderBySortOrderAscIdAsc(projectId)
+                : findByProjectIdAndParentIdIsNullAndSectionIdOrderBySortOrderAscIdAsc(projectId, sectionId);
+    }
 }

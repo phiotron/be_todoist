@@ -1,6 +1,9 @@
 package com.taskly.config;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.core.JsonParser;
@@ -9,6 +12,8 @@ import tools.jackson.databind.BeanProperty;
 import tools.jackson.databind.DeserializationConfig;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.cfg.CoercionAction;
+import tools.jackson.databind.cfg.CoercionInputShape;
 import tools.jackson.databind.ValueDeserializer;
 import tools.jackson.databind.deser.Deserializers;
 import tools.jackson.databind.deser.std.StdDeserializer;
@@ -25,6 +30,20 @@ import tools.jackson.databind.type.ReferenceType;
  */
 @Configuration(proxyBeanMethods = false)
 public class JsonConfig {
+
+    /**
+     * Ngày / giờ không nhận chuỗi rỗng: mặc định Jackson đọc {@code ""} thành null — PATCH {@code "dueDatetime": ""} sẽ
+     * âm thầm XOÁ due. Xoá phải là {@code null} tường minh; chuỗi rỗng → 400.
+     */
+    @Bean
+    public JsonMapperBuilderCustomizer strictEmptyDates() {
+        return builder -> {
+            builder.withCoercionConfig(LocalDate.class,
+                    cfg -> cfg.setCoercion(CoercionInputShape.EmptyString, CoercionAction.Fail));
+            builder.withCoercionConfig(LocalDateTime.class,
+                    cfg -> cfg.setCoercion(CoercionInputShape.EmptyString, CoercionAction.Fail));
+        };
+    }
 
     @Bean
     public JacksonModule absentOptionalModule() {
