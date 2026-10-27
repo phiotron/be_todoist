@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProjectService {
 
-    public static final String INBOX_NAME = "Inbox";
+    public static final String INBOX_NAME = Project.INBOX_NAME;
 
     private final ProjectRepository projectRepository;
 
@@ -19,9 +19,9 @@ public class ProjectService {
         this.projectRepository = projectRepository;
     }
 
-    /** Inbox của workspace cá nhân: is_inbox = true, layout LIST, đứng đầu (sort_order 0), chưa có màu. */
+    /** Inbox của workspace cá nhân: is_inbox = true, không màu, không cha, layout LIST, đứng đầu (sort_order 0). */
     @Transactional
     public Project createInbox(Workspace personalWorkspace) {
-        return projectRepository.save(new Project(personalWorkspace, INBOX_NAME, null, true, ViewStyle.LIST, 0));
+        return projectRepository.save(Project.inbox(personalWorkspace));
     }
 }

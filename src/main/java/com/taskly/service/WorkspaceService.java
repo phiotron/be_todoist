@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemTexts;
 import com.taskly.entity.User;
 import com.taskly.entity.Workspace;
 import com.taskly.entity.WorkspaceMember;
@@ -7,6 +9,7 @@ import com.taskly.entity.WorkspaceRole;
 import com.taskly.entity.WorkspaceType;
 import com.taskly.repository.WorkspaceMemberRepository;
 import com.taskly.repository.WorkspaceRepository;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,5 +38,12 @@ public class WorkspaceService {
                 new Workspace(PERSONAL_WORKSPACE_NAME, WorkspaceType.PERSONAL, owner));
         workspaceMemberRepository.save(new WorkspaceMember(workspace, owner, WorkspaceRole.ADMIN));
         return workspace;
+    }
+
+    /** Workspace cá nhân của user (Mức 1: dự án mới luôn tạo ở đây). Không có → phiên không hợp lệ (401). */
+    @Transactional(readOnly = true)
+    public Workspace personalWorkspace(UUID userId) {
+        return workspaceRepository.findByOwnerIdAndType(userId, WorkspaceType.PERSONAL)
+                .orElseThrow(() -> ApiException.unauthorized(ProblemTexts.SESSION_INVALID));
     }
 }
