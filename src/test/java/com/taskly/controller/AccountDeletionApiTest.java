@@ -36,6 +36,12 @@ class AccountDeletionApiTest extends IntegrationTestBase {
         assertThat(count("select count(*) from password_reset_tokens where user_id = ?", userId)).isZero();
         assertThat(count("select count(*) from user_totp where user_id = ?", userId)).isZero();
         assertThat(count("select count(*) from user_recovery_codes where user_id = ?", userId)).isZero();
+        // M1: dữ liệu theo workspace (dự án → section / task) và theo user (yêu thích, khoá chống gửi trùng)
+        assertThat(count("select count(*) from projects p join workspaces w on w.id = p.workspace_id where w.owner_id = ?",
+                userId)).isZero();
+        assertThat(count("select count(*) from tasks where creator_id = ?", userId)).isZero();
+        assertThat(count("select count(*) from favorites where user_id = ?", userId)).isZero();
+        assertThat(count("select count(*) from idempotency_keys where user_id = ?", userId)).isZero();
     }
 
     private int projectsOf(UUID userId) {
