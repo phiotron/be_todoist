@@ -104,6 +104,21 @@ public class Task extends BaseEntity {
         this.sortOrder = sortOrder;
     }
 
+    /**
+     * Bản sao cho "sao chép task" (spec 10.1): chép nội dung, mô tả, ưu tiên, due, duration, deadline, due_string,
+     * quy tắc lặp (M6), workspace, dự án, section. id / version (= 0) / thời gian là mới; bản sao luôn CHƯA hoàn
+     * thành và KHÔNG có completion_batch_id (chỉ chép con đang mở - spec 5.4; không thừa hưởng batch Undo của bản
+     * gốc). Không chép nhắc (M4), comment (M8). sort_order chỉ được truyền ở constructor (lúc tạo).
+     */
+    public static Task copyOf(Task source, UUID parentId, UUID creatorId, long sortOrder) {
+        Task copy = new Task(source.getWorkspaceId(), source.projectId, source.sectionId, parentId, creatorId,
+                source.content, source.description, source.priority, source.dueDate, source.dueDatetime,
+                source.durationMinutes, source.deadlineDate, sortOrder);
+        copy.dueString = source.dueString;
+        copy.recurrenceRule = source.recurrenceRule;
+        return copy;
+    }
+
     public void setContent(String content) {
         this.content = content;
     }
