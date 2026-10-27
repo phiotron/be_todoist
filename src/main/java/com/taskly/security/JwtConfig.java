@@ -59,7 +59,8 @@ public class JwtConfig {
         timestampValidator.setAllowEmptyExpiryClaim(false); // token thiếu exp bị từ chối
         JwtClaimValidator<String> subjectValidator =
                 new JwtClaimValidator<>(JwtClaimNames.SUB, sub -> sub != null && !sub.isBlank());
-        JwtClaimValidator<String> typeValidator =
+        // Object (không phải String): typ lạ kiểu số / mảng phải bị từ chối (401), không ném ClassCastException (500).
+        JwtClaimValidator<Object> typeValidator =
                 new JwtClaimValidator<>(JwtTokenIssuer.TYPE_CLAIM, JwtTokenIssuer.ACCESS_TYPE::equals);
         JwtClaimValidator<List<String>> audienceValidator = new JwtClaimValidator<>(JwtClaimNames.AUD,
                 aud -> aud != null && aud.contains(JwtTokenIssuer.ACCESS_AUDIENCE));
