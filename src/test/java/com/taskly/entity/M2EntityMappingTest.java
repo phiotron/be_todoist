@@ -79,7 +79,9 @@ class M2EntityMappingTest extends IntegrationTestBase {
     @Test
     void viewOption_roundTripsEnumsAsUppercaseText() throws Exception {
         UUID user = registerUser(uniqueEmail()).id();
-        ViewOption option = new ViewOption(user, "TODAY");
+        // khoá duy nhất theo test: deleteViews xoá theo view_key của MỌI user nên "TODAY" sẽ đụng dòng của test khác
+        String viewKey = "project:" + UUID.randomUUID();
+        ViewOption option = new ViewOption(user, viewKey);
         option.apply(SortBy.PRIORITY, SortDirection.DESC, GroupBy.PROJECT, 1, null, DueFilter.NEXT_7_DAYS, false);
         viewOptions.saveAndFlush(option);
 
@@ -88,10 +90,10 @@ class M2EntityMappingTest extends IntegrationTestBase {
         assertThat(row).containsEntry("sort_by", "PRIORITY").containsEntry("sort_direction", "DESC")
                 .containsEntry("group_by", "PROJECT").containsEntry("filter_priority", 1)
                 .containsEntry("filter_due", "NEXT_7_DAYS").containsEntry("show_completed", false);
-        assertThat(viewOptions.findByUserIdAndViewKey(user, "TODAY")).isPresent();
+        assertThat(viewOptions.findByUserIdAndViewKey(user, viewKey)).isPresent();
         assertThat(viewOptions.findByUserIdOrderByViewKeyAsc(user)).hasSize(1);
-        assertThat(viewOptions.deleteViews(List.of("label:" + UUID.randomUUID(), "TODAY"))).isEqualTo(1);
-        assertThat(viewOptions.findByUserIdAndViewKey(user, "TODAY")).isEmpty();
-        assertThat(viewOptions.deleteView(user, "TODAY")).isZero();
+        assertThat(viewOptions.deleteViews(List.of("label:" + UUID.randomUUID(), viewKey))).isEqualTo(1);
+        assertThat(viewOptions.findByUserIdAndViewKey(user, viewKey)).isEmpty();
+        assertThat(viewOptions.deleteView(user, viewKey)).isZero();
     }
 }
