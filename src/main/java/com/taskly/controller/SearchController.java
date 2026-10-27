@@ -2,6 +2,7 @@ package com.taskly.controller;
 
 import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.common.Page;
+import com.taskly.dto.search.SearchObjectsResponse;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.SearchService;
@@ -35,5 +36,12 @@ public class SearchController {
             @RequestParam(required = false) String cursor,
             @Parameter(description = "1–200, mặc định 50") @RequestParam(required = false) Integer limit) {
         return searchService.searchTasks(CurrentUser.id(jwt), q, completed, cursor, limit);
+    }
+
+    @GetMapping("/objects")
+    public SearchObjectsResponse objects(
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(description = "Từ khoá ≤ 100 ký tự; rỗng → 4 mảng rỗng") @RequestParam(required = false) String q) {
+        return searchService.searchObjects(CurrentUser.id(jwt), q);
     }
 }

@@ -2,7 +2,16 @@ package com.taskly.service;
 
 import com.taskly.common.web.CursorCodec;
 import com.taskly.dto.common.Page;
+import com.taskly.dto.filter.FilterResponse;
+import com.taskly.dto.label.LabelResponse;
+import com.taskly.dto.search.SearchObjectsResponse;
 import com.taskly.dto.search.SearchQuery;
+import com.taskly.dto.search.SectionSearchItem;
+import com.taskly.repository.ObjectSearchRepository;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.repository.TaskSearchRepository;
 import com.taskly.repository.listing.KeysetPager.KeyedId;
@@ -27,11 +36,50 @@ public class SearchService {
     private final AccessPolicy accessPolicy;
     private final TaskViewService taskViewService;
 
+    public static final int MAX_OBJECTS = 20;
+
+    private final ObjectSearchRepository objectSearchRepository;
+    private final ProjectService projectService;
+    private final LabelService labelService;
+    private final FilterService filterService;
+
     public SearchService(TaskSearchRepository taskSearchRepository, AccessPolicy accessPolicy,
-                         TaskViewService taskViewService) {
+                         TaskViewService taskViewService, ObjectSearchRepository objectSearchRepository,
+                         ProjectService projectService, LabelService labelService, FilterService filterService) {
         this.taskSearchRepository = taskSearchRepository;
         this.accessPolicy = accessPolicy;
         this.taskViewService = taskViewService;
+        this.objectSearchRepository = objectSearchRepository;
+        this.projectService = projectService;
+        this.labelService = labelService;
+        this.filterService = filterService;
+    }
+
+    /** Dự án / section / label / filter khớp tên (spec 12.6): mỗi loại ≤ 20, label + filter chỉ của chính user. */
+    public SearchObjectsResponse searchObjects(UUID userId, String q) {
+        Optional<SearchQuery> parsed = SearchQuery.parse(q);
+        if (parsed.isEmpty()) {
+            return SearchObjectsResponse.empty();
+        }
+        SearchQuery query = parsed.get();
+        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
+        List<UUID> projectIds = workspaceIds.isEmpty() ? List.of()
+                : objectSearchRepository.projectIds(workspaceIds, query, MAX_OBJECTS);
+        List<SectionSearchItem> sections = workspaceIds.isEmpty() ? List.of()
+                : objectSearchRepository.sections(workspaceIds, query, MAX_OBJECTS);
+        List<UUID> labelIds = objectSearchRepository.labelIds(userId, query, MAX_OBJECTS);
+        List<UUID> filterIds = objectSearchRepository.filterIds(userId, query, MAX_OBJECTS);
+        return new SearchObjectsResponse(
+                projectService.getResponses(userId, projectIds),
+                sections,
+                inOrder(labelIds, labelIds.isEmpty() ? List.of() : labelService.list(userId), LabelResponse::id),
+                inOrder(filterIds, filterIds.isEmpty() ? List.of() : filterService.list(userId), FilterResponse::id));
+    }
+
+    /** Giữ thứ tự của ids; DTO dựng bởi service chủ sở hữu (danh sách đầy đủ của user, bị chặn bởi giới hạn). */
+    private static <T> List<T> inOrder(List<UUID> ids, List<T> all, Function<T, UUID> idOf) {
+        Map<UUID, T> byId = all.stream().collect(Collectors.toMap(idOf, Function.identity()));
+        return ids.stream().map(byId::get).filter(Objects::nonNull).toList();
     }
 
     public Page<TaskResponse> searchTasks(UUID userId, String q, boolean completed, String cursor, Integer limit) {
