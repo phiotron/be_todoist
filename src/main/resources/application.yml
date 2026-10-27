@@ -23,6 +23,13 @@ app:
     ttl-hours: 24
   jobs:
     enabled: true
+  rate-limit:
+    auth:
+      max-requests: 10
+      window-seconds: 60
+    refresh:
+      max-requests: 30
+      window-seconds: 60
 
 # Giới hạn theo gói Pro của Todoist (spec 2.1) — đọc DUY NHẤT ở UsageLimits. Vượt → 422 code limit-reached.
 taskly:

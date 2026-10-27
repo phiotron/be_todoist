@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.taskly.security.AuthRateLimiter;
 import com.taskly.support.MutableClock;
 import com.taskly.support.TestClockConfiguration;
 import com.taskly.support.TestData;
@@ -50,6 +51,9 @@ public abstract class IntegrationTestBase {
     @Autowired
     protected MutableClock clock;
 
+    @Autowired
+    private AuthRateLimiter authRateLimiter;
+
     /** Chèn dữ liệu mẫu bằng SQL; tạo mới trước mỗi test. */
     protected TestData testData;
 
@@ -60,6 +64,12 @@ public abstract class IntegrationTestBase {
     @BeforeEach
     protected void resetClock() {
         clock.reset();
+    }
+
+    /** Bộ đếm rate limit sống suốt context → xoá trước mỗi test để test không ảnh hưởng nhau. */
+    @BeforeEach
+    protected void resetRateLimits() {
+        authRateLimiter.clear();
     }
 
     @BeforeEach
@@ -82,7 +92,12 @@ public abstract class IntegrationTestBase {
 
     /** Đăng ký user mới qua POST /api/v1/auth/register với mật khẩu fixture; email trả về là bản server đã chuẩn hoá. */
     protected RegisteredUser registerUser(String email) throws Exception {
+        String randomIp = "10.99." + (int) (Math.random() * 250) + "." + (int) (Math.random() * 250);
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
+                        .with(request -> {
+                            request.setRemoteAddr(randomIp);
+                            return request;
+                        })
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email": "%s", "password": "%s", "displayName": "Người dùng thử"}
