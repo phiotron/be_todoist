@@ -22,6 +22,17 @@ public class ApiException extends ErrorResponseException {
         return errorMessage;
     }
 
+    /** Thêm một thuộc tính vào ProblemDetail (vd "twoFactorToken"). Cùng chữ ký với ApiException của M1. */
+    public ApiException withProperty(String name, Object value) {
+        getBody().setProperty(name, value);
+        return this;
+    }
+
+    /** Đặt thuộc tính "code" (spec mục 12.10); giá trị lấy từ ProblemCodes. */
+    public ApiException withCode(String code) {
+        return withProperty(ProblemCodes.PROPERTY, code);
+    }
+
     private static ProblemDetail problem(HttpStatus status, ErrorMessage errorMessage) {
         ProblemDetail body = ProblemDetail.forStatusAndDetail(status, errorMessage.key());
         body.setTitle(ProblemTexts.titleKey(status.value()));

@@ -15,7 +15,14 @@ public enum ErrorMessage {
     CURRENT_PASSWORD_INCORRECT("error.current-password-incorrect"),
     RESET_TOKEN_INVALID("error.reset-token-invalid"),
     RESET_TOKEN_EXPIRED("error.reset-token-expired"),
-    MAIL_UNAVAILABLE("error.mail-unavailable");
+    MAIL_UNAVAILABLE("error.mail-unavailable"),
+    TWO_FACTOR_REQUIRED("error.two-factor-required"),
+    TWO_FACTOR_TOKEN_INVALID("error.two-factor-token-invalid"),
+    TWO_FACTOR_CODE_INVALID("error.two-factor-code-invalid"),
+    TWO_FACTOR_ALREADY_ENABLED("error.two-factor-already-enabled"),
+    TWO_FACTOR_NOT_SETUP("error.two-factor-not-setup"),
+    TWO_FACTOR_NOT_ENABLED("error.two-factor-not-enabled"),
+    PASSWORD_REQUIRED("error.password-required");
 
     private final String key;
 
