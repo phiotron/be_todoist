@@ -46,6 +46,9 @@ public class TaskLabelRepository {
 
     /** Thêm mọi cặp (task, label) chưa có; trả id các task thực sự được thêm label (giữ thứ tự gặp). */
     public Set<UUID> addToTasks(Collection<UUID> taskIds, Collection<UUID> labelIds) {
+        if (taskIds.isEmpty() || labelIds.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
         List<UUID> changed = jdbc.queryForList("INSERT INTO task_labels (task_id, label_id) "
                         + "SELECT t.id, l.id FROM unnest(ARRAY[:taskIds]::uuid[]) AS t(id) "
                         + "CROSS JOIN unnest(ARRAY[:labelIds]::uuid[]) AS l(id) "
@@ -56,6 +59,9 @@ public class TaskLabelRepository {
 
     /** Bỏ các label khỏi các task; trả id task thực sự mất label. */
     public Set<UUID> removeFromTasks(Collection<UUID> taskIds, Collection<UUID> labelIds) {
+        if (taskIds.isEmpty() || labelIds.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
         List<UUID> changed = jdbc.queryForList("DELETE FROM task_labels WHERE task_id IN (:taskIds) "
                         + "AND label_id IN (:labelIds) RETURNING task_id",
                 new MapSqlParameterSource("taskIds", taskIds).addValue("labelIds", labelIds), UUID.class);
@@ -84,6 +90,9 @@ public class TaskLabelRepository {
 
     /** Đổi label = đổi dữ liệu task (spec 5.6, BR-10): version + 1, updated_at = now. */
     public void touchTasks(Collection<UUID> taskIds, Instant now) {
+        if (taskIds.isEmpty()) {
+            return;
+        }
         jdbc.update("UPDATE tasks SET version = version + 1, updated_at = :now WHERE id IN (:ids)",
                 new MapSqlParameterSource("ids", taskIds).addValue("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC)));
     }

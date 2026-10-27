@@ -2,7 +2,6 @@ package com.taskly.controller;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -173,8 +172,9 @@ class OpenApiDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.TaskResponse.properties.dueDatetime.format").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum", hasItem("DELETE")))
                 .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum", hasItem("PRIORITY")))
-                .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum",
-                        not(hasItem("ADD_LABELS")))); // M2 mới thêm
+                .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum", hasItem("ADD_LABELS")))
+                .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum", hasItem("REMOVE_LABELS")))
+                .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.labelIds").exists());
     }
 
     @Test

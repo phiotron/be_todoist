@@ -7,5 +7,7 @@ public enum BatchAction {
     MOVE,
     DELETE,
     SCHEDULE,
-    PRIORITY
+    PRIORITY,
+    ADD_LABELS,
+    REMOVE_LABELS
 }
