@@ -13,7 +13,7 @@ REST API cho Taskly, app quản lý công việc kiểu Todoist. App di động 
 Không cần cài Maven, vì repo dùng `mvnw`.
 
 ## Chạy lần đầu
-1. Chép `.env.example` thành `.env` rồi điền `DB_PASSWORD` và `JWT_SECRET`.
+1. Chép `.env.example` thành `.env` rồi điền `DB_PASSWORD`, `JWT_SECRET` và `TOTP_ENCRYPTION_KEY` (lệnh sinh khoá ghi ngay trong `.env.example`).
 2. Bật hạ tầng: `docker compose up -d`. Hộp thư giả của Mailpit xem ở http://localhost:8025.
 3. Chạy API: `.\mvnw spring-boot:run`
 

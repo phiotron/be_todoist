@@ -34,3 +34,10 @@ app:
     # Token nối ngay sau link-base; app mobile mở deep link này (từ M5 dev build) hoặc người dùng dán mã.
     link-base: taskly://reset-password/
     token-ttl: 30m
+
+taskly:
+  totp:
+    # Khoá AES-256 (base64 của 32 byte) mã hoá secret 2FA — biến TOTP_ENCRYPTION_KEY trong .env (xem .env.example).
+    # Thiếu / sai → server không khởi động. Mất khoá → người đã bật 2FA chỉ đăng nhập được bằng mã khôi phục.
+    encryption-key: ${TOTP_ENCRYPTION_KEY:}
+    issuer: Taskly
