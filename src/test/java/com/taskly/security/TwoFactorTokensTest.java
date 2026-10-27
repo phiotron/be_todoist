@@ -34,10 +34,14 @@ class TwoFactorTokensTest {
 
     /** Token giả có ĐÚNG iss / aud / sub / exp của token 2FA nhưng typ do test chọn. */
     private String forged(Object type) {
+        return forged("taskly/2fa", List.of("taskly-2fa"), type);
+    }
+
+    private String forged(String issuer, List<String> audience, Object type) {
         Instant now = clock.instant();
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
-                .issuer("taskly/2fa")
-                .audience(List.of("taskly-2fa"))
+                .issuer(issuer)
+                .audience(audience)
                 .subject(UUID.randomUUID().toString())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(now)
@@ -55,6 +59,21 @@ class TwoFactorTokensTest {
         assertThat(tokens.verify(forged("access"))).isEmpty();
         assertThat(tokens.verify(forged("google-link"))).isEmpty();
         assertThat(tokens.verify(forged(null))).isEmpty();
+    }
+
+    @Test
+    void rightTypeButWrongIssuer_isRejected() {
+        assertThat(tokens.verify(forged("taskly", List.of("taskly-2fa"), "two-factor"))).as("iss của access token").isEmpty();
+        assertThat(tokens.verify(forged("someone-else/2fa", List.of("taskly-2fa"), "two-factor"))).isEmpty();
+    }
+
+    @Test
+    void rightTypeButWrongAudience_isRejected() {
+        assertThat(tokens.verify(forged("taskly/2fa", List.of("taskly-api"), "two-factor"))).as("aud của access token")
+                .isEmpty();
+        assertThat(tokens.verify(forged("taskly/2fa", List.of("taskly-google-link"), "two-factor"))).isEmpty();
+        assertThat(tokens.verify(forged("taskly/2fa", List.of("other", "taskly-2fa"), "two-factor")))
+                .as("aud nhiều giá trị có chứa taskly-2fa vẫn nhận").isPresent();
     }
 
     @Test

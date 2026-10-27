@@ -280,6 +280,38 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
                         .value("Phiên xác minh hai bước không hợp lệ hoặc đã hết hạn, hãy đăng nhập lại"));
     }
 
+    /** Khoá chốt findForUpdate: hai twoFactorToken khác nhau + cùng một mã TOTP chạy song song → đúng một 200. */
+    @Test
+    void verify_sameTotpFromTwoParallelRequests_succeedsForExactlyOne() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
+        String tokenA = twoFactorToken(user.email());
+        String tokenB = twoFactorToken(user.email());
+        String code = TwoFactorSteps.nextCode(enabled.secret(), clock);
+        java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(2);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.List<java.util.concurrent.Future<Integer>> results = new java.util.ArrayList<>();
+            for (String token : new String[] {tokenA, tokenB}) {
+                results.add(pool.submit(() -> {
+                    ready.countDown();
+                    go.await();
+                    return verify(token, code).andReturn().getResponse().getStatus();
+                }));
+            }
+            ready.await();
+            go.countDown();
+            java.util.List<Integer> statuses = new java.util.ArrayList<>();
+            for (java.util.concurrent.Future<Integer> result : results) {
+                statuses.add(result.get(30, java.util.concurrent.TimeUnit.SECONDS));
+            }
+            assertThat(statuses).containsExactlyInAnyOrder(200, 401);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     @Test
     void verify_whenTheUserWasDeletedBetweenTheTwoSteps_isTokenInvalidNotSessionInvalid() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());

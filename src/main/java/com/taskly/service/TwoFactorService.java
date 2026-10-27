@@ -136,16 +136,27 @@ public class TwoFactorService {
         return new RecoveryCodesResponse(replaceRecoveryCodes(user));
     }
 
+    /** Kết quả checkCode. */
+    public enum CodeCheck {
+        /** Mã đúng và đã được TIÊU THỤ (TOTP ghi last_used_step / mã khôi phục ghi used_at). */
+        ACCEPTED,
+        /** 2FA đang bật nhưng mã thiếu / sai / đã dùng. */
+        REJECTED,
+        /** User chưa bật 2FA (hoặc đã tắt). */
+        NOT_ENABLED
+    }
+
     /**
-     * Kiểm và TIÊU THỤ một mã (TOTP hoặc mã khôi phục) của user đã bật 2FA — dùng ở auth/2fa/verify và DELETE me.
-     * 2FA chưa bật hoặc mã sai → false (caller quyết định 400 / 401).
+     * Kiểm và TIÊU THỤ một mã (TOTP hoặc mã khôi phục) — dùng ở auth/2fa/verify và DELETE me. Khoá dòng user_totp ngay từ
+     * lần đọc đầu tiên: KHÔNG gọi isEnabled / findById trước đó trong cùng transaction, vì entity đã nạp vào persistence context
+     * (trạng thái cũ) sẽ được findForUpdate trả lại nguyên và hai request song song cùng dùng được một mã TOTP.
      */
-    public boolean verifyCode(UUID userId, String code) {
+    public CodeCheck checkCode(UUID userId, String code) {
         Optional<UserTotp> totp = totpRepository.findForUpdate(userId).filter(UserTotp::isEnabled);
         if (totp.isEmpty()) {
-            return false;
+            return CodeCheck.NOT_ENABLED;
         }
-        return acceptCode(userService.requireUser(userId), totp.get(), code);
+        return acceptCode(userService.requireUser(userId), totp.get(), code) ? CodeCheck.ACCEPTED : CodeCheck.REJECTED;
     }
 
     /**

@@ -45,8 +45,8 @@ public class AccountDeletionService {
                 || !passwordEncoder.matches(password, user.getPasswordHash())) {
             throw ApiException.badRequest(ErrorMessage.CURRENT_PASSWORD_INCORRECT);
         }
-        if (twoFactorService.isEnabled(userId)
-                && (request.code() == null || !twoFactorService.verifyCode(userId, request.code()))) {
+        // NOT_ENABLED → không cần mã; đang bật mà mã thiếu / sai → 400 (cố ý không 401 — spec 12.10).
+        if (twoFactorService.checkCode(userId, request.code()) == TwoFactorService.CodeCheck.REJECTED) {
             throw ApiException.badRequest(ErrorMessage.TWO_FACTOR_CODE_INVALID);
         }
         twoFactorService.deleteAllFor(userId); // mã khôi phục vừa dùng đang "dirty" — xoá entity trước khi xoá user
