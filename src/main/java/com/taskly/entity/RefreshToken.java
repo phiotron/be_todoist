@@ -8,6 +8,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 
 /** Refresh token: chỉ lưu SHA-256 (token_hash). Xoay vòng: mỗi lần refresh thu hồi token cũ. */
 @Entity
@@ -27,14 +28,28 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    /** Họ token: login/register mở họ mới, refresh kế thừa họ; logout thu hồi cả họ. */
+    @Column(name = "family_id", nullable = false, updatable = false)
+    private UUID familyId;
+
     protected RefreshToken() {
         // cho JPA
     }
 
+    /** Token mở một họ mới. */
     public RefreshToken(User user, String tokenHash, Instant expiresAt) {
+        this(user, tokenHash, expiresAt, UUID.randomUUID());
+    }
+
+    public RefreshToken(User user, String tokenHash, Instant expiresAt, UUID familyId) {
         this.user = user;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
+        this.familyId = familyId;
+    }
+
+    public UUID getFamilyId() {
+        return familyId;
     }
 
     /** Còn dùng được: chưa bị thu hồi và chưa tới hạn. */

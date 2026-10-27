@@ -2,7 +2,7 @@ package com.taskly.common.error;
 
 /**
  * Giá trị thuộc tính "code" của ProblemDetail (spec mục 12.10) — app phân biệt tình huống bằng (status, code), không
- * bằng câu chữ (câu chữ đổi theo ngôn ngữ). M3 dùng 4 mã dưới; M1 / M2 có mã riêng của mình.
+ * bằng câu chữ (câu chữ đổi theo ngôn ngữ). M3 dùng các mã two-factor-* / password-required; M1 có mã riêng (nhóm cuối).
  */
 public final class ProblemCodes {
 
@@ -31,6 +31,21 @@ public final class ProblemCodes {
 
     /** 409 ở DELETE me (và bỏ liên kết Google từ M5) khi tài khoản chưa có mật khẩu. */
     public static final String PASSWORD_REQUIRED = "password-required";
+
+    // ---- M1 (gộp từ feature/m1-backend)
+    public static final String EMAIL_TAKEN = "email-taken";
+    public static final String VERSION_CONFLICT = "version-conflict";
+    public static final String PROJECT_ARCHIVED = "project-archived";
+    public static final String SECTION_ARCHIVED = "section-archived";
+    public static final String PARENT_COMPLETED = "parent-completed";
+    /** M1: tasks/batch SCHEDULE / MOVE có task đã hoàn thành (409); M4 dùng thêm cho nhắc của task đã xong. */
+    public static final String TASK_COMPLETED = "task-completed";
+    public static final String TARGET_ARCHIVED = "target-archived";
+    public static final String LIMIT_REACHED = "limit-reached";
+    /** `id` client-sinh trùng id có sẵn nhưng khác nội dung hoặc của người khác (spec 12.10, 12.11). */
+    public static final String ID_CONFLICT = "id-conflict";
+    public static final String IDEMPOTENCY_IN_PROGRESS = "idempotency-in-progress";
+    public static final String IDEMPOTENCY_MISMATCH = "idempotency-mismatch";
 
     private ProblemCodes() {
     }

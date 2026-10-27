@@ -2,11 +2,13 @@ package com.taskly.service;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
+import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.user.UpdateProfileRequest;
 import com.taskly.dto.user.UserResponse;
 import com.taskly.entity.User;
 import com.taskly.mapper.UserMapper;
 import com.taskly.repository.UserRepository;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -58,11 +60,16 @@ public class UserService {
         return UserMapper.toResponse(user);
     }
 
-    /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). Email đã có → 409. */
+    /** Múi giờ IANA của tài khoản — dùng để tính "hôm nay" / "bây giờ" cho giờ floating (spec 5.2). */
+    public ZoneId timeZoneOf(UUID userId) {
+        return ZoneId.of(requireUser(userId).getTimeZone());
+    }
+
+    /** Tạo user; email phải đã chuẩn hoá (EmailNormalizer). Email đã có → 409 code email-taken (spec 12.10). */
     @Transactional
     public User createUser(String normalizedEmail, String passwordHash, String displayName) {
         if (userRepository.existsByEmail(normalizedEmail)) {
-            throw ApiException.conflict(ErrorMessage.EMAIL_TAKEN);
+            throw ApiException.conflict(ErrorMessage.EMAIL_TAKEN).withCode(ProblemCodes.EMAIL_TAKEN);
         }
         return userRepository.save(new User(normalizedEmail, passwordHash, displayName));
     }

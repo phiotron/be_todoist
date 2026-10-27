@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
  * Xác thực: đăng ký, đăng nhập (+ bước 2FA), refresh, đăng xuất, đổi mật khẩu. Sở hữu bảng refresh_tokens.
  * Mỗi method chạy trong MỘT transaction ghi: đăng ký = user + workspace cá nhân + ADMIN + Inbox
  * + refresh token, lỗi ở bước nào thì rollback toàn bộ.
+ * Họ token (M1): login/register mở họ mới, refresh kế thừa họ, logout thu hồi cả họ.
  */
 @Service
 @Transactional
@@ -78,7 +79,7 @@ public class AuthService {
                 request.email(), passwordEncoder.encode(request.password()), request.displayName());
         Workspace personal = workspaceService.createPersonalWorkspace(user);
         projectService.createInbox(personal);
-        return issueTokens(user);
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /**
@@ -101,7 +102,7 @@ public class AuthService {
                     .withCode(ProblemCodes.TWO_FACTOR_REQUIRED)
                     .withProperty(TWO_FACTOR_TOKEN_PROPERTY, twoFactorTokens.issue(found.getId()));
         }
-        return issueTokens(found);
+        return issueTokens(found, UUID.randomUUID());
     }
 
     /**
@@ -124,11 +125,11 @@ public class AuthService {
         if (!twoFactorTokens.consume(request.twoFactorToken())) { // dùng một lần (mã sai không đốt token)
             throw twoFactorTokenInvalid();
         }
-        return issueTokens(user);
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /**
-     * Xoay vòng: token cũ bị thu hồi ngay, trả cặp token mới.
+     * Xoay vòng: token cũ bị thu hồi ngay, trả cặp token mới CÙNG HỌ.
      * findByTokenHash khoá dòng → hai request dùng cùng token thì chỉ một cái thành công.
      * Chạy trong transaction ghi của class (không readOnly) nên đọc được current.getUser() (LAZY).
      */
@@ -138,11 +139,12 @@ public class AuthService {
                 .filter(token -> token.isActive(now))
                 .orElseThrow(() -> ApiException.unauthorized(ErrorMessage.SESSION_INVALID));
         current.revoke(now);
-        return issueTokens(current.getUser());
+        return issueTokens(current.getUser(), current.getFamilyId());
     }
 
     /**
-     * Thu hồi refresh token nếu nó thuộc user đang đăng nhập; không thì bỏ qua.
+     * Thu hồi CẢ HỌ của refresh token gửi lên nếu nó thuộc user đang đăng nhập (kể cả khi token gửi lên đã bị
+     * xoay — app gửi token cũ sau khi tự refresh). Token không thuộc user → bỏ qua.
      * Luôn trả 204 (idempotent, không cho biết token có tồn tại không).
      * Access token đang cầm vẫn dùng được tới khi hết 15 phút (JWT stateless).
      * Chạy trong transaction ghi của class nên đọc được token.getUser() (LAZY).
@@ -150,7 +152,7 @@ public class AuthService {
     public void logout(UUID currentUserId, LogoutRequest request) {
         refreshTokenRepository.findByTokenHash(OpaqueTokens.sha256Hex(request.refreshToken()))
                 .filter(token -> token.getUser().getId().equals(currentUserId))
-                .ifPresent(token -> token.revoke(Instant.now(clock)));
+                .ifPresent(token -> refreshTokenRepository.revokeFamily(token.getFamilyId(), Instant.now(clock)));
     }
 
     /**
@@ -165,7 +167,7 @@ public class AuthService {
         }
         user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
         revokeAllRefreshTokens(userId);
-        return issueTokens(user);
+        return issueTokens(user, UUID.randomUUID());
     }
 
     /**
@@ -187,10 +189,11 @@ public class AuthService {
     }
 
     /** Phát cặp token mới; DB chỉ lưu SHA-256 của refresh token, client giữ chuỗi thô. */
-    private AuthResponse issueTokens(User user) {
+    private AuthResponse issueTokens(User user, UUID familyId) {
         String refreshToken = OpaqueTokens.generate();
         Instant expiresAt = Instant.now(clock).plus(jwtProperties.refreshTtl());
-        refreshTokenRepository.save(new RefreshToken(user, OpaqueTokens.sha256Hex(refreshToken), expiresAt));
+        refreshTokenRepository.save(
+                new RefreshToken(user, OpaqueTokens.sha256Hex(refreshToken), expiresAt, familyId));
         return new AuthResponse(
                 jwtTokenIssuer.issueAccessToken(user.getId()),
                 refreshToken,

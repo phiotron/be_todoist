@@ -6,11 +6,18 @@ import jakarta.validation.constraints.NotBlank;
 import java.net.URI;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.DirectFieldBindingResult;
 import org.springframework.validation.FieldError;
@@ -139,5 +146,110 @@ class GlobalExceptionHandlerTest {
                 new FieldError("sample", "age", "abc", true, new String[] {"typeMismatch"}, null, null);
 
         assertThat(GlobalExceptionHandler.messageKey(bindingFailure)).isEqualTo("validation.invalid");
+    }
+
+    @Test
+    void accessDenied_returns403ProblemDetail() {
+        ResponseEntity<ProblemDetail> response = handler.handleAccessDenied(new AccessDeniedException("denied"));
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(403);
+        assertThat(problem.getType()).isEqualTo(BLANK);
+        assertThat(problem.getTitle()).isEqualTo("problem.title.403");
+        assertThat(problem.getDetail()).isEqualTo("error.forbidden");
+    }
+
+    @Test
+    void optimisticLock_returns409WithVersionConflictCode() {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleOptimisticLock(new OptimisticLockingFailureException("row was updated"));
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(problem.getDetail()).isEqualTo("error.concurrent-update");
+        assertThat(problem.getDetail()).doesNotContain("row");
+        assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+    }
+
+    @Test
+    void pessimisticLockFailures_return409WithCodeInsteadOf500() {
+        for (RuntimeException failure : List.<RuntimeException>of(
+                new DeadlockLoserDataAccessException("deadlock detected on relation projects", null),
+                new CannotAcquireLockException("could not obtain lock on row in relation projects"))) {
+            ResponseEntity<ProblemDetail> response = handler.handlePessimisticLock(
+                    (PessimisticLockingFailureException) failure);
+
+            ProblemDetail problem = problemOf(response);
+            assertThat(response.getStatusCode().value()).isEqualTo(409);
+            assertThat(problem.getType()).isEqualTo(BLANK);
+            assertThat(problem.getTitle()).isEqualTo("problem.title.409");
+            assertThat(problem.getDetail()).isEqualTo("error.concurrent-update");
+            assertThat(problem.getDetail()).doesNotContain("projects");
+            assertThat(problem.getProperties()).containsEntry("code", "version-conflict");
+        }
+    }
+
+    @Test
+    void apiException_unprocessable_has422TitleKey() throws Exception {
+        ResponseEntity<Object> response =
+                handler.handleException(ApiException.unprocessable(ErrorMessage.TARGET_ARCHIVED), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+        assertThat(problem.getTitle()).isEqualTo("problem.title.422");
+        assertThat(problem.getDetail()).isEqualTo("error.target-archived");
+    }
+
+    @Test
+    void apiException_tooManyRequests_keepsRetryAfterHeader() throws Exception {
+        ResponseEntity<Object> response =
+                handler.handleException(ApiException.tooManyRequests(ErrorMessage.TOO_MANY_REQUESTS, 42), request());
+
+        assertThat(response.getStatusCode().value()).isEqualTo(429);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("42");
+        assertThat(problemOf(response).getTitle()).isEqualTo("problem.title.429");
+    }
+
+    @Test
+    void apiException_withProperty_addsFieldToBody() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                ApiException.conflict(ErrorMessage.VERSION_CONFLICT).withProperty("current", "bản mới"), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(problem.getProperties()).containsEntry("current", "bản mới");
+        assertThat(problem.getDetail()).isEqualTo("error.version-conflict");
+    }
+
+    @Test
+    void apiException_withCode_addsMachineReadableCode() throws Exception {
+        ResponseEntity<Object> response = handler.handleException(
+                ApiException.conflict(ErrorMessage.PROJECT_ARCHIVED).withCode(ProblemCodes.PROJECT_ARCHIVED), request());
+
+        ProblemDetail problem = problemOf(response);
+        assertThat(response.getStatusCode().value()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "project-archived");
+        assertThat(problem.getDetail()).isEqualTo("error.project-archived");
+    }
+
+    @Test
+    void problemDetail_includesRequestIdFromMdc() {
+        MDC.put("requestId", "rid-123");
+        try {
+            ProblemDetail problem = problemOf(handler.handleUnexpected(new IllegalStateException("x")));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-123");
+        } finally {
+            MDC.remove("requestId");
+        }
+    }
+
+    @Test
+    void frameworkProblemDetail_includesRequestIdFromMdc() throws Exception {
+        MDC.put("requestId", "rid-456");
+        try {
+            ProblemDetail problem = problemOf(handler.handleException(ApiException.notFound(ErrorMessage.PROJECT_NOT_FOUND), request()));
+            assertThat(problem.getProperties()).containsEntry("requestId", "rid-456");
+        } finally {
+            MDC.remove("requestId");
+        }
     }
 }

@@ -17,4 +17,10 @@ class ClockConfigTest {
         assertThat(clock.getZone()).isEqualTo(ZoneOffset.UTC);
         assertThat(Duration.between(clock.instant(), Instant.now()).abs()).isLessThan(Duration.ofSeconds(5));
     }
+
+
+    @Test
+    void clockHasMillisecondPrecision_soJsonAndPostgresAgree() {
+        assertThat(new ClockConfig().clock().instant().getNano() % 1_000_000).isZero();
+    }
 }

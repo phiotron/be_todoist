@@ -61,13 +61,17 @@ class RegisterApiTest extends IntegrationTestBase {
         assertThat(members.get(0)).containsEntry("user_id", user.id()).containsEntry("role", "ADMIN");
 
         List<Map<String, Object>> projects = jdbcTemplate.queryForList(
-                "select name, is_inbox, view_style, sort_order from projects where workspace_id = ?",
+                "select name, is_inbox, view_style, sort_order, color, parent_id, description from projects "
+                        + "where workspace_id = ?",
                 workspace.get("id"));
         assertThat(projects).hasSize(1);
         assertThat(projects.get(0)).containsEntry("name", "Inbox")
                 .containsEntry("is_inbox", true)
                 .containsEntry("view_style", "LIST")
-                .containsEntry("sort_order", 0);
+                .containsEntry("sort_order", 0L)
+                .containsEntry("description", "");
+        assertThat(projects.get(0).get("color")).isNull();
+        assertThat(projects.get(0).get("parent_id")).isNull();
 
         String passwordHash = jdbcTemplate.queryForObject(
                 "select password_hash from users where id = ?", String.class, user.id());
@@ -92,6 +96,7 @@ class RegisterApiTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.title").value("Xung đột dữ liệu"))
                 .andExpect(jsonPath("$.detail").value("Email đã được dùng"))
+                .andExpect(jsonPath("$.code").value("email-taken"))
                 .andExpect(jsonPath("$.instance").value("/api/v1/auth/register"));
     }
 

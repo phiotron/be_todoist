@@ -9,10 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.taskly.IntegrationTestBase;
 import com.taskly.security.OpaqueTokens;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -143,5 +145,72 @@ class LogoutApiTest extends IntegrationTestBase {
 
         mockMvc.perform(get("/api/v1/me").header(HttpHeaders.AUTHORIZATION, bearer(user.accessToken())))
                 .andExpect(status().isOk());
+    }
+
+    private String rotate(String refreshToken) throws Exception {
+        String json = body(refresh(refreshToken).andExpect(status().isOk()).andReturn());
+        return JsonPath.read(json, "$.refreshToken");
+    }
+
+    private String loginRefreshToken(String email) throws Exception {
+        String json = body(mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s", "password": "%s"}
+                                """.formatted(email, FIXTURE_PASSWORD)))
+                .andExpect(status().isOk()).andReturn());
+        return JsonPath.read(json, "$.refreshToken");
+    }
+
+    /** Đường bình thường của app: để yên > 15 phút, refresh xoay token, rồi gửi logout với token CŨ. */
+    @Test
+    void logout_withRotatedOutToken_revokesTheNewestTokenOfTheFamily() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String newest = rotate(user.refreshToken());
+
+        logout(user.accessToken(), user.refreshToken()).andExpect(status().isNoContent());
+
+        assertThat(revokedAtOf(newest)).as("token mới nhất của họ bị thu hồi").isNotNull();
+        refresh(newest).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_revokesOnlyItsOwnFamily_otherDeviceStaysLoggedIn() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String otherDevice = loginRefreshToken(user.email());
+
+        logout(user.accessToken(), user.refreshToken()).andExpect(status().isNoContent());
+
+        assertThat(revokedAtOf(otherDevice)).as("họ token của máy khác không bị đụng").isNull();
+        refresh(otherDevice).andExpect(status().isOk());
+    }
+
+    @Test
+    void refresh_keepsFamily_loginStartsNewFamily() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String rotated = rotate(user.refreshToken());
+        String otherDevice = loginRefreshToken(user.email());
+
+        UUID first = familyOf(user.refreshToken());
+        assertThat(familyOf(rotated)).isEqualTo(first);
+        assertThat(familyOf(otherDevice)).isNotEqualTo(first);
+    }
+
+    /** Token đã bị thu hồi từ trước giữ nguyên revoked_at cũ khi cả họ bị thu hồi lần sau. */
+    @Test
+    void logout_keepsEarlierRevokedAtOfRotatedTokens() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String newest = rotate(user.refreshToken());
+        Timestamp rotatedAt = revokedAtOf(user.refreshToken());
+
+        clock.advance(Duration.ofMinutes(1));
+        logout(user.accessToken(), newest).andExpect(status().isNoContent());
+
+        assertThat(revokedAtOf(user.refreshToken())).as("token đã xoay giữ revoked_at cũ").isEqualTo(rotatedAt);
+        assertThat(revokedAtOf(newest)).isNotNull().isNotEqualTo(rotatedAt);
+    }
+
+    private UUID familyOf(String refreshToken) {
+        return jdbcTemplate.queryForObject("select family_id from refresh_tokens where token_hash = ?",
+                UUID.class, OpaqueTokens.sha256Hex(refreshToken));
     }
 }

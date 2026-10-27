@@ -9,10 +9,12 @@ import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.dto.auth.ResetPasswordRequest;
 import com.taskly.dto.auth.TwoFactorVerifyRequest;
+import com.taskly.security.AuthRateLimiter;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
 import com.taskly.service.PasswordResetService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,22 +30,27 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthRateLimiter authRateLimiter;
     private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
+    public AuthController(AuthService authService, AuthRateLimiter authRateLimiter,
+                          PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.authRateLimiter = authRateLimiter;
         this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest httpRequest) {
+        authRateLimiter.check("register", httpRequest);
         return authService.register(request);
     }
 
     /** Tài khoản bật 2FA → 401 code "two-factor-required" kèm twoFactorToken (gọi tiếp /2fa/verify). */
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        authRateLimiter.check("login", httpRequest);
         return authService.login(request);
     }
 
@@ -54,7 +61,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request, HttpServletRequest httpRequest) {
+        authRateLimiter.checkRefresh(httpRequest);
         return authService.refresh(request);
     }
 

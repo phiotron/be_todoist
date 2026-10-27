@@ -2,6 +2,9 @@
 app:
   jwt:
     secret: test-only-jwt-secret-not-for-production-0123456789
+  # Job nền (dọn Idempotency-Key) tắt trong test; test gọi thẳng method của service với Clock cố định.
+  jobs:
+    enabled: false
 
 taskly:
   totp:
