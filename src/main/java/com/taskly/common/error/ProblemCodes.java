@@ -18,6 +18,17 @@ public final class ProblemCodes {
     /** 409 ở me/2fa/enable khi chưa setup; ở me/2fa/disable | recovery-codes khi 2FA chưa bật. */
     public static final String TWO_FACTOR_NOT_SETUP = "two-factor-not-setup";
 
+    /**
+     * 401 ở auth/2fa/verify: mã 6 số / mã khôi phục sai hoặc đã dùng, twoFactorToken CÒN SỐNG (không bị đốt) → app cho
+     * nhập lại mã. Người dùng chọn phương án A (2026-10-27).
+     */
+    public static final String TWO_FACTOR_CODE_INVALID = "two-factor-code-invalid";
+
+    /**
+     * 401 ở auth/2fa/verify: twoFactorToken hết hạn / không hợp lệ / đã dùng / sai typ-aud → app phải quay về Đăng nhập.
+     */
+    public static final String TWO_FACTOR_TOKEN_INVALID = "two-factor-token-invalid";
+
     /** 409 ở DELETE me (và bỏ liên kết Google từ M5) khi tài khoản chưa có mật khẩu. */
     public static final String PASSWORD_REQUIRED = "password-required";
 

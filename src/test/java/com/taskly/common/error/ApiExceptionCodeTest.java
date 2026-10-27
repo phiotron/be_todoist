@@ -48,6 +48,12 @@ class ApiExceptionCodeTest {
     }
 
     @Test
+    void twoFactorVerifyCodes_distinguishWrongCodeFromDeadToken() {
+        assertThat(ProblemCodes.TWO_FACTOR_CODE_INVALID).isEqualTo("two-factor-code-invalid");
+        assertThat(ProblemCodes.TWO_FACTOR_TOKEN_INVALID).isEqualTo("two-factor-token-invalid");
+    }
+
+    @Test
     void problemCodes_matchSpecSection12_10() {
         assertThat(ProblemCodes.PROPERTY).isEqualTo("code");
         assertThat(List.of(ProblemCodes.TWO_FACTOR_REQUIRED, ProblemCodes.TWO_FACTOR_ALREADY_ENABLED,

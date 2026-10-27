@@ -8,6 +8,7 @@ import com.taskly.dto.auth.LogoutRequest;
 import com.taskly.dto.auth.RefreshRequest;
 import com.taskly.dto.auth.RegisterRequest;
 import com.taskly.dto.auth.ResetPasswordRequest;
+import com.taskly.dto.auth.TwoFactorVerifyRequest;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.AuthService;
 import com.taskly.service.PasswordResetService;
@@ -40,9 +41,16 @@ public class AuthController {
         return authService.register(request);
     }
 
+    /** Tài khoản bật 2FA → 401 code "two-factor-required" kèm twoFactorToken (gọi tiếp /2fa/verify). */
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    /** Public. Bước 2 của đăng nhập 2FA: {twoFactorToken, code} → cặp token; sai / hết hạn → 401. */
+    @PostMapping("/2fa/verify")
+    public AuthResponse verifyTwoFactor(@Valid @RequestBody TwoFactorVerifyRequest request) {
+        return authService.verifyTwoFactor(request);
     }
 
     @PostMapping("/refresh")
