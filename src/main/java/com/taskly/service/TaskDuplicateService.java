@@ -1,5 +1,8 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ProblemCodes;
+import com.taskly.common.error.ProblemTexts;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.entity.Task;
 import java.util.HashMap;
@@ -33,6 +36,11 @@ public class TaskDuplicateService {
 
     public TaskResponse duplicate(UUID userId, UUID taskId) {
         Task original = taskService.requireWritable(userId, taskId);
+        original = taskService.lockAndRecheck(original); // khoá P + đọc lại (dự án / section lưu trữ, task chuyển / xoá)
+        if (original.getParentId() != null && taskService.refresh(taskService.reload(original.getParentId())).getCompletedAt() != null) {
+            // bản sao luôn đang mở: không được đặt dưới cha đã hoàn thành (spec 5.4, 12.3 — như create / move)
+            throw ApiException.conflict(ProblemTexts.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
+        }
         List<SubtaskTreeService.Node> toCopy =
                 subtaskTreeService.subtreeToCopy(taskService.tree(original.getProjectId()), taskId);
         taskService.checkActiveTaskLimit(original.getProjectId(), toCopy.size()); // khoá dự án, rồi đếm

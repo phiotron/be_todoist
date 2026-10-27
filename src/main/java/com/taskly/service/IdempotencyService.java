@@ -8,8 +8,13 @@ import com.taskly.repository.IdempotencyKeyRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -33,7 +38,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class IdempotencyService {
 
-    static final Duration IN_PROGRESS_TTL = Duration.ofSeconds(60);
+    private static final Logger log = LoggerFactory.getLogger(IdempotencyService.class);
+
     private static final int MAX_ATTEMPTS = 3;
 
     /** Kết quả của begin(): chạy tiếp request, hoặc phát lại kết quả cũ. */
@@ -49,14 +55,20 @@ public class IdempotencyService {
     private final IdempotencyKeyRepository repository;
     private final Clock clock;
     private final Duration resultTtl;
+    /** Hạn hàng "đang xử lý" (mặc định 60 giây; taskly.idempotency.in-progress-ttl — chỉ test rút ngắn). */
+    private final Duration inProgressTtl;
     private final TransactionTemplate requiresNew;
+    /** Hàng khoá "đang xử lý" mà request trong tiến trình này đang giữ (renewLeases gia hạn). */
+    private final Set<UUID> activeLeases = ConcurrentHashMap.newKeySet();
 
     public IdempotencyService(IdempotencyKeyRepository repository, Clock clock,
                               PlatformTransactionManager transactionManager,
-                              @Value("${app.idempotency.ttl-hours:24}") long ttlHours) {
+                              @Value("${app.idempotency.ttl-hours:24}") long ttlHours,
+                              @Value("${taskly.idempotency.in-progress-ttl:PT60S}") Duration inProgressTtl) {
         this.repository = repository;
         this.clock = clock;
         this.resultTtl = Duration.ofHours(ttlHours);
+        this.inProgressTtl = inProgressTtl;
         this.requiresNew = new TransactionTemplate(transactionManager);
         this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -66,7 +78,8 @@ public class IdempotencyService {
             Instant now = clock.instant();
             try {
                 UUID id = requiresNew.execute(tx -> repository.saveAndFlush(
-                        new IdempotencyKey(userId, key, method, path, requestHash, now.plus(IN_PROGRESS_TTL))).getId());
+                        new IdempotencyKey(userId, key, method, path, requestHash, now.plus(inProgressTtl))).getId());
+                activeLeases.add(id); // request này đang chạy → renewLeases() giữ hàng khoá không hết hạn
                 return new Proceed(id);
             } catch (DataIntegrityViolationException alreadyThere) {
                 // unique (user, key, method, path): đã có hàng khoá → xem nó đang ở trạng thái nào
@@ -93,14 +106,41 @@ public class IdempotencyService {
         throw inProgress(); // thua đua nhiều lần liên tiếp: coi như đang xử lý
     }
 
-    /** 2xx → ghi kết quả, đổi hạn sang 24 giờ. */
-    public void complete(UUID recordId, int status, String body) {
+    /**
+     * 2xx → ghi kết quả, đổi hạn sang 24 giờ. Trả false khi KHÔNG cập nhật được dòng nào: hàng đã bị chiếm lại (đang xử
+     * lý quá 60 giây) hoặc bị dọn → request này đã mất quyền sở hữu khoá, thao tác có thể đã chạy hai lần (log cảnh
+     * báo; response vẫn trả cho client vì thao tác đã ghi).
+     */
+    public boolean complete(UUID recordId, int status, String body) {
+        activeLeases.remove(recordId);
         Instant expiresAt = clock.instant().plus(resultTtl);
-        requiresNew.executeWithoutResult(tx -> repository.markDone(recordId, status, body, expiresAt));
+        Integer updated = requiresNew.execute(tx -> repository.markDone(recordId, status, body, expiresAt));
+        if (updated == null || updated == 0) {
+            log.warn("Idempotency: hàng khoá {} không còn (đã bị chiếm lại / dọn) khi ghi kết quả", recordId);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * HEARTBEAT: gia hạn expires_at (= now + 60 giây) của mọi hàng "đang xử lý" mà request trong tiến trình NÀY còn đang
+     * chạy. IdempotencyCleanupJob gọi định kỳ (15 giây) → thao tác chạy lâu hơn 60 giây (chờ khoá, cây lớn) KHÔNG bị request
+     * trùng chiếm lại rồi chạy lần hai (nhận 409 idempotency-in-progress). Server chết → không ai gia hạn → hàng quá hạn
+     * sau 60 giây và được chiếm lại như cũ. Hàng đã bị xoá / đã xong → 0 dòng → bỏ khỏi danh sách theo dõi.
+     */
+    public void renewLeases() {
+        for (UUID id : List.copyOf(activeLeases)) {
+            Instant expiresAt = clock.instant().plus(inProgressTtl);
+            Integer renewed = requiresNew.execute(tx -> repository.renewInProgress(id, expiresAt));
+            if (renewed == null || renewed == 0) {
+                activeLeases.remove(id);
+            }
+        }
     }
 
     /** Request lỗi (4xx / 5xx / exception) → xoá hàng khoá để client gửi lại được. */
     public void abandon(UUID recordId) {
+        activeLeases.remove(recordId);
         requiresNew.executeWithoutResult(tx -> repository.deleteRow(recordId));
     }
 

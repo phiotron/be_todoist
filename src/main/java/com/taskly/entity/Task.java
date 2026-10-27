@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * Công việc. Quan hệ project/section/parent giữ dạng cột UUID (quyết định Q4). workspaceId phi chuẩn = workspace của
@@ -18,8 +19,11 @@ import java.util.UUID;
  * @Version: Hibernate tăng version chỉ khi entity thực sự đổi (dirty) → PATCH không đổi gì giữ nguyên version
  * và updated_at (BR-10, mục 5.6). sort_order KHÔNG ghi qua entity (updatable = false): đổi bằng native UPDATE
  * (TaskRepository.updateSortOrder / relocate) để KHÔNG tăng version (spec 5.6, C4).
+ * @DynamicUpdate: UPDATE qua entity chỉ ghi cột ĐÃ ĐỔI → không ghi lại project_id / section_id cũ đè lên relocate (native,
+ * không tăng version) của một move song song.
  */
 @Entity
+@DynamicUpdate
 @Table(name = "tasks")
 public class Task extends BaseEntity {
 

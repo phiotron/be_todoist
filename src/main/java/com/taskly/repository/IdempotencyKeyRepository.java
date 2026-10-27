@@ -31,6 +31,11 @@ public interface IdempotencyKeyRepository extends JpaRepository<IdempotencyKey, 
             + "where k.id = :id")
     int markDone(UUID id, int status, String body, Instant expiresAt);
 
+    /** Gia hạn (lease) hàng ĐANG XỬ LÝ (status null) còn thao tác chạy; hàng đã xong / đã bị xoá → 0 dòng. */
+    @Modifying
+    @Query("update IdempotencyKey k set k.expiresAt = :expiresAt where k.id = :id and k.status is null")
+    int renewInProgress(UUID id, Instant expiresAt);
+
     @Modifying
     @Query("delete from IdempotencyKey k where k.expiresAt < :now")
     int deleteExpired(Instant now);

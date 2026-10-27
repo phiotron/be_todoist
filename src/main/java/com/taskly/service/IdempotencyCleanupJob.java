@@ -20,6 +20,16 @@ public class IdempotencyCleanupJob {
         this.idempotencyService = idempotencyService;
     }
 
+    /**
+     * Heartbeat: gia hạn khoá "đang xử lý" 60 giây của các request còn chạy (mặc định mỗi 15 giây = TTL / 4;
+     * taskly.idempotency.renew-interval — chỉ test rút ngắn cùng taskly.idempotency.in-progress-ttl).
+     */
+    @Scheduled(fixedDelayString = "${taskly.idempotency.renew-interval:PT15S}",
+            initialDelayString = "${taskly.idempotency.renew-interval:PT15S}")
+    public void renewLeases() {
+        idempotencyService.renewLeases();
+    }
+
     @Scheduled(fixedDelayString = "PT1H", initialDelayString = "PT5M")
     public void purgeExpired() {
         int deleted = idempotencyService.purgeExpired();

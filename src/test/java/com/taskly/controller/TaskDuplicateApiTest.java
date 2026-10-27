@@ -145,6 +145,21 @@ class TaskDuplicateApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void duplicateOpenSubtaskUnderCompletedParent_409ParentCompleted_createsNothing() throws Exception {
+        UUID a1 = jdbcTemplate.queryForObject(
+                "select id from tasks where project_id = ? and content = 'a1'", UUID.class, project);
+        int before = jdbcTemplate.queryForObject("select count(*) from tasks where project_id = ?", Integer.class,
+                project);
+
+        authPost(user.accessToken(), duplicate(a1))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("parent-completed"));
+
+        assertThat(jdbcTemplate.queryForObject("select count(*) from tasks where project_id = ?", Integer.class,
+                project)).isEqualTo(before);
+    }
+
+    @Test
     void duplicate_respectsOpenTaskLimit() throws Exception {
         // Đang mở: r, a1, b, b1, n = 5; bản sao của r gồm r, b, b1 = 3.
         usageLimits.overrideMax(LimitKind.PROJECT_ACTIVE_TASKS, 7);

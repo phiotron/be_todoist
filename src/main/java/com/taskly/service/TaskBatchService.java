@@ -8,6 +8,7 @@ import com.taskly.dto.task.BatchTasksRequest;
 import com.taskly.dto.task.MoveTaskRequest;
 import com.taskly.dto.task.RescheduleOverdueRequest;
 import com.taskly.entity.BatchAction;
+import com.taskly.entity.Project;
 import com.taskly.entity.Task;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,11 +45,14 @@ public class TaskBatchService {
     private final SubtaskTreeService subtaskTreeService;
     private final UsageLimits usageLimits;
     private final UserService userService;
+    private final ProjectService projectService;
     private final Clock clock;
 
     public TaskBatchService(TaskService taskService, TaskCompletionService taskCompletionService,
                             TaskMoveService taskMoveService, SubtaskTreeService subtaskTreeService,
-                            UsageLimits usageLimits, UserService userService, Clock clock) {
+                            UsageLimits usageLimits, UserService userService, ProjectService projectService,
+                            Clock clock) {
+        this.projectService = projectService;
         this.taskService = taskService;
         this.taskCompletionService = taskCompletionService;
         this.taskMoveService = taskMoveService;
@@ -61,12 +65,25 @@ public class TaskBatchService {
     public AffectedTasksResponse execute(UUID userId, BatchTasksRequest request) {
         validate(request);
         List<UUID> ids = request.taskIds();
+        // 404 cả lô nếu một id không thấy được: một truy vấn lấy task, rồi kiểm quyền đọc MỘT lần cho mỗi dự án
+        Map<UUID, Task> byId = taskService.loadAll(ids).stream().collect(Collectors.toMap(Task::getId, t -> t));
         List<Task> tasks = new ArrayList<>();
         for (UUID id : ids) {
-            tasks.add(taskService.requireReadable(userId, id)); // 404 cả lô nếu một id không thấy được
+            Task task = byId.get(id);
+            if (task == null) {
+                throw ApiException.notFound(ProblemTexts.TASK_NOT_FOUND);
+            }
+            tasks.add(task);
         }
-        for (UUID id : ids) {
-            taskService.requireWritable(userId, id); // 409 project-archived / section-archived — KỂ CẢ DELETE (spec I15)
+        for (UUID projectId : tasks.stream().map(Task::getProjectId).distinct().toList()) {
+            projectService.requireReadable(userId, projectId, ProblemTexts.TASK_NOT_FOUND);
+        }
+        // 409 project-archived / section-archived — KỂ CẢ DELETE (spec I15): mỗi (dự án, section) kiểm MỘT lần
+        Set<List<UUID>> checked = new HashSet<>();
+        for (Task task : tasks) {
+            if (checked.add(java.util.Arrays.asList(task.getProjectId(), task.getSectionId()))) {
+                taskService.requireWritable(userId, task.getId());
+            }
         }
         if ((request.action() == BatchAction.SCHEDULE || request.action() == BatchAction.MOVE)
                 && tasks.stream().anyMatch(task -> task.getCompletedAt() != null)) {
@@ -107,10 +124,29 @@ public class TaskBatchService {
      * task GỐC của lô (id có tổ tiên cũng trong danh sách bị bỏ qua: cha kéo con theo).
      */
     private Set<UUID> close(UUID userId, List<Task> tasks) {
+        // khoá P (id TĂNG DẦN) rồi đọc lại TRƯỚC khi dựng cây / ghi hàng task: cùng cổng reopen / reorder task nên không
+        // deadlock cấp hàng với reorder đánh số lại; task vừa chuyển dự án → 409, dự án / section vừa lưu trữ → 409
+        Set<UUID> toLock = tasks.stream().map(Task::getProjectId).collect(Collectors.toCollection(HashSet::new));
+        usageLimits.lockProjects(toLock);
+        for (Task task : tasks) {
+            taskService.refresh(task);
+            if (!toLock.contains(task.getProjectId())) {
+                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+            }
+        }
+        toLock.forEach(projectService::recheckWritableAfterLock);
+        tasks.stream().map(Task::getSectionId).filter(java.util.Objects::nonNull).distinct().forEach(sectionId -> {
+            if (taskService.isSectionArchivedNow(sectionId)) {
+                throw SectionService.sectionArchived();
+            }
+        });
         Set<UUID> affected = new LinkedHashSet<>();
         Instant now = clock.instant();
         UUID batchId = UUID.randomUUID();
-        rootsWithSubtrees(tasks).keySet().forEach(root -> affected.addAll(taskCompletionService.closeAt(userId, root, now, batchId)));
+        Map<UUID, SubtaskTreeService.Tree> trees = treesByProject(tasks); // dựng MỘT lần cho mỗi dự án nguồn
+        Map<UUID, UUID> projectOf = tasks.stream().collect(Collectors.toMap(Task::getId, Task::getProjectId));
+        rootsWithSubtrees(tasks, trees).keySet().forEach(root ->
+                affected.addAll(taskCompletionService.closeWithin(trees.get(projectOf.get(root)), root, now, batchId)));
         return affected;
     }
 
@@ -127,9 +163,23 @@ public class TaskBatchService {
 
     /** Bỏ id có tổ tiên cũng trong danh sách; mỗi task thành task GỐC ở đích, thêm vào cuối theo thứ tự taskIds. */
     private Set<UUID> move(UUID userId, List<Task> tasks, BatchTasksRequest request) {
+        // Khoá TRƯỚC mọi dự án nguồn + đích theo id TĂNG DẦN (như reopen): TaskMoveService.move chỉ khoá đúng thứ tự trong
+        // MỘT lần gọi, còn nhiều gốc gọi nối tiếp trong cùng transaction thì không → deadlock với move / archive khác.
+        Project target = projectService.requireTarget(userId, request.projectId()); // 404 / 422 như move từng gốc
+        Set<UUID> toLock = tasks.stream().map(Task::getProjectId).collect(Collectors.toCollection(HashSet::new));
+        toLock.add(target.getId());
+        usageLimits.lockProjects(toLock);
+        // Tập khoá tính từ projectId nạp TRƯỚC khoá: task có thể vừa bị chuyển sang dự án ngoài tập (khoá sau → phá thứ
+        // tự tăng dần, và move âm thầm lấy task từ dự án không được khoá). Đọc lại sau khoá; lệch → 409, cả lô rollback.
+        for (Task task : tasks) {
+            taskService.refresh(task);
+            if (!toLock.contains(task.getProjectId())) {
+                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+            }
+        }
         Set<UUID> affected = new LinkedHashSet<>();
         // rootsWithSubtrees tính TRƯỚC khi đổi gì; thứ tự gốc = thứ tự trong taskIds → thêm vào cuối đích đúng thứ tự.
-        rootsWithSubtrees(tasks).forEach((root, descendants) -> {
+        rootsWithSubtrees(tasks, treesByProject(tasks)).forEach((root, descendants) -> {
             affected.add(root);
             affected.addAll(descendants);
             taskMoveService.move(userId, root, new MoveTaskRequest(request.projectId(), request.sectionId(), null, null));
@@ -139,7 +189,7 @@ public class TaskBatchService {
 
     private Set<UUID> delete(UUID userId, List<Task> tasks) {
         Set<UUID> affected = new LinkedHashSet<>();
-        rootsWithSubtrees(tasks).forEach((root, descendants) -> { // tính TRƯỚC khi xoá
+        rootsWithSubtrees(tasks, treesByProject(tasks)).forEach((root, descendants) -> { // tính TRƯỚC khi xoá
             affected.add(root);
             affected.addAll(descendants);
             taskService.delete(userId, root);
@@ -173,16 +223,23 @@ public class TaskBatchService {
 
     // ---- trợ giúp cây ----
 
-    /**
-     * Các task GỐC của lô (bỏ task có tổ tiên cũng trong lô — cây con đi theo tổ tiên) → con cháu của nó theo cây hiện
-     * tại; giữ thứ tự xuất hiện trong taskIds. Dựng cây một lần cho mỗi dự án nguồn.
-     */
-    private Map<UUID, List<UUID>> rootsWithSubtrees(List<Task> tasks) {
+    /** Cây công việc của từng dự án nguồn, dựng MỘT lần cho mỗi dự án. */
+    private Map<UUID, SubtaskTreeService.Tree> treesByProject(List<Task> tasks) {
         Map<UUID, SubtaskTreeService.Tree> treeByProject = new HashMap<>();
+        for (Task task : tasks) {
+            treeByProject.computeIfAbsent(task.getProjectId(), taskService::tree);
+        }
+        return treeByProject;
+    }
+
+    /**
+     * Các task GỐC của lô (bỏ task có tổ tiên cũng trong lô — cây con đi theo tổ tiên) → con cháu của nó theo cây
+     * (treesByProject) hiện tại; giữ thứ tự xuất hiện trong taskIds.
+     */
+    private Map<UUID, List<UUID>> rootsWithSubtrees(List<Task> tasks, Map<UUID, SubtaskTreeService.Tree> treeByProject) {
         Map<UUID, List<UUID>> idsByProject = new LinkedHashMap<>();
         for (Task task : tasks) {
             idsByProject.computeIfAbsent(task.getProjectId(), key -> new ArrayList<>()).add(task.getId());
-            treeByProject.computeIfAbsent(task.getProjectId(), taskService::tree);
         }
         Set<UUID> roots = new HashSet<>();
         idsByProject.forEach((projectId, ids) ->

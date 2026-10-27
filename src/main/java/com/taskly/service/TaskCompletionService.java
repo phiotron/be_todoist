@@ -52,7 +52,25 @@ public class TaskCompletionService {
         if (task.getCompletedAt() != null) {
             return List.of();
         }
-        List<UUID> changed = subtaskTreeService.idsToClose(taskService.tree(task.getProjectId()), taskId);
+        // khoá P rồi đọc lại (cùng cổng reopen / reorder task): ghi hàng task cha + con cháu theo thứ tự khoá thống nhất
+        // → không deadlock cấp hàng với reorder đánh số lại; dự án / section vừa lưu trữ → 409
+        task = taskService.lockAndRecheck(task);
+        if (task.getCompletedAt() != null) {
+            return List.of();
+        }
+        return closeWithin(taskService.tree(task.getProjectId()), taskId, now, batchId);
+    }
+
+    /**
+     * Như closeAt nhưng caller ĐÃ kiểm quyền ghi và đã dựng cây dự án (tasks/batch CLOSE: một cây cho cả lô thay vì
+     * đọc lại cây + kiểm quyền cho từng task gốc). Cây con của các task gốc trong lô rời nhau nên cây dựng trước khi
+     * đóng vẫn đúng cho từng gốc.
+     */
+    public List<UUID> closeWithin(SubtaskTreeService.Tree tree, UUID taskId, Instant now, UUID batchId) {
+        if (tree.node(taskId).completed()) {
+            return List.of();
+        }
+        List<UUID> changed = subtaskTreeService.idsToClose(tree, taskId);
         taskService.loadAll(changed).forEach(t -> t.complete(now, batchId));
         return changed;
     }
@@ -65,6 +83,10 @@ public class TaskCompletionService {
      */
     public List<UUID> reopenIds(UUID userId, UUID taskId, boolean undo) {
         Task task = taskService.requireWritable(userId, taskId);
+        if (task.getCompletedAt() == null) {
+            return List.of();
+        }
+        task = taskService.lockAndRecheck(task); // khoá P rồi đọc lại: dự án / section vừa lưu trữ → 409, task vừa mở / chuyển
         if (task.getCompletedAt() == null) {
             return List.of();
         }

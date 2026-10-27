@@ -267,6 +267,56 @@ class IdempotencyApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void complete_afterTheRowWasTakenOver_reportsLostClaim_andDoesNotTouchTheNewOwnersRow() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String key = "k-" + UUID.randomUUID();
+        UUID slow = ((IdempotencyService.Proceed) idempotencyService.begin(user.id(), key, "POST", PROJECTS, "h"))
+                .recordId();
+        clock.advance(Duration.ofSeconds(61)); // hàng "đang xử lý" hết hạn 60 giây → request trùng chiếm lại
+        UUID taker = ((IdempotencyService.Proceed) idempotencyService.begin(user.id(), key, "POST", PROJECTS, "h"))
+                .recordId();
+        assertThat(taker).isNotEqualTo(slow);
+
+        assertThat(idempotencyService.complete(slow, 201, "{\"id\":\"cu\"}")).isFalse(); // 0 dòng: mất quyền
+        assertThat(jdbcTemplate.queryForObject("select status from idempotency_keys where id = ?", Integer.class, taker))
+                .isNull();
+        assertThat(idempotencyService.complete(taker, 201, "{\"id\":\"moi\"}")).isTrue();
+    }
+
+    @Test
+    void operationRunningLongerThanTheTtl_keepsItsLease_soADuplicateGets409InsteadOfRunningTwice() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String key = "k-" + UUID.randomUUID();
+        UUID running = ((IdempotencyService.Proceed) idempotencyService.begin(user.id(), key, "POST", PROJECTS, "h"))
+                .recordId();
+
+        // thao tác vẫn đang chạy sau 150 giây (> 60 giây hạn ban đầu); luồng gia hạn chạy định kỳ trong lúc đó
+        for (int i = 0; i < 5; i++) {
+            clock.advance(Duration.ofSeconds(30));
+            idempotencyService.renewLeases();
+        }
+
+        assertThatThrownBy(() -> idempotencyService.begin(user.id(), key, "POST", PROJECTS, "h"))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatusCode().value()).isEqualTo(409));
+        assertThat(keyRows(user.id(), key)).isEqualTo(1);
+        assertThat(idempotencyService.complete(running, 201, "{\"id\":\"cu\"}")).isTrue(); // vẫn còn quyền sở hữu
+    }
+
+    @Test
+    void renewLeases_neverTouchesAFinishedRow() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        String key = "k-" + UUID.randomUUID();
+        UUID done = ((IdempotencyService.Proceed) idempotencyService.begin(user.id(), key, "POST", PROJECTS, "h")).recordId();
+        idempotencyService.complete(done, 201, "{\"id\":\"cu\"}");
+        Instant afterDone = expiresAt(user.id(), key);
+
+        clock.advance(Duration.ofSeconds(30));
+        idempotencyService.renewLeases();
+
+        assertThat(expiresAt(user.id(), key)).as("hàng đã xong giữ hạn 24 giờ").isEqualTo(afterDone);
+    }
+
+    @Test
     void concurrentRequestsWithSameKey_createOnlyOnce_othersGet409OrReplay() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         String key = UUID.randomUUID().toString();

@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProjectService {
 
     public static final String INBOX_NAME = Project.INBOX_NAME;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final ProjectRepository projectRepository;
     private final WorkspaceService workspaceService;
@@ -118,14 +123,16 @@ public class ProjectService {
             }
         }
         UUID parentId = request.parentId();
+        // Quy tắc khoá thao tác đổi CẤU TRÚC: workspace (W) TRƯỚC, rồi đọc/kiểm cha (đọc sau khoá = bản mới nhất), rồi mới
+        // khoá hàng dự án (id tăng dần, chỉ khi đánh số lại anh em).
+        usageLimits.lockWorkspace(workspace.getId()); // W: mutex CẤU TRÚC dự án (cũng là hàng cha của phép đếm) — TRƯỚC khi đếm
         if (parentId != null) {
             requireParent(userId, workspace.getId(), parentId);
             projectTreeService.checkCanAttach(tree(workspace.getId()), null, parentId);
         }
-        usageLimits.lockWorkspace(workspace.getId()); // chống đua (spec 8.2 #9): khoá hàng cha TRƯỚC khi đếm
         usageLimits.check(LimitKind.ACTIVE_PROJECTS, projectRepository.countActive(workspace.getId()), 1);
         usageLimits.check(LimitKind.PROJECTS, projectRepository.countAll(workspace.getId()), 1);
-        long sortOrder = placeForInsert(container(workspace.getId(), parentId), request.afterId());
+        long sortOrder = placeForInsert(List.of(), container(workspace.getId(), parentId), request.afterId());
         Project project = new Project(workspace, parentId, request.name(),
                 request.description() == null ? "" : request.description(),
                 request.color() == null ? ProjectColor.charcoal : request.color(),
@@ -173,6 +180,9 @@ public class ProjectService {
         accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
         requireNotArchived(project);
         UUID workspaceId = project.getWorkspace().getId();
+        usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): hai move ngược chiều không tạo vòng lặp
+        refresh(project); // đã chờ khoá: archive(cha) có thể vừa commit và lưu trữ cả dự án này → đọc lại, kiểm lại cờ
+        requireNotArchived(project);
         UUID parentId = request.parentId().orElse(null); // parentId bắt buộc có khoá; null = gốc
         if (parentId != null) {
             requireParent(userId, workspaceId, parentId);
@@ -181,7 +191,8 @@ public class ProjectService {
         List<Project> siblings = container(workspaceId, parentId).stream()
                 .filter(p -> !p.getId().equals(projectId))
                 .toList();
-        project.moveUnder(parentId, placeForInsert(siblings, request.afterId()));
+        // dự án đang chuyển luôn bị khoá; anh em chỉ khi phải đánh số lại — id TĂNG DẦN, cùng thứ tự với task move
+        project.moveUnder(parentId, placeForInsert(List.of(project), siblings, request.afterId()));
         projectRepository.flush();
         return toResponse(userId, project);
     }
@@ -194,9 +205,13 @@ public class ProjectService {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
         accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước: tuần tự hoá với create / move / unarchive
+        refresh(project); // bản nạp trước khoá có thể cũ: archive khác vừa commit → không ghi đè archived_at
         if (!project.isArchived()) {
             Instant now = clock.instant();
-            projectRepository.findAllById(withDescendants(project)).forEach(p -> p.archive(now));
+            List<UUID> ids = withDescendants(project);
+            usageLimits.lockProjects(ids); // id TĂNG DẦN TRƯỚC khi UPDATE (không theo thứ tự nạp) — tránh deadlock với task move
+            projectRepository.findAllById(ids).forEach(p -> p.archive(now));
             projectRepository.flush();
         }
         return toResponse(userId, project);
@@ -210,17 +225,22 @@ public class ProjectService {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
         accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
+        UUID workspaceId = project.getWorkspace().getId();
+        usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): khoá TRƯỚC khi đếm
+        refresh(project); // đọc lại sau khoá: unarchive khác song song đã khôi phục / detach xong → không kiểm trên bản cũ
         if (project.isArchived()) {
-            UUID workspaceId = project.getWorkspace().getId();
             Instant archivedAt = project.getArchivedAt();
             List<Project> restored = projectRepository.findAllById(withDescendants(project)).stream()
                     .filter(p -> archivedAt.equals(p.getArchivedAt()))
                     .toList();
-            usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): khoá TRƯỚC khi đếm
+            boolean detach = project.getParentId() != null && projectRepository.findById(project.getParentId())
+                    .map(Project::isArchived).orElse(false);
             usageLimits.check(LimitKind.ACTIVE_PROJECTS, projectRepository.countActive(workspaceId), restored.size());
-            if (project.getParentId() != null && projectRepository.findById(project.getParentId())
-                    .map(Project::isArchived).orElse(false)) {
-                project.moveUnder(null, placeForInsert(container(workspaceId, null), null));
+            if (detach) { // cha còn lưu trữ → thành gốc, cuối vùng chứa gốc (vùng gốc chỉ bị khoá khi phải đánh số lại)
+                List<Project> rootSiblings = container(workspaceId, null);
+                project.moveUnder(null, placeForInsert(restored, rootSiblings, null));
+            } else {
+                lockRows(restored); // id TĂNG DẦN TRƯỚC mọi UPDATE
             }
             restored.forEach(Project::unarchive);
             projectRepository.flush();
@@ -236,7 +256,10 @@ public class ProjectService {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
         accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ProblemTexts.PROJECT_NOT_FOUND);
-        List<UUID> ids = withDescendants(project);
+        usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước, rồi hàng dự án id TĂNG DẦN: DB cascade xoá
+        refresh(project);                                          // theo thứ tự tuỳ ý → khoá trước để không deadlock
+        List<UUID> ids = withDescendants(project);                 // với archive / task move
+        usageLimits.lockProjects(ids);
         favoriteService.removeAllFor(FavoriteTargetType.PROJECT, ids);
         events.publishEvent(new ProjectsDeletedEvent(ids));
         projectRepository.delete(project);
@@ -279,6 +302,54 @@ public class ProjectService {
         return project;
     }
 
+    /**
+     * Gọi SAU khi đã khoá dự án nguồn + đích (task move): đọc lại hai hàng từ DB — bản nạp trước khoá (cả requireTarget)
+     * có thể cũ vì archive vừa commit trong lúc chờ khoá — rồi kiểm lại cờ lưu trữ: nguồn → 409 project-archived,
+     * đích → 422 target-archived. Hàng đã bị xoá → 404.
+     */
+    public void recheckAfterLock(Project source, Project target) {
+        refresh(source);
+        if (target != source) {
+            refresh(target);
+        }
+        requireNotArchived(source);
+        if (target.isArchived()) {
+            throw targetArchived();
+        }
+    }
+
+    /**
+     * Gọi SAU khi đã khoá dự án (P) của thao tác ghi dưới dự án (create task / section, reopen, duplicate, sửa / xoá /
+     * reorder section, reorder task): đọc lại hàng từ DB (bản nạp trước khoá có thể cũ — archive vừa commit trong lúc
+     * chờ) rồi kiểm lại cờ lưu trữ: asTarget (đích tạo task, không cha) → 422 target-archived; còn lại → 409
+     * project-archived. Hàng đã bị xoá → 404.
+     */
+    public Project recheckAfterLock(Project project, boolean asTarget) {
+        refresh(project);
+        if (asTarget && project.isArchived()) {
+            throw targetArchived();
+        }
+        requireNotArchived(project);
+        return project;
+    }
+
+    /** Như recheckAfterLock(Project, false) nhưng theo id (caller chưa có thực thể): nạp rồi đọc lại. */
+    public Project recheckWritableAfterLock(UUID projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound(ProblemTexts.PROJECT_NOT_FOUND));
+        return recheckAfterLock(project, false);
+    }
+
+    /**
+     * Cổng cấu trúc cho reorder dự án (cùng quy tắc create / move / archive): khoá workspace (W), đọc lại hàng đã nạp
+     * trước khoá, kiểm lại cờ lưu trữ (409). Sau lời gọi này mới được đọc anh em (container) để tính vị trí.
+     */
+    public void lockStructureAndRefresh(Project project) {
+        usageLimits.lockWorkspace(project.getWorkspace().getId());
+        refresh(project);
+        requireNotArchived(project);
+    }
+
     public Project inboxOf(UUID userId) {
         return projectRepository.findInboxOfUser(userId)
                 .orElseThrow(() -> ApiException.unauthorized(ProblemTexts.SESSION_INVALID));
@@ -312,6 +383,20 @@ public class ProjectService {
                 .toList());
     }
 
+    /** Khoá hàng các dự án theo id TĂNG DẦN (một lần), trước khi UPDATE chúng. */
+    private void lockRows(Collection<Project> projects) {
+        usageLimits.lockProjects(projects.stream().map(Project::getId).toList());
+    }
+
+    /** Đọc lại hàng từ DB sau khi đã khoá (bản nạp trước khoá có thể cũ). Hàng đã bị xoá → 404. */
+    private void refresh(Project project) {
+        try {
+            entityManager.refresh(project);
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            throw ApiException.notFound(ProblemTexts.PROJECT_NOT_FOUND);
+        }
+    }
+
     /** Id của dự án + mọi dự án con cháu (theo cây của workspace, gồm cả dự án lưu trữ). */
     private List<UUID> withDescendants(Project project) {
         List<UUID> ids = new ArrayList<>();
@@ -320,9 +405,17 @@ public class ProjectService {
         return ids;
     }
 
-    /** afterId null → CUỐI vùng chứa. siblings không gồm dự án đang đặt. Tự ghi đánh số lại. */
-    private long placeForInsert(List<Project> siblings, Optional<UUID> afterId) { // null = vắng = cuối; empty = đầu
+    /**
+     * afterId vắng (null) → CUỐI vùng chứa. siblings không gồm dự án đang đặt. Tự ghi đánh số lại. Khoá hàng (id TĂNG DẦN,
+     * TRƯỚC mọi UPDATE): `mustLock` luôn (dự án sắp ghi), siblings CHỈ khi thật sự đánh số lại (placeLast không đánh số lại).
+     */
+    private long placeForInsert(Collection<Project> mustLock, List<Project> siblings, Optional<UUID> afterId) {
         SortOrderService.Placement placement = sortOrderService.placeAt(items(siblings), afterId);
+        List<Project> toLock = new ArrayList<>(mustLock);
+        if (placement.renumbers()) {
+            toLock.addAll(siblings);
+        }
+        lockRows(toLock);
         if (placement.renumbers()) {
             siblings.forEach(p -> p.setSortOrder(placement.renumbered().get(p.getId())));
         }
@@ -404,20 +497,30 @@ public class ProjectService {
         }
         List<UUID> ids = projects.stream().map(Project::getId).toList();
         Set<UUID> favorites = favoriteService.favoriteIds(userId, FavoriteTargetType.PROJECT, ids);
-        // Cây dự án của từng workspace (kể cả lưu trữ) → descendantProjectCount / descendantActiveTaskCount
+        // Cây dự án của từng workspace (kể cả lưu trữ). Chỉ tính cho CÁC dự án được yêu cầu + cây con của chúng (một
+        // response đơn lẻ không còn đếm task mở của mọi dự án trong workspace).
         Map<UUID, Long> counts = new HashMap<>();
         Map<UUID, DescendantStats> stats = new HashMap<>();
-        for (UUID workspaceId : projects.stream().map(p -> p.getWorkspace().getId()).collect(Collectors.toSet())) {
+        Map<UUID, List<Project>> byWorkspace = projects.stream()
+                .collect(Collectors.groupingBy(p -> p.getWorkspace().getId()));
+        byWorkspace.forEach((workspaceId, requested) -> {
             ProjectTreeService.Tree tree = tree(workspaceId);
-            Map<UUID, Long> workspaceCounts = countOpen(tree.byId().keySet());
+            Map<UUID, List<UUID>> descendantsOf = new HashMap<>();
+            Set<UUID> needed = new HashSet<>();
+            for (Project project : requested) {
+                if (tree.byId().containsKey(project.getId())) { // Inbox không nằm trong cây
+                    List<UUID> descendants = projectTreeService.descendants(tree, project.getId());
+                    descendantsOf.put(project.getId(), descendants);
+                    needed.add(project.getId());
+                    needed.addAll(descendants);
+                }
+            }
+            Map<UUID, Long> workspaceCounts = countOpen(needed);
             counts.putAll(workspaceCounts);
-            tree.byId().keySet().forEach(id -> {
-                List<UUID> descendants = projectTreeService.descendants(tree, id);
-                stats.put(id, new DescendantStats(descendants.size(),
-                        descendants.stream().mapToLong(d -> workspaceCounts.getOrDefault(d, 0L)).sum()));
-            });
-        }
-        counts.putAll(countOpen(ids.stream().filter(id -> !counts.containsKey(id)).toList())); // Inbox không nằm trong cây
+            descendantsOf.forEach((id, descendants) -> stats.put(id, new DescendantStats(descendants.size(),
+                    descendants.stream().mapToLong(d -> workspaceCounts.getOrDefault(d, 0L)).sum())));
+        });
+        counts.putAll(countOpen(ids.stream().filter(id -> !stats.containsKey(id)).toList())); // Inbox không nằm trong cây
         return projects.stream()
                 .map(p -> {
                     DescendantStats descendants = stats.getOrDefault(p.getId(), DescendantStats.NONE);

@@ -15,6 +15,8 @@ import com.taskly.repository.TaskRepository;
 import com.taskly.repository.TaskView;
 import com.taskly.repository.TaskViewRepository;
 import com.taskly.security.AccessPolicy;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -43,6 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class TaskService {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final TaskRepository taskRepository;
     private final TaskViewRepository taskViewRepository;
@@ -141,6 +146,25 @@ public class TaskService {
         }
         // Dòng 9: 422 — khoá dự án (UsageLimits.lockProject, bên trong) rồi mới đếm 300 task đang mở
         checkActiveTaskLimit(project.getId(), 1);
+        // ĐỌC LẠI sau khoá (mọi thứ đã nạp / kiểm trước khoá có thể cũ: archive / move / close / xoá vừa commit trong lúc
+        // chờ P — các thao tác đó cũng khoá P): dự án → cha → section, đúng thứ tự dòng 4 / 5 / 6 của bảng quyết định.
+        projectService.recheckAfterLock(project, parent == null); // 409 project-archived (cha) / 422 target-archived
+        if (parent != null) {
+            refresh(parent); // 404 nếu cha vừa bị xoá
+            if (!parent.getProjectId().equals(project.getId())) {
+                // cha vừa chuyển sang dự án khác: chèn con với project_id cũ sẽ làm cây lệch dự án
+                throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+            }
+            sectionId = parent.getSectionId(); // cha vừa đổi section (move trong dự án) → con theo section mới
+            if (sectionId != null) {
+                sectionService.recheckAfterLock(sectionId, true); // 409 section-archived
+            }
+            if (parent.getCompletedAt() != null) {
+                throw ApiException.conflict(ProblemTexts.PARENT_COMPLETED).withCode(ProblemCodes.PARENT_COMPLETED);
+            }
+        } else if (sectionId != null) {
+            sectionService.recheckAfterLock(sectionId, false); // 404 (vừa xoá) / 422 target-archived
+        }
 
         UUID workspaceId = project.getWorkspace().getId(); // phi chuẩn: workspace của dự án (spec 10)
         long sortOrder = placeForInsert(container(project.getId(), sectionId, request.parentId()), request.afterId());
@@ -231,9 +255,47 @@ public class TaskService {
         return task;
     }
 
+    /**
+     * Khoá dự án chứa task (P) rồi ĐỌC LẠI sau khoá — cổng chung của reopen / undo, duplicate, reorder task: task có thể
+     * vừa bị xoá (404) / chuyển sang dự án khác (409 version-conflict), dự án vừa lưu trữ (409 project-archived), section
+     * vừa lưu trữ (409 section-archived). Trả entity đã đọc lại (managed). Flush trước refresh để không mất thay đổi chưa
+     * ghi của cùng transaction (tasks/batch gọi nhiều lần).
+     */
+    public Task lockAndRecheck(Task task) {
+        UUID projectId = task.getProjectId();
+        usageLimits.lockProject(projectId);
+        entityManager.flush();
+        Task fresh = taskRepository.findById(task.getId())
+                .orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+        refresh(fresh);
+        if (!fresh.getProjectId().equals(projectId)) {
+            throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+        }
+        projectService.recheckWritableAfterLock(projectId);
+        if (fresh.getSectionId() != null && sectionService.isArchivedNow(fresh.getSectionId())) {
+            throw SectionService.sectionArchived();
+        }
+        return fresh;
+    }
+
+    /** Đọc thẳng DB (sau khi đã khoá dự án): section có đang lưu trữ không. */
+    public boolean isSectionArchivedNow(UUID sectionId) {
+        return sectionService.isArchivedNow(sectionId);
+    }
+
     /** Nạp lại entity sau khi một native UPDATE đã xoá persistence context (không kiểm quyền — caller đã kiểm). */
     public Task reload(UUID taskId) {
         return taskRepository.findById(taskId).orElseThrow(() -> ApiException.notFound(ProblemTexts.TASK_NOT_FOUND));
+    }
+
+    /** Đọc lại hàng từ DB (sau khi đã khoá dự án) → entity phản ánh bản đã commit mới nhất. Hàng đã bị xoá → 404. */
+    public Task refresh(Task task) {
+        try {
+            entityManager.refresh(task);
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            throw ApiException.notFound(ProblemTexts.TASK_NOT_FOUND);
+        }
+        return task;
     }
 
     /** Vùng chứa: con của parentId; hoặc task gốc của (dự án, section / không section). Sắp theo (sortOrder, id). */
@@ -312,8 +374,14 @@ public class TaskService {
      * Reorder (ReorderService, Part 3 — đã kiểm "afterId bắt buộc có mặt"): afterId null → ĐẦU vùng chứa (spec 12.4).
      * Tự ghi đánh số lại anh em; caller gọi writeSortOrder(taskId, kết quả) cho CHÍNH task được đặt.
      */
-    public long placeForReorder(List<Task> siblings, UUID afterId) {
+    public long placeForReorder(UUID movedTaskId, List<Task> siblings, UUID afterId) {
         SortOrderService.Placement placement = sortOrderService.placeAfter(items(siblings), afterId);
+        if (placement.renumbers()) {
+            // khoá hàng id TĂNG DẦN (anh em + task được đặt, sắp ghi ngay sau) trước mọi native UPDATE
+            List<UUID> toLock = new java.util.ArrayList<>(placement.renumbered().keySet());
+            toLock.add(movedTaskId);
+            usageLimits.lockTasks(toLock);
+        }
         writeRenumber(placement);
         return placement.sortOrder();
     }

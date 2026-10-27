@@ -50,4 +50,31 @@ class RateLimiterTest {
         limiter.tryAcquire("k", T0);
         assertThat(limiter.tryAcquire("k", T0.plusMillis(59_900)).retryAfterSeconds()).isEqualTo(1);
     }
+
+    @Test
+    void expiredKeysAreSweptSoTheMapDoesNotGrowForever() {
+        RateLimiter limiter = new RateLimiter(2, Duration.ofSeconds(60));
+        for (int i = 0; i < 100; i++) {
+            limiter.tryAcquire("ip-" + i, T0);
+        }
+        assertThat(limiter.trackedKeys()).isEqualTo(100);
+
+        limiter.tryAcquire("ip-moi", T0.plusSeconds(61)); // mọi key cũ đã rời cửa sổ
+
+        assertThat(limiter.trackedKeys()).isEqualTo(1);
+        assertThat(limiter.tryAcquire("ip-moi", T0.plusSeconds(62)).allowed()).isTrue(); // vẫn đếm đúng
+        assertThat(limiter.tryAcquire("ip-moi", T0.plusSeconds(63)).allowed()).isFalse();
+    }
+
+    @Test
+    void sweepKeepsKeysWithRecentHits() {
+        RateLimiter limiter = new RateLimiter(1, Duration.ofSeconds(60));
+        limiter.tryAcquire("cu", T0);
+        limiter.tryAcquire("gan-day", T0.plusSeconds(50));
+
+        limiter.tryAcquire("khac", T0.plusSeconds(61));
+
+        assertThat(limiter.trackedKeys()).isEqualTo(2); // "cu" bị quét; "gan-day" + "khac" còn
+        assertThat(limiter.tryAcquire("gan-day", T0.plusSeconds(62)).allowed()).isFalse();
+    }
 }

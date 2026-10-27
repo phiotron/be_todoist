@@ -7,6 +7,7 @@ import com.taskly.dto.reorder.ReorderResponse;
 import com.taskly.entity.Project;
 import com.taskly.entity.Section;
 import com.taskly.entity.Task;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -26,9 +27,11 @@ public class ReorderService {
     private final SectionService sectionService;
     private final TaskService taskService;
     private final SortOrderService sortOrderService;
+    private final UsageLimits usageLimits;
 
     public ReorderService(ProjectService projectService, SectionService sectionService, TaskService taskService,
-                          SortOrderService sortOrderService) {
+                          SortOrderService sortOrderService, UsageLimits usageLimits) {
+        this.usageLimits = usageLimits;
         this.projectService = projectService;
         this.sectionService = sectionService;
         this.taskService = taskService;
@@ -50,10 +53,18 @@ public class ReorderService {
         if (project.isInbox()) {
             throw ApiException.forbidden(ProblemTexts.INBOX_PROTECTED); // mọi thao tác nhắm vào chính Inbox → 403 (spec m2)
         }
+        // Quy tắc khoá thao tác đổi CẤU TRÚC dự án: W trước (+ đọc lại), rồi đọc anh em (bản mới nhất), rồi khoá hàng
+        // id TĂNG DẦN trước mọi UPDATE (chỉ khi đánh số lại anh em) — không thì ghi đè sort_order của create / move.
+        projectService.lockStructureAndRefresh(project);
         List<Project> siblings = projectService.container(project.getWorkspace().getId(), project.getParentId())
                 .stream().filter(p -> !p.getId().equals(projectId)).toList();
         SortOrderService.Placement placement = sortOrderService.placeAfter(
                 siblings.stream().map(p -> new SortOrderService.Item(p.getId(), p.getSortOrder())).toList(), afterId);
+        List<UUID> toLock = new ArrayList<>(List.of(projectId));
+        if (placement.renumbers()) {
+            siblings.forEach(p -> toLock.add(p.getId()));
+        }
+        usageLimits.lockProjects(toLock);
         if (placement.renumbers()) {
             siblings.forEach(p -> p.setSortOrder(placement.renumbered().get(p.getId())));
         }
@@ -63,6 +74,11 @@ public class ReorderService {
 
     private long reorderSection(UUID userId, UUID sectionId, UUID afterId) {
         Section section = sectionService.requireWritable(userId, sectionId);
+        // khoá P rồi đọc lại (dự án / section vừa lưu trữ, section vừa xoá) TRƯỚC khi đọc anh em + ghi sort_order. Mọi ghi
+        // hàng section đều giữ P nên không cần khoá hàng từng section khi đánh số lại.
+        usageLimits.lockProject(section.getProjectId());
+        projectService.recheckWritableAfterLock(section.getProjectId());
+        sectionService.refreshWritable(section);
         List<Section> siblings = sectionService.container(section.getProjectId()).stream()
                 .filter(s -> !s.getId().equals(sectionId)).toList();
         SortOrderService.Placement placement = sortOrderService.placeAfter(
@@ -76,9 +92,10 @@ public class ReorderService {
 
     private long reorderTask(UUID userId, UUID taskId, UUID afterId) {
         Task task = taskService.requireWritable(userId, taskId);
+        task = taskService.lockAndRecheck(task); // khoá P + đọc lại; vùng chứa dưới đây đọc SAU khoá
         List<Task> siblings = taskService.container(task.getProjectId(), task.getSectionId(), task.getParentId())
                 .stream().filter(t -> !t.getId().equals(taskId)).toList();
-        long sortOrder = taskService.placeForReorder(siblings, afterId); // tự ghi đánh số lại anh em (native UPDATE)
+        long sortOrder = taskService.placeForReorder(taskId, siblings, afterId); // tự ghi đánh số lại anh em (native UPDATE)
         taskService.writeSortOrder(taskId, sortOrder); // native UPDATE: KHÔNG tăng version, vẫn ghi updated_at (spec 5.6)
         return sortOrder;
     }

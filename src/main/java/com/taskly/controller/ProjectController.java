@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -57,7 +58,17 @@ public class ProjectController {
     @ApiResponse(responseCode = "200", description = "`id` client đã có cùng nội dung — kèm header Idempotent-Replay: true")
     public ResponseEntity<ProjectResponse> create(@AuthenticationPrincipal Jwt jwt,
                                                   @Valid @RequestBody CreateProjectRequest request) {
-        return projectService.create(CurrentUser.id(jwt), request).toResponseEntity();
+        UUID userId = CurrentUser.id(jwt);
+        try {
+            return projectService.create(userId, request).toResponseEntity();
+        } catch (DataIntegrityViolationException e) {
+            if (request.id() == null) {
+                throw e;
+            }
+            // Hai request song song cùng `id` client: bên thua vi phạm khoá chính, transaction đã rollback. Chạy lại MỘT
+            // lần — lúc này `id` đã có nên thành replay (200) hoặc 409 id-conflict (spec 12.11), như TaskController.
+            return projectService.create(userId, request).toResponseEntity();
+        }
     }
 
     @GetMapping("/{projectId}")

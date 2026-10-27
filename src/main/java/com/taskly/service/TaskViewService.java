@@ -248,6 +248,9 @@ public class TaskViewService {
                         new Key("case when t.section_id is null then 0 else 1 end", KeyType.INT),
                         new Key("coalesce((select s.sort_order from sections s where s.id = t.section_id), 0)",
                                 KeyType.LONG),
+                        // phá hoà hai section trùng sort_order (sau unarchive): giữ task cùng section liền nhau
+                        new Key("coalesce(t.section_id, cast('00000000-0000-0000-0000-000000000000' as uuid))",
+                                KeyType.ID),
                         TASK_ORDER), false);
         List<KeyedTaskView> rows = repository.page(roots, params, decode(kind, cursor, roots), context.pageSize() + 1);
         Page<KeyedTaskView> rootPage = Page.fromLookahead(rows, context.pageSize(),

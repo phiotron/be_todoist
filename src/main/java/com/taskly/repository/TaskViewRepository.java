@@ -62,7 +62,9 @@ public class TaskViewRepository {
         /** timestamptz (completed_at, created_at). */
         TIMESTAMP("timestamptz"),
         /** timestamp KHÔNG múi giờ — giờ floating (due_sort = due_datetime hoặc due_date 00:00). */
-        LOCAL_TIMESTAMP("timestamp");
+        LOCAL_TIMESTAMP("timestamp"),
+        /** uuid — khoá phá hoà (vd section_id khi hai section trùng sort_order). */
+        ID("uuid");
 
         private final String sqlType;
 
@@ -77,6 +79,7 @@ public class TaskViewRepository {
                 case DATE -> cursor.date(index);
                 case TIMESTAMP -> OffsetDateTime.ofInstant(cursor.instant(index), ZoneOffset.UTC);
                 case LOCAL_TIMESTAMP -> cursor.localDateTime(index);
+                case ID -> cursor.uuid(index);
             };
         }
 
@@ -86,6 +89,7 @@ public class TaskViewRepository {
                 case DATE -> rs.getObject(column, LocalDate.class).toString();
                 case TIMESTAMP -> rs.getObject(column, OffsetDateTime.class).toInstant().toString();
                 case LOCAL_TIMESTAMP -> rs.getObject(column, LocalDateTime.class).toString();
+                case ID -> rs.getObject(column, UUID.class).toString();
             };
         }
     }

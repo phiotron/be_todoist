@@ -52,6 +52,34 @@ class TaskProjectListingApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void twoSectionsWithEqualSortOrder_stayGrouped_acrossPages() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        UUID project = testData.project(user.id(), "P");
+        UUID sa = testData.section(project, "SA");
+        UUID sb = testData.section(project, "SB");
+        jdbcTemplate.update("update sections set sort_order = 5000 where id in (?, ?)", sa, sb); // như sau unarchive
+        testData.insert(TaskRow.of(user.id(), project, "A1").section(sa).sortOrder(1024));
+        testData.insert(TaskRow.of(user.id(), project, "B1").section(sb).sortOrder(2048));
+        testData.insert(TaskRow.of(user.id(), project, "A2").section(sa).sortOrder(3072));
+        testData.insert(TaskRow.of(user.id(), project, "B2").section(sb).sortOrder(4096));
+
+        List<String> seen = new java.util.ArrayList<>();
+        String uri = "/api/v1/tasks?projectId=" + project + "&limit=1";
+        String cursor = null;
+        do {
+            var result = authGet(user.accessToken(), uri + (cursor == null ? "" : "&cursor=" + cursor))
+                    .andExpect(status().isOk());
+            seen.add(readString(result, "$.items[0].content"));
+            cursor = com.jayway.jsonpath.JsonPath.read(body(result.andReturn()), "$.nextCursor");
+        } while (cursor != null);
+
+        assertThat(seen).hasSize(4);
+        assertThat(seen.get(0).charAt(0)).isEqualTo(seen.get(1).charAt(0)); // cùng section liền nhau
+        assertThat(seen.get(2).charAt(0)).isEqualTo(seen.get(3).charAt(0));
+        assertThat(seen.get(0).charAt(0)).isNotEqualTo(seen.get(2).charAt(0));
+    }
+
+    @Test
     void completedListing_showsCompletedRootsNewestFirst_includingArchivedSections_withFullSubtree() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         UUID project = testData.project(user.id(), "P");

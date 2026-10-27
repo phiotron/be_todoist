@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -52,7 +53,16 @@ public class SectionController {
     @ApiResponse(responseCode = "200", description = "`id` client đã có cùng nội dung — kèm header Idempotent-Replay: true")
     public ResponseEntity<SectionResponse> create(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
                                                   @Valid @RequestBody CreateSectionRequest request) {
-        return sectionService.create(CurrentUser.id(jwt), projectId, request).toResponseEntity();
+        UUID userId = CurrentUser.id(jwt);
+        try {
+            return sectionService.create(userId, projectId, request).toResponseEntity();
+        } catch (DataIntegrityViolationException e) {
+            if (request.id() == null) {
+                throw e;
+            }
+            // Hai request song song cùng `id` client: chạy lại MỘT lần để ra replay 200 / 409 id-conflict (spec 12.11).
+            return sectionService.create(userId, projectId, request).toResponseEntity();
+        }
     }
 
     @PatchMapping("/{sectionId}")

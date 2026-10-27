@@ -18,6 +18,9 @@ public interface SectionRepository extends JpaRepository<Section, UUID> {
     /** Section lưu trữ: lưu trữ mới nhất trước (spec 12.2). */
     List<Section> findByProjectIdAndArchivedAtIsNotNullOrderByArchivedAtDescIdAsc(UUID projectId);
 
+    /** Truy vấn thẳng DB (không qua persistence context) — đọc cờ lưu trữ MỚI NHẤT sau khi đã khoá dự án. */
+    boolean existsByIdAndArchivedAtIsNotNull(UUID id);
+
     long countByProjectIdAndArchivedAtIsNull(UUID projectId);
 
     /** Tổng section của dự án, KỂ CẢ lưu trữ (PROJECT_SECTIONS_TOTAL ≤ 100 — spec 2.1, I1). */

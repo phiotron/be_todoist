@@ -11,12 +11,16 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.DynamicUpdate;
 
 /**
  * Dự án. Dự án con giữ parentId dạng cột UUID (quyết định Q4); xoá vĩnh viễn — dự án con, section, task bị xoá theo
  * bằng ON DELETE CASCADE ở DB.
+ * @DynamicUpdate: UPDATE qua entity chỉ ghi cột ĐÃ ĐỔI → request đã nạp entity trước khi chờ khoá không ghi đè
+ * archived_at / name / color... do request khác vừa commit.
  */
 @Entity
+@DynamicUpdate
 @Table(name = "projects")
 public class Project extends BaseEntity {
 

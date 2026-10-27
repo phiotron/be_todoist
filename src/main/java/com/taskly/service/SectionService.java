@@ -33,6 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class SectionService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
     private final SectionRepository sectionRepository;
     private final ProjectService projectService;
     private final SortOrderService sortOrderService;
@@ -72,6 +75,7 @@ public class SectionService {
         }
         Project project = projectService.requireWritable(userId, projectId); // 409 project-archived
         usageLimits.lockProject(project.getId()); // chống đua (spec 8.2 #9): khoá hàng cha TRƯỚC khi đếm
+        projectService.recheckAfterLock(project, false); // đã chờ khoá: dự án có thể vừa được lưu trữ → 409
         usageLimits.check(LimitKind.PROJECT_SECTIONS,
                 sectionRepository.countByProjectIdAndArchivedAtIsNull(project.getId()), 1);
         usageLimits.check(LimitKind.PROJECT_SECTIONS_TOTAL, sectionRepository.countByProjectId(project.getId()), 1);
@@ -102,7 +106,10 @@ public class SectionService {
 
     /** Đổi tên / mô tả — được cả với section lưu trữ; dự án lưu trữ → 409. */
     public SectionResponse update(UUID userId, UUID projectId, UUID sectionId, UpdateSectionRequest request) {
-        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        // cùng quy tắc mọi ghi dưới dự án: khoá P rồi đọc lại, TRƯỚC khi nạp section (xoá / lưu trữ song song)
+        usageLimits.lockProject(projectId);
+        projectService.recheckAfterLock(project, false);
         Section section = requireInProject(projectId, sectionId);
         if (request.name() != null) {
             section.rename(request.name());
@@ -116,7 +123,11 @@ public class SectionService {
 
     /** Xoá VĨNH VIỄN section + mọi task của nó (đang mở + đã xong, kèm cây con) — spec 5.7. Dự án lưu trữ → 409. */
     public void delete(UUID userId, UUID projectId, UUID sectionId) {
-        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        // khoá P TRƯỚC khi xoá: task create vừa kiểm section xong (đang chờ P) sẽ chèn xong rồi mới tới lượt xoá (cascade),
+        // thay vì chèn vào section đã biến mất (lỗi toàn vẹn chung)
+        usageLimits.lockProject(projectId);
+        projectService.recheckAfterLock(project, false);
         Section section = requireInProject(projectId, sectionId);
         sectionRepository.delete(section);
         sectionRepository.flush();
@@ -128,6 +139,9 @@ public class SectionService {
      */
     public SectionResponse archive(UUID userId, UUID projectId, UUID sectionId) {
         projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        // chống đua (spec 8.2 #9): tuần tự hoá với tạo / chuyển task cùng dự án (chúng khoá dự án rồi đọc lại cờ
+        // lưu trữ) → không còn task mở trong section đã lưu trữ. Khoá TRƯỚC khi nạp section.
+        usageLimits.lockProject(projectId);
         Section section = requireInProject(projectId, sectionId);
         if (!section.isArchived()) {
             Instant now = clock.instant();
@@ -144,10 +158,12 @@ public class SectionService {
      * <= 100) KHÔNG đổi khi khôi phục nên không kiểm lại.
      */
     public SectionResponse unarchive(UUID userId, UUID projectId, UUID sectionId) {
-        projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ProblemTexts.SECTION_NOT_FOUND);
+        // cùng quy tắc mọi ghi dưới dự án: khoá P → đọc lại dự án → MỚI nạp section (xoá / lưu trữ / khôi phục song song)
+        usageLimits.lockProject(projectId);
+        projectService.recheckAfterLock(project, false);
         Section section = requireInProject(projectId, sectionId);
         if (section.isArchived()) {
-            usageLimits.lockProject(projectId);
             usageLimits.check(LimitKind.PROJECT_SECTIONS, sectionRepository.countByProjectIdAndArchivedAtIsNull(projectId), 1);
             section.unarchive();
             sectionRepository.flush();
@@ -191,9 +207,41 @@ public class SectionService {
         return section;
     }
 
+    /**
+     * Gọi SAU khi đã khoá dự án chứa section: đọc thẳng DB (bỏ qua entity đã nạp trước khoá). Section đã bị xoá → 404;
+     * đang lưu trữ → parentContext (đích là cha của task tạo) 409 section-archived, ngược lại 422 target-archived.
+     */
+    public void recheckAfterLock(UUID sectionId, boolean parentContext) {
+        if (!sectionRepository.existsById(sectionId)) {
+            throw ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND);
+        }
+        if (sectionRepository.existsByIdAndArchivedAtIsNotNull(sectionId)) {
+            throw parentContext ? sectionArchived()
+                    : ApiException.unprocessable(ProblemTexts.TARGET_ARCHIVED).withCode(ProblemCodes.TARGET_ARCHIVED);
+        }
+    }
+
+    /** Đọc lại section đã nạp trước khoá (reorder, sau khi khoá P): đã xoá → 404; đã lưu trữ → 409 section-archived. */
+    public Section refreshWritable(Section section) {
+        try {
+            entityManager.refresh(section);
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            throw ApiException.notFound(ProblemTexts.SECTION_NOT_FOUND);
+        }
+        if (section.isArchived()) {
+            throw sectionArchived();
+        }
+        return section;
+    }
+
     /** true nếu section tồn tại và đang lưu trữ (TaskService dùng để chặn ghi lên task của section lưu trữ). */
     public boolean isArchived(UUID sectionId) {
         return sectionRepository.findById(sectionId).map(Section::isArchived).orElse(false);
+    }
+
+    /** Như isArchived nhưng đọc thẳng DB (bỏ qua entity đã nạp) — dùng SAU khi khoá dự án. */
+    public boolean isArchivedNow(UUID sectionId) {
+        return sectionRepository.existsByIdAndArchivedAtIsNotNull(sectionId);
     }
 
     /** Vùng chứa sắp xếp: section CHƯA lưu trữ của dự án theo (sortOrder, id). */

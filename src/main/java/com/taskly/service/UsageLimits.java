@@ -20,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Nơi DUY NHẤT kiểm giới hạn theo gói Pro (spec 2.1, 8.2.9). check(...) thuần: chỉ đọc cấu hình taskly.limits.*; service
  * sở hữu bảng tự đếm rồi gọi check (quyết định Q28). Vượt → 422 {code: "limit-reached", limit: LimitKind, max}.
  * CHỐNG ĐUA (spec 8.2 #9, C5): đếm-rồi-chèn không an toàn khi hai request song song → service gọi lock* TRƯỚC khi đếm:
- * SELECT … FOR NO KEY UPDATE hàng cha (workspace cho đếm dự án; project cho đếm section / task đang mở; user cho đếm theo tài
+ * SELECT … FOR NO KEY UPDATE hàng cha (workspace = mutex cấu trúc dự án, đồng thời cho đếm dự án — lấy ở MỌI thao tác cấu
+ * trúc dự án kể cả không đếm; project cho đếm section / task đang mở; user cho đếm theo tài
  * khoản — M2 labels / filters, M4 reminders) trong CÙNG transaction của service (Propagation.MANDATORY — gọi ngoài
  * transaction là lỗi lập trình). Request thứ hai chờ tới khi request đầu commit rồi mới đếm. Nhiều đích → khoá theo id
  * TĂNG DẦN (lockProjects) để hai request khoá ngược thứ tự không deadlock.
@@ -92,7 +93,13 @@ public class UsageLimits {
 
     // ---- Khoá hàng cha chống đua (spec 8.2 #9) — gọi TRONG transaction, TRƯỚC khi đếm ----
 
-    /** Đếm dự án (ACTIVE_PROJECTS, PROJECTS) của một workspace. */
+    /**
+     * W — mutex CẤU TRÚC dự án của một workspace: create / move / archive / unarchive / delete / reorder dự án đều lấy W
+     * trước (kể cả thao tác không đếm), đồng thời là hàng cha cho phép đếm dự án (ACTIVE_PROJECTS, PROJECTS).
+     * CẢNH BÁO: KHÔNG bỏ W ở đường "không đếm" — W là thứ tuần tự hoá việc đọc / ghi cây dự án và sort_order anh em
+     * (thiếu W: mất cập nhật sort_order, vòng lặp cây, deadlock chéo). Thứ tự bắt buộc: W → đọc lại (refresh) → khoá
+     * hàng dự án theo id TĂNG DẦN (lockProjects) → mới UPDATE; không bao giờ khoá W sau khi đã giữ hàng dự án.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void lockWorkspace(UUID workspaceId) {
         lock("workspaces", workspaceId);
@@ -104,10 +111,41 @@ public class UsageLimits {
         lock("projects", projectId);
     }
 
-    /** Nhiều dự án đích (tasks/batch REOPEN, move nhiều nơi): khoá theo id TĂNG DẦN, bỏ trùng. */
+    /**
+     * Nhiều dự án đích (tasks/batch REOPEN, move nhiều nơi, xoá / lưu trữ cả cây): khoá theo id TĂNG DẦN (thứ tự
+     * UUID.compareTo — cùng một thứ tự ở mọi caller), bỏ trùng. MỘT câu lệnh cho cả mảng (xoá cây 500 dự án trước đây là
+     * 500 lượt khứ hồi trong lúc giữ W): `unnest(?) with ordinality` + ORDER BY thứ tự mảng → LockRows khoá từng hàng theo
+     * ĐÚNG thứ tự mảng đã sắp. Cố ý KHÔNG `ORDER BY id`: uuid của PostgreSQL so theo byte không dấu, khác UUID.compareTo
+     * của Java (thứ tự chuẩn của mọi caller / test) — trộn hai thứ tự là mầm deadlock.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void lockProjects(Collection<UUID> projectIds) {
-        projectIds.stream().distinct().sorted().forEach(this::lockProject);
+        lockRows("projects", projectIds);
+    }
+
+    /**
+     * Khoá hàng task theo id TĂNG DẦN (cùng quy tắc lockProjects) TRƯỚC khi đánh số lại sort_order nhiều anh em bằng native
+     * UPDATE (reorder task): không thì ghi theo thứ tự (sort_order, id) rồi chờ hàng id nhỏ hơn khi đang giữ hàng id lớn.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockTasks(Collection<UUID> taskIds) {
+        lockRows("tasks", taskIds);
+    }
+
+    /** tableName là hằng nội bộ (projects / tasks), không nhận từ người dùng. */
+    private void lockRows(String tableName, Collection<UUID> rowIds) {
+        UUID[] ids = rowIds.stream().distinct().sorted().toArray(UUID[]::new);
+        if (ids.length == 0) {
+            return;
+        }
+        jdbcTemplate.query(con -> {
+            var ps = con.prepareStatement("select r.id from unnest(?) with ordinality as t(id, n) "
+                    + "join " + tableName + " r on r.id = t.id order by t.n for no key update of r");
+            ps.setArray(1, con.createArrayOf("uuid", ids));
+            return ps;
+        }, rs -> {
+            // chỉ cần lấy khoá; không đọc kết quả
+        });
     }
 
     /** Đếm theo tài khoản (M2 LABELS / FILTERS, M4 REMINDERS). */

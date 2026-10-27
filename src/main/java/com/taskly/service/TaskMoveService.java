@@ -24,7 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  * TaskService.relocate (đổi project_id / section_id / workspace_id, ghi updated_at, KHÔNG tăng version). sort_order
  * qua TaskService.writeSortOrder (native). Mỗi native UPDATE xoá persistence context nên thứ tự bắt buộc là: native
  * của người khác (đánh số lại) → relocate cây con → nạp lại task → placeIn → writeSortOrder (flush placeIn trước).
- * Chỉ khoá MỘT dự án (đích) nên không thể deadlock với move ngược chiều.
+ * Khoá: dự án nguồn + đích theo id TĂNG DẦN trong MỘT lần gọi (lockProjects). Thứ tự này chỉ đúng trong một lần gọi — caller
+ * gọi move nhiều lần trong cùng transaction (tasks/batch MOVE) phải tự khoá trước mọi dự án liên quan theo id tăng dần.
  */
 @Service
 @Transactional
@@ -34,9 +35,11 @@ public class TaskMoveService {
     private final ProjectService projectService;
     private final SectionService sectionService;
     private final SubtaskTreeService subtaskTreeService;
+    private final UsageLimits usageLimits;
 
     public TaskMoveService(TaskService taskService, ProjectService projectService, SectionService sectionService,
-                           SubtaskTreeService subtaskTreeService) {
+                           SubtaskTreeService subtaskTreeService, UsageLimits usageLimits) {
+        this.usageLimits = usageLimits;
         this.taskService = taskService;
         this.projectService = projectService;
         this.sectionService = sectionService;
@@ -53,6 +56,19 @@ public class TaskMoveService {
         UUID workspaceId = target.getWorkspace().getId();
         if (!workspaceId.equals(source.getWorkspace().getId())) {
             throw ApiException.badRequest(ProblemTexts.CROSS_WORKSPACE_MOVE);
+        }
+
+        // Chống đua (spec 8.2 #9): khoá dự án nguồn + đích (id tăng dần) TRƯỚC khi dựng cây → hai move ngược chiều
+        // ("A con B" / "B con A") tuần tự hoá, bên sau thấy cây mới (không tạo vòng lặp). Rồi đọc lại task: có thể đã
+        // bị move / hoàn thành bởi request vừa commit.
+        usageLimits.lockProjects(List.of(source.getId(), target.getId()));
+        projectService.recheckAfterLock(source, target); // cờ lưu trữ nạp trước khoá có thể cũ (archive vừa commit)
+        taskService.refresh(task);
+        if (!task.getProjectId().equals(source.getId())) {
+            throw ApiException.conflict(ProblemTexts.VERSION_CONFLICT).withCode(ProblemCodes.VERSION_CONFLICT);
+        }
+        if (task.getCompletedAt() != null) {
+            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
         }
 
         List<SubtaskTreeService.Node> nodes = new ArrayList<>(taskService.treeNodes(source.getId()));
