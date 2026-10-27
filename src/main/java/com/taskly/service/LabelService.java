@@ -15,6 +15,8 @@ import com.taskly.mapper.LabelMapper;
 import com.taskly.repository.LabelRepository;
 import java.util.Collection;
 import java.util.HashSet;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,14 +41,17 @@ public class LabelService {
     private final UsageLimits usageLimits;
     private final SortOrderService sortOrderService;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public LabelService(LabelRepository labelRepository, FavoriteService favoriteService, UsageLimits usageLimits,
-                        SortOrderService sortOrderService, ApplicationEventPublisher events) {
+                        SortOrderService sortOrderService, ApplicationEventPublisher events,
+                        Clock clock) {
         this.labelRepository = labelRepository;
         this.favoriteService = favoriteService;
         this.usageLimits = usageLimits;
         this.sortOrderService = sortOrderService;
         this.events = events;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -168,6 +173,25 @@ public class LabelService {
         } catch (DataIntegrityViolationException ex) {
             throw nameTaken();
         }
+    }
+
+    /** POST reorder type LABEL: vùng chứa = mọi label của user. Native UPDATE: không qua entity, không đụng tasks. */
+    public long reorder(UUID userId, UUID labelId, UUID afterId) {
+        requireOwned(userId, labelId);
+        List<Label> siblings = labelRepository.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+                .filter(other -> !other.getId().equals(labelId)).toList();
+        SortOrderService.Placement placement = sortOrderService.placeAfter(items(siblings), afterId);
+        Instant now = clock.instant();
+        if (placement.renumbers()) {
+            siblings.forEach(other -> {
+                Long renumbered = placement.renumbered().get(other.getId());
+                if (renumbered != null) {
+                    labelRepository.updateSortOrder(other.getId(), renumbered, now);
+                }
+            });
+        }
+        labelRepository.updateSortOrder(labelId, placement.sortOrder(), now);
+        return placement.sortOrder();
     }
 
     private static List<SortOrderService.Item> items(List<Label> labels) {

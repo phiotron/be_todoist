@@ -26,13 +26,17 @@ public class ReorderService {
     private final SectionService sectionService;
     private final TaskService taskService;
     private final SortOrderService sortOrderService;
+    private final LabelService labelService;
+    private final FilterService filterService;
 
     public ReorderService(ProjectService projectService, SectionService sectionService, TaskService taskService,
-                          SortOrderService sortOrderService) {
+                          SortOrderService sortOrderService, LabelService labelService, FilterService filterService) {
         this.projectService = projectService;
         this.sectionService = sectionService;
         this.taskService = taskService;
         this.sortOrderService = sortOrderService;
+        this.labelService = labelService;
+        this.filterService = filterService;
     }
 
     public ReorderResponse reorder(UUID userId, ReorderRequest request) {
@@ -41,6 +45,8 @@ public class ReorderService {
             case PROJECT -> reorderProject(userId, request.id(), afterId);
             case SECTION -> reorderSection(userId, request.id(), afterId);
             case TASK -> reorderTask(userId, request.id(), afterId);
+            case LABEL -> labelService.reorder(userId, request.id(), afterId);
+            case FILTER -> filterService.reorder(userId, request.id(), afterId);
         };
         return new ReorderResponse(request.type(), request.id(), sortOrder);
     }

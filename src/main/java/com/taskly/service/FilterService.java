@@ -18,6 +18,8 @@ import com.taskly.service.filterquery.DateOrder;
 import com.taskly.service.filterquery.FilterQueryParser;
 import com.taskly.service.filterquery.FilterSyntaxException;
 import java.text.Normalizer;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -44,14 +46,17 @@ public class FilterService {
     private final UsageLimits usageLimits;
     private final SortOrderService sortOrderService;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public FilterService(FilterRepository filterRepository, FavoriteService favoriteService, UsageLimits usageLimits,
-                         SortOrderService sortOrderService, ApplicationEventPublisher events) {
+                         SortOrderService sortOrderService, ApplicationEventPublisher events,
+                        Clock clock) {
         this.filterRepository = filterRepository;
         this.favoriteService = favoriteService;
         this.usageLimits = usageLimits;
         this.sortOrderService = sortOrderService;
         this.events = events;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -200,6 +205,25 @@ public class FilterService {
         boolean favorite = favoriteService.favoriteIds(userId, FavoriteTargetType.FILTER, List.of(filter.getId()))
                 .contains(filter.getId());
         return FilterMapper.toResponse(filter, favorite);
+    }
+
+    /** POST reorder type FILTER: vùng chứa = mọi filter của user. Native UPDATE: không qua entity, không đụng tasks. */
+    public long reorder(UUID userId, UUID filterId, UUID afterId) {
+        requireOwned(userId, filterId);
+        List<Filter> siblings = filterRepository.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+                .filter(other -> !other.getId().equals(filterId)).toList();
+        SortOrderService.Placement placement = sortOrderService.placeAfter(items(siblings), afterId);
+        Instant now = clock.instant();
+        if (placement.renumbers()) {
+            siblings.forEach(other -> {
+                Long renumbered = placement.renumbered().get(other.getId());
+                if (renumbered != null) {
+                    filterRepository.updateSortOrder(other.getId(), renumbered, now);
+                }
+            });
+        }
+        filterRepository.updateSortOrder(filterId, placement.sortOrder(), now);
+        return placement.sortOrder();
     }
 
     private static List<SortOrderService.Item> items(List<Filter> filters) {
