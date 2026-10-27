@@ -3,6 +3,7 @@ package com.taskly.security;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -47,7 +48,7 @@ public class JwtConfig {
         return new NimbusJwtEncoder(new ImmutableSecret<>(jwtSecretKey));
     }
 
-    /** Kiểm chữ ký HS256 + exp (bắt buộc)/nbf theo bean Clock (dung sai 60 giây mặc định) + iss = app.jwt.issuer + sub không rỗng. */
+    /** Kiểm chữ ký HS256 + exp (bắt buộc)/nbf theo bean Clock (dung sai 60 giây mặc định) + iss = app.jwt.issuer + sub không rỗng + typ = access + aud chứa taskly-api. */
     @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey, JwtProperties properties, Clock clock) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
@@ -58,8 +59,13 @@ public class JwtConfig {
         timestampValidator.setAllowEmptyExpiryClaim(false); // token thiếu exp bị từ chối
         JwtClaimValidator<String> subjectValidator =
                 new JwtClaimValidator<>(JwtClaimNames.SUB, sub -> sub != null && !sub.isBlank());
+        JwtClaimValidator<String> typeValidator =
+                new JwtClaimValidator<>(JwtTokenIssuer.TYPE_CLAIM, JwtTokenIssuer.ACCESS_TYPE::equals);
+        JwtClaimValidator<List<String>> audienceValidator = new JwtClaimValidator<>(JwtClaimNames.AUD,
+                aud -> aud != null && aud.contains(JwtTokenIssuer.ACCESS_AUDIENCE));
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                timestampValidator, new JwtIssuerValidator(properties.issuer()), subjectValidator));
+                timestampValidator, new JwtIssuerValidator(properties.issuer()), subjectValidator,
+                typeValidator, audienceValidator));
         return decoder;
     }
 }

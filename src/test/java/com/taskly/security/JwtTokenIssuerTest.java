@@ -8,6 +8,7 @@ import com.taskly.IntegrationTestBase;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -72,6 +73,8 @@ class JwtTokenIssuerTest extends IntegrationTestBase {
         Instant now = clock.instant();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("taskly")
+                .audience(List.of(JwtTokenIssuer.ACCESS_AUDIENCE))
+                .claim(JwtTokenIssuer.TYPE_CLAIM, JwtTokenIssuer.ACCESS_TYPE)
                 .subject(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .build();
@@ -85,6 +88,8 @@ class JwtTokenIssuerTest extends IntegrationTestBase {
         Instant now = clock.instant();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("taskly")
+                .audience(List.of(JwtTokenIssuer.ACCESS_AUDIENCE))
+                .claim(JwtTokenIssuer.TYPE_CLAIM, JwtTokenIssuer.ACCESS_TYPE)
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(900))
                 .build();
@@ -127,6 +132,8 @@ class JwtTokenIssuerTest extends IntegrationTestBase {
         Instant now = clock.instant();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(issuer)
+                .audience(List.of(JwtTokenIssuer.ACCESS_AUDIENCE))
+                .claim(JwtTokenIssuer.TYPE_CLAIM, JwtTokenIssuer.ACCESS_TYPE)
                 .subject(UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(900))
