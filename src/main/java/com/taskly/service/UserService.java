@@ -53,6 +53,15 @@ public class UserService {
         return userRepository.save(new User(normalizedEmail, passwordHash, displayName));
     }
 
+    /**
+     * Xoá user (DELETE me) — workspace của user phải đã xoá trước (AccountDeletionService). DB cascade: refresh_tokens,
+     * password_reset_tokens, user_totp, user_recovery_codes, workspace_members (và bảng theo user của M1 / M2).
+     */
+    @Transactional
+    public void deleteUser(User user) {
+        userRepository.delete(user);
+    }
+
     /** email phải đã chuẩn hoá (EmailNormalizer). */
     public Optional<User> findByEmail(String normalizedEmail) {
         return userRepository.findByEmail(normalizedEmail);

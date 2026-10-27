@@ -145,6 +145,16 @@ public class TwoFactorService {
         return acceptCode(userService.requireUser(userId), totp.get(), code);
     }
 
+    /**
+     * Xoá toàn bộ dữ liệu 2FA của user (secret + mã khôi phục) từng entity — gọi TRƯỚC khi xoá user (DELETE me): nếu một
+     * mã khôi phục vừa được đánh dấu đã dùng trong cùng transaction (entity "dirty") thì để nguyên sẽ làm Hibernate flush
+     * UPDATE tham chiếu tới user đã bị xoá (TransientPropertyValueException → 500). Xem ghi chú Task 12g.
+     */
+    public void deleteAllFor(UUID userId) {
+        recoveryCodeRepository.deleteAll(recoveryCodeRepository.findAllByUserId(userId));
+        totpRepository.findById(userId).ifPresent(totpRepository::delete);
+    }
+
     private UserTotp requireEnabled(UUID userId) {
         return totpRepository.findForUpdate(userId)
                 .filter(UserTotp::isEnabled)
