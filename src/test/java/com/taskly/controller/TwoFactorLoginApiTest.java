@@ -330,6 +330,15 @@ class TwoFactorLoginApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void verify_overlongTwoFactorToken_returns400WithFieldError() throws Exception {
+        verify("a".repeat(2049), "123456")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("twoFactorToken")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'twoFactorToken')].message",
+                        org.hamcrest.Matchers.contains("Phiên xác minh hai bước quá dài")));
+    }
+
+    @Test
     void verify_whenTheUserWasDeletedBetweenTheTwoSteps_isTokenInvalidNotSessionInvalid() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());

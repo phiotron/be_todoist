@@ -188,6 +188,16 @@ class TwoFactorApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void disable_overlongPassword_returns400WithFieldError() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+        TwoFactorSteps.Enabled enabled = TwoFactorSteps.enable(mockMvc, clock, user.accessToken());
+
+        disable(user.accessToken(), "a".repeat(257), TwoFactorSteps.nextCode(enabled.secret(), clock))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", contains("password")));
+    }
+
+    @Test
     void disableOrRegenerate_whenNotEnabled_returns409NotSetup() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
         TwoFactorSteps.setup(mockMvc, user.accessToken()); // đã setup nhưng chưa bật

@@ -78,6 +78,17 @@ class AccountDeletionApiTest extends IntegrationTestBase {
     }
 
     @Test
+    void delete_overlongPassword_returns400WithFieldError_andKeepsTheAccount() throws Exception {
+        RegisteredUser user = registerUser(uniqueEmail());
+
+        deleteMe(user.accessToken(), "{\"password\": \"" + "a".repeat(257) + "\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field").value(org.hamcrest.Matchers.contains("password")));
+
+        assertThat(count("select count(*) from users where id = ?", user.id())).isOne();
+    }
+
+    @Test
     void delete_missingPassword_returns400() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());
 

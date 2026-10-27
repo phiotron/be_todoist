@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
  * code = TOTP hoặc mã khôi phục.
  */
 public record DisableTwoFactorRequest(
+        @Size(max = 256, message = "{validation.password.too-many-bytes}")
         String password,
 
         @NotBlank(message = "{validation.two-factor-code.required}")
