@@ -7,6 +7,7 @@ import com.taskly.dto.common.Created;
 import com.taskly.dto.section.CreateSectionRequest;
 import com.taskly.dto.section.SectionResponse;
 import com.taskly.dto.section.UpdateSectionRequest;
+import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.LimitKind;
 import com.taskly.entity.Project;
 import com.taskly.entity.Section;
@@ -42,10 +43,12 @@ public class SectionService {
     private final UsageLimits usageLimits;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ActivityService activityService; // M10
 
     public SectionService(SectionRepository sectionRepository, ProjectService projectService,
                           SortOrderService sortOrderService, UsageLimits usageLimits,
-                          ApplicationEventPublisher events, Clock clock) {
+                          ApplicationEventPublisher events, Clock clock, ActivityService activityService) {
+        this.activityService = activityService;
         this.sectionRepository = sectionRepository;
         this.projectService = projectService;
         this.sortOrderService = sortOrderService;
@@ -86,6 +89,7 @@ public class SectionService {
                 request.description() == null ? "" : request.description(), placement.sortOrder());
         section.assignId(request.id()); // null → id do server sinh
         sectionRepository.save(section);
+        activityService.section(userId, project.getWorkspace().getId(), section, ActivityEventType.ADDED); // M10
         return Created.fresh(toResponse(section));
     }
 
@@ -111,6 +115,7 @@ public class SectionService {
         usageLimits.lockProject(projectId);
         projectService.recheckAfterLock(project, false);
         Section section = requireInProject(projectId, sectionId);
+        List<Object> tracked = ActivityService.trackedFields(section); // M10
         if (request.name() != null) {
             section.rename(request.name());
         }
@@ -118,6 +123,9 @@ public class SectionService {
             section.setDescription(request.description());
         }
         sectionRepository.flush();
+        if (!tracked.equals(ActivityService.trackedFields(section))) {
+            activityService.section(userId, project.getWorkspace().getId(), section, ActivityEventType.UPDATED); // M10
+        }
         return toResponse(section);
     }
 
@@ -129,6 +137,7 @@ public class SectionService {
         usageLimits.lockProject(projectId);
         projectService.recheckAfterLock(project, false);
         Section section = requireInProject(projectId, sectionId);
+        activityService.section(userId, project.getWorkspace().getId(), section, ActivityEventType.DELETED); // M10
         sectionRepository.delete(section);
         sectionRepository.flush();
     }
@@ -138,7 +147,7 @@ public class SectionService {
      * cùng thời điểm (qua SectionArchivedEvent → TaskService). Lặp lại → 200 không đổi. Dự án lưu trữ → 409.
      */
     public SectionResponse archive(UUID userId, UUID projectId, UUID sectionId) {
-        projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
+        Project project = projectService.requireWritable(userId, projectId, ErrorMessage.SECTION_NOT_FOUND);
         // chống đua (spec 8.2 #9): tuần tự hoá với tạo / chuyển task cùng dự án (chúng khoá dự án rồi đọc lại cờ
         // lưu trữ) → không còn task mở trong section đã lưu trữ. Khoá TRƯỚC khi nạp section.
         usageLimits.lockProject(projectId);
@@ -148,6 +157,7 @@ public class SectionService {
             section.archive(now);
             events.publishEvent(new SectionArchivedEvent(section.getId(), now));
             sectionRepository.flush();
+            activityService.section(userId, project.getWorkspace().getId(), section, ActivityEventType.ARCHIVED); // M10
         }
         return toResponse(section);
     }
@@ -167,6 +177,7 @@ public class SectionService {
             usageLimits.check(LimitKind.PROJECT_SECTIONS, sectionRepository.countByProjectIdAndArchivedAtIsNull(projectId), 1);
             section.unarchive();
             sectionRepository.flush();
+            activityService.section(userId, project.getWorkspace().getId(), section, ActivityEventType.UNARCHIVED); // M10
         }
         return toResponse(section);
     }

@@ -58,6 +58,10 @@ public class User extends BaseEntity {
     public static final boolean DEFAULT_QUICK_ADD_SHOW_DESCRIPTION = true;
     /** M6c: Todoist mặc định tắt "Reset sub-tasks". */
     public static final boolean DEFAULT_RESET_SUBTASKS = false;
+    /** M10: mục tiêu mặc định 5 / 30 (app Todoist thật); ngày nghỉ mặc định Thứ Bảy + Chủ nhật [CXM]. */
+    public static final int DEFAULT_DAILY_GOAL = 5;
+    public static final int DEFAULT_WEEKLY_GOAL = 30;
+    public static final String DEFAULT_DAYS_OFF = "6,7";
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -154,6 +158,25 @@ public class User extends BaseEntity {
     /** M6c: "Reset sub-tasks" — tự mở lại task con khi hoàn thành task lặp (mặc định tắt). */
     @Column(name = "reset_subtasks", nullable = false)
     private boolean resetSubtasks = DEFAULT_RESET_SUBTASKS;
+    // ---- M10: cài đặt Productivity (V14). Không thuộc resetSettings (Todoist không có reset cho nhóm này).
+    @Column(name = "daily_goal", nullable = false)
+    private int dailyGoal = DEFAULT_DAILY_GOAL;
+
+    @Column(name = "weekly_goal", nullable = false)
+    private int weeklyGoal = DEFAULT_WEEKLY_GOAL;
+
+    /** Ngày ISO 1–7 nối bằng dấu phẩy, tăng dần ("" = không nghỉ ngày nào). */
+    @Column(name = "days_off", nullable = false, length = 16)
+    private String daysOff = DEFAULT_DAYS_OFF;
+
+    @Column(name = "vacation_mode", nullable = false)
+    private boolean vacationMode;
+
+    @Column(name = "goal_celebrations", nullable = false)
+    private boolean goalCelebrations = true;
+
+    @Column(name = "karma_enabled", nullable = false)
+    private boolean karmaEnabled = true;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -466,6 +489,60 @@ public class User extends BaseEntity {
         this.syncHomeView = DEFAULT_SYNC_HOME_VIEW;
         this.navMenuShowTaskCount = DEFAULT_NAV_MENU_SHOW_TASK_COUNT;
         this.navMenuItems = String.join(NAV_TABS_SEPARATOR, DEFAULT_NAV_MENU_ITEMS);
+    }
+
+    // ---- M10: Productivity
+
+    public int getDailyGoal() {
+        return dailyGoal;
+    }
+
+    public int getWeeklyGoal() {
+        return weeklyGoal;
+    }
+
+    /** Ngày nghỉ ISO (1 = Thứ Hai … 7 = Chủ nhật), tăng dần. */
+    public List<Integer> getDaysOff() {
+        return daysOff.isEmpty() ? List.of()
+                : java.util.Arrays.stream(daysOff.split(NAV_TABS_SEPARATOR)).map(Integer::valueOf).toList();
+    }
+
+    public boolean isVacationMode() {
+        return vacationMode;
+    }
+
+    public boolean isGoalCelebrations() {
+        return goalCelebrations;
+    }
+
+    public boolean isKarmaEnabled() {
+        return karmaEnabled;
+    }
+
+    public void changeDailyGoal(int dailyGoal) {
+        this.dailyGoal = dailyGoal;
+    }
+
+    public void changeWeeklyGoal(int weeklyGoal) {
+        this.weeklyGoal = weeklyGoal;
+    }
+
+    /** days đã qua @DaysOff (1–7, không trùng, ≤ 6); lưu tăng dần → cùng tập thì cùng chuỗi → không UPDATE. */
+    public void changeDaysOff(List<Integer> days) {
+        this.daysOff = days.stream().sorted().map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(NAV_TABS_SEPARATOR));
+    }
+
+    public void changeVacationMode(boolean vacationMode) {
+        this.vacationMode = vacationMode;
+    }
+
+    public void changeGoalCelebrations(boolean goalCelebrations) {
+        this.goalCelebrations = goalCelebrations;
+    }
+
+    public void changeKarmaEnabled(boolean karmaEnabled) {
+        this.karmaEnabled = karmaEnabled;
     }
 
     private void applyDefaultSettings() {

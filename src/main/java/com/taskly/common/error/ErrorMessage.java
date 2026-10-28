@@ -179,7 +179,9 @@ public enum ErrorMessage {
     WEBHOOK_EVENTS_INVALID("error.webhook.events-invalid"),
     WEBHOOK_NOT_FOUND("error.webhook-not-found"),
     PUSH_TOKEN_INVALID("error.push-token-invalid"),
-    PUSH_PLATFORM_INVALID("error.push-platform-invalid");
+    PUSH_PLATFORM_INVALID("error.push-platform-invalid"),
+    // ---- M10 - năng suất & lịch sử
+    ACTIVITY_QUERY_INVALID("error.activity-query-invalid");
 
     private final String key;
 

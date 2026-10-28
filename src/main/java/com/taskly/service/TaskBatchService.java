@@ -7,6 +7,7 @@ import com.taskly.dto.task.AffectedTasksResponse;
 import com.taskly.dto.task.BatchTasksRequest;
 import com.taskly.dto.task.MoveTaskRequest;
 import com.taskly.dto.task.RescheduleOverdueRequest;
+import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.BatchAction;
 import com.taskly.entity.Project;
 import com.taskly.entity.Task;
@@ -48,11 +49,16 @@ public class TaskBatchService {
     private final ProjectService projectService;
     private final TaskLabelService taskLabelService;
     private final Clock clock;
+    private final ActivityService activityService; // M10
+    private final ProductivityEvents productivityEvents; // M10
 
     public TaskBatchService(TaskService taskService, TaskCompletionService taskCompletionService,
                             TaskMoveService taskMoveService, SubtaskTreeService subtaskTreeService,
                             UsageLimits usageLimits, UserService userService, ProjectService projectService,
-                            TaskLabelService taskLabelService, Clock clock) {
+                            TaskLabelService taskLabelService, Clock clock, ActivityService activityService,
+                            ProductivityEvents productivityEvents) {
+        this.activityService = activityService;
+        this.productivityEvents = productivityEvents;
         this.projectService = projectService;
         this.taskService = taskService;
         this.taskCompletionService = taskCompletionService;
@@ -96,8 +102,8 @@ public class TaskBatchService {
             case REOPEN -> reopen(userId, tasks, Boolean.TRUE.equals(request.undo()));
             case MOVE -> move(userId, tasks, request);
             case DELETE -> delete(userId, tasks);
-            case SCHEDULE -> schedule(tasks, request.date().orElse(null));
-            case PRIORITY -> priority(tasks, request.priority());
+            case SCHEDULE -> schedule(userId, tasks, request.date().orElse(null));
+            case PRIORITY -> priority(userId, tasks, request.priority());
             case ADD_LABELS -> {
                 taskLabelService.addToTasks(userId, ids, request.labelIds());
                 yield new LinkedHashSet<>(ids); // mọi taskIds gửi lên, kể cả task không đổi (spec 12.5)
@@ -121,7 +127,7 @@ public class TaskBatchService {
         }
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : taskService.findOverdueLocked(userId)) {
-            reschedule(task, request.date());
+            reschedule(userId, task, request.date());
             affected.add(task.getId());
         }
         return new AffectedTasksResponse(List.copyOf(affected));
@@ -217,33 +223,41 @@ public class TaskBatchService {
         return affected;
     }
 
-    private Set<UUID> schedule(List<Task> tasks, LocalDate date) {
+    private Set<UUID> schedule(UUID userId, List<Task> tasks, LocalDate date) {
         lockAndRecheckAll(tasks);
         if (tasks.stream().anyMatch(task -> task.getCompletedAt() != null)) { // vừa hoàn thành trong lúc chờ khoá
             throw ApiException.conflict(ErrorMessage.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
         }
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : tasks) {
-            reschedule(task, date);
+            reschedule(userId, task, date);
             affected.add(task.getId());
         }
         return affected;
     }
 
-    private Set<UUID> priority(List<Task> tasks, int priority) {
+    private Set<UUID> priority(UUID userId, List<Task> tasks, int priority) {
         lockAndRecheckAll(tasks);
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : tasks) {
+            boolean changed = task.getPriority() != priority;
             task.setPriority(priority);
+            if (changed) {
+                activityService.task(userId, task, ActivityEventType.UPDATED); // M10
+            }
             affected.add(task.getId());
         }
         return affected;
     }
 
-    private void reschedule(Task task, LocalDate date) {
+    private void reschedule(UUID userId, Task task, LocalDate date) {
+        List<Object> tracked = ActivityService.trackedFields(task); // M10
         TaskDueRules.Due due = TaskDueRules.reschedule(task.getDueDate(), task.getDueDatetime(), date);
         Integer duration = due.datetime() == null ? null : task.getDurationMinutes(); // mất giờ → xoá duration
         taskService.applyDue(task, due.date(), due.datetime(), duration);
+        if (!tracked.equals(ActivityService.trackedFields(task))) {
+            activityService.task(userId, task, ActivityEventType.UPDATED); // M10
+        }
     }
 
     // ---- trợ giúp cây ----

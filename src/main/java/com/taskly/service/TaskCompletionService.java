@@ -42,13 +42,15 @@ public class TaskCompletionService {
     private final UserService userService;
     private final RecurrenceService recurrenceService = new RecurrenceService();
     private final Clock clock;
+    private final ProductivityEvents productivityEvents; // M10: Activity log + Karma
 
     public TaskCompletionService(TaskService taskService, SubtaskTreeService subtaskTreeService, UserService userService,
-                                 Clock clock) {
+                                 Clock clock, ProductivityEvents productivityEvents) {
         this.taskService = taskService;
         this.subtaskTreeService = subtaskTreeService;
         this.userService = userService;
         this.clock = clock;
+        this.productivityEvents = productivityEvents;
     }
 
     /** Mỗi lần gọi sinh MỘT completion_batch_id mới (căn cứ của Undo, spec 5.1). */
@@ -121,11 +123,15 @@ public class TaskCompletionService {
             if (task.isRecurring()) {
                 Optional<List<UUID>> advanced = advance(userId, task, tree, now, batchId, resetSubtasks);
                 if (advanced.isPresent()) {
+                    // M10: task lặp nhảy kỳ vẫn tính là MỘT lần hoàn thành (Activity + Karma); con bị reset thì không
+                    productivityEvents.tasksCompleted(userId, List.of(taskId));
                     return advanced.get();
                 }
             }
         }
-        return closeWithin(tree, taskId, now, batchId);
+        List<UUID> changed = closeWithin(tree, taskId, now, batchId);
+        productivityEvents.tasksCompleted(userId, changed); // M10: gồm close forever / hết chu kỳ
+        return changed;
     }
 
     /**
@@ -180,6 +186,7 @@ public class TaskCompletionService {
         List<UUID> changed = undo ? subtaskTreeService.idsToUndo(tree, taskId) : subtaskTreeService.idsToReopen(tree, taskId);
         taskService.checkActiveTaskLimit(task.getProjectId(), changed.size());
         taskService.loadAll(changed).forEach(Task::reopen);
+        productivityEvents.tasksReopened(userId, changed); // M10
         return changed;
     }
 

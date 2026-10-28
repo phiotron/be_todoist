@@ -70,5 +70,14 @@ public record SettingsResponse(
         boolean quickAddShowDescription,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "M6c: tự mở lại task con (≤ 30 con trực tiếp) khi hoàn thành task lặp")
-        boolean resetSubtasks) {
+        boolean resetSubtasks,
+        // ---- M10 (Settings → Productivity)
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "200") int dailyGoal,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "1000") int weeklyGoal,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Ngày nghỉ ISO (1 = Thứ Hai … 7 = Chủ nhật), tăng dần; không tính vào streak")
+        List<Integer> daysOff,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean vacationMode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean goalCelebrations,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean karmaEnabled) {
 }

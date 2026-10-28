@@ -34,6 +34,13 @@ public final class SettingsMapper {
                 user.getQuickAddChips(),
                 user.isQuickAddShowActionLabels(),
                 user.isQuickAddShowDescription(),
-                user.isResetSubtasks());
+                user.isResetSubtasks(),
+                // M10
+                user.getDailyGoal(),
+                user.getWeeklyGoal(),
+                user.getDaysOff(),
+                user.isVacationMode(),
+                user.isGoalCelebrations(),
+                user.isKarmaEnabled());
     }
 }
