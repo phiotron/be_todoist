@@ -89,6 +89,8 @@ public enum ErrorMessage {
     DISPLAY_INVALID("error.display-invalid"),
     TASK_LIST_SELECTOR("error.task-list-selector"),
     BATCH_LABEL_IDS("error.batch-label-ids"),
+    // ---- M7 Layout
+    CALENDAR_WINDOW_INVALID("error.calendar-window-invalid"),
     // ---- Nhắc việc (M4)
     REMINDER_NOT_FOUND("error.reminder-not-found"),
     REMINDER_FIELDS_MISMATCH("error.reminder-fields-mismatch"),

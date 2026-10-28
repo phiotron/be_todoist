@@ -3,6 +3,7 @@ package com.taskly.repository;
 import com.taskly.common.web.CursorCodec;
 import com.taskly.repository.listing.DisplaySql;
 import com.taskly.repository.listing.FilterSqlTranslator;
+import com.taskly.repository.listing.KeyKind;
 import com.taskly.repository.listing.KeysetPager;
 import com.taskly.repository.listing.SortKey;
 import com.taskly.repository.listing.SubtreeOrder;
@@ -62,10 +63,46 @@ public class TaskListingRepository {
                 .addValue("userId", context.userId())
                 .addValue("workspaceIds", context.workspaceIds())
                 .addValue("today", context.today())
-                .addValue("now", context.now());
+                .addValue("now", context.now())
+                .addValue("tz", context.timeZone());
         StringBuilder where = new StringBuilder(FROM).append(scopeSql(context, scope, params));
         DisplaySql.appendFilters(display, context.today(), where, params);
         return pager.page("t.id", where.toString(), keys(scope, display), params, after, limit);
+    }
+
+    /** M7 view=calendar: khoá cố định due_sort → priority → id (không theo Display sort / group). */
+    public static final List<SortKey> CALENDAR_KEYS = List.of(
+            new SortKey("COALESCE(t.due_sort, TIMESTAMP '9999-12-31 00:00:00')", KeyKind.LOCAL_DATETIME, false),
+            new SortKey("t.priority", KeyKind.INT, false),
+            new SortKey("t.id", KeyKind.ID, false));
+
+    /**
+     * M7 view=calendar: task ĐANG MỞ, mọi cấp (cả sub-task), due_day ∈ [scope.from, scope.to]. scope.kind = null →
+     * mọi dự án chưa lưu trữ; PROJECT → đúng dự án (dự án lưu trữ vẫn xem được, chỉ đọc); LABEL / FILTER → như
+     * danh sách label / filter. Bộ lọc Display (priority / label / due) áp như các danh sách khác.
+     */
+    public List<KeysetPager.KeyedId> calendarPage(Context context, Scope scope, DisplayOptions display,
+                                                  CursorCodec.Cursor after, int limit) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("userId", context.userId())
+                .addValue("workspaceIds", context.workspaceIds())
+                .addValue("today", context.today())
+                .addValue("now", context.now())
+                .addValue("tz", context.timeZone())
+                .addValue("calFrom", scope.from())
+                .addValue("calTo", scope.to());
+        StringBuilder where = new StringBuilder(FROM)
+                .append(" AND t.completed_at IS NULL AND t.due_day BETWEEN :calFrom AND :calTo");
+        if (scope.kind() == null) {
+            where.append(" AND p.archived_at IS NULL");
+        } else if (scope.kind() == ViewKind.PROJECT) {
+            params.addValue("scopeProjectId", scope.id());
+            where.append(" AND t.project_id = :scopeProjectId");
+        } else {
+            where.append(scopeSql(context, scope, params));
+        }
+        DisplaySql.appendFilters(display, context.today(), where, params);
+        return pager.page("t.id", where.toString(), CALENDAR_KEYS, params, after, limit);
     }
 
     private static String scopeSql(Context context, Scope scope, MapSqlParameterSource params) {

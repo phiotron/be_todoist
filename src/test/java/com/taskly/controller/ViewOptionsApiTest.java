@@ -82,7 +82,8 @@ class ViewOptionsApiTest extends M2ApiTestBase {
         put("TODAY", display("MANUAL", "NONE", "")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value(Texts.vi(ErrorMessage.DISPLAY_INVALID)));
         put("UPCOMING", display("DATE", "PRIORITY", "")).andExpect(status().isBadRequest());
-        put("TODAY", display("DATE", "NONE", "\"showCompleted\": true")).andExpect(status().isBadRequest());
+        // M7: showCompleted có ở Today / Upcoming / dự án, không có ở label / filter (M7LayoutApiTest).
+        put("UPCOMING", display("DATE", "NONE", "\"showFutureOccurrences\": \"x\"")).andExpect(status().isBadRequest());
         put("TODAY", display("DATE", "NONE", "\"filterPriority\": 5")).andExpect(status().isBadRequest());
         put("TODAY", display("DATE", "NONE", "\"filterDue\": \"SOON\"")).andExpect(status().isBadRequest());
         put("TODAY", "{\"sortDirection\": \"ASC\", \"groupBy\": \"NONE\"}").andExpect(status().isBadRequest());

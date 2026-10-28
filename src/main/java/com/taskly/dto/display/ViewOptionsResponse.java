@@ -2,6 +2,7 @@ package com.taskly.dto.display;
 
 import com.taskly.entity.DueFilter;
 import com.taskly.entity.GroupBy;
+import com.taskly.entity.Layout;
 import com.taskly.entity.SortBy;
 import com.taskly.entity.SortDirection;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,5 +17,8 @@ public record ViewOptionsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Integer filterPriority,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID filterLabelId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) DueFilter filterDue,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean showCompleted) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean showCompleted,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M7") Layout layout,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M7: chỉ Upcoming")
+        boolean showFutureOccurrences) {
 }

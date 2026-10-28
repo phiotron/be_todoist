@@ -71,10 +71,26 @@ class DisplayParamsTest {
             assertThat(DisplayRules.defaults(kind).filterDue()).isNull();
         }
         assertThat(DisplayRules.allowsShowCompleted(ViewKind.PROJECT)).isTrue();
-        assertThat(DisplayRules.allowsShowCompleted(ViewKind.TODAY)).isFalse();
-        assertThat(DisplayRules.allowsShowCompleted(ViewKind.UPCOMING)).isFalse();
+        // M7: công tắc Completed tasks của Todoist có ở Today / Upcoming; label / filter thì không.
+        assertThat(DisplayRules.allowsShowCompleted(ViewKind.TODAY)).isTrue();
+        assertThat(DisplayRules.allowsShowCompleted(ViewKind.UPCOMING)).isTrue();
         assertThat(DisplayRules.allowsShowCompleted(ViewKind.LABEL)).isFalse();
         assertThat(DisplayRules.allowsShowCompleted(ViewKind.FILTER)).isFalse();
+        // M7: Future occurrences chỉ ở Upcoming.
+        for (ViewKind kind : ViewKind.values()) {
+            assertThat(DisplayRules.allowsFutureOccurrences(kind)).as(kind.name())
+                    .isEqualTo(kind == ViewKind.UPCOMING);
+        }
+    }
+
+    /** M7: Grouping "Added date" có ở Today, dự án, label, filter; Upcoming vẫn chỉ none. */
+    @Test
+    void groupAdded_isAllowedEverywhereButUpcoming() {
+        for (ViewKind kind : new ViewKind[] {ViewKind.TODAY, ViewKind.PROJECT, ViewKind.LABEL, ViewKind.FILTER}) {
+            assertThat(DisplayParams.fromQuery(kind, query(null, null, "added")).orElseThrow().groupBy())
+                    .as(kind.name()).isEqualTo(GroupBy.ADDED);
+        }
+        assertInvalid(ViewKind.UPCOMING, query(null, null, "added"));
     }
 
     @Test
