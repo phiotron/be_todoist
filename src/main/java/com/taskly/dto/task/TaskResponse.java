@@ -42,5 +42,7 @@ public record TaskResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String projectName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String parentContent,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M2: label của task, theo thứ tự label")
-        List<UUID> labelIds) {
+        List<UUID> labelIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M8b: số comment của task")
+        int commentCount) {
 }

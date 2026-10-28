@@ -48,13 +48,15 @@ class M2MigrationTest extends M2ApiTestBase {
     }
 
     @Test
-    void createsSixTrigramIndexesOnNormalizedNames() {
+    void createsTrigramIndexesOnNormalizedNames() {
         Map<String, String> definitions = new HashMap<>();
         jdbcTemplate.query("select indexname, indexdef from pg_indexes where indexname like 'ix\\_%\\_trgm'",
                 (RowCallbackHandler) rs -> definitions.put(rs.getString("indexname"), rs.getString("indexdef")));
 
         assertThat(definitions).containsOnlyKeys("ix_tasks_content_trgm", "ix_tasks_description_trgm",
-                "ix_projects_name_trgm", "ix_sections_name_trgm", "ix_labels_name_trgm", "ix_filters_name_trgm");
+                "ix_projects_name_trgm", "ix_sections_name_trgm", "ix_labels_name_trgm", "ix_filters_name_trgm",
+                // M8b (V12): tìm comment dùng cùng biểu thức
+                "ix_comments_content_trgm");
         assertThat(definitions.values())
                 .allSatisfy(def -> assertThat(def).contains("USING gin", "f_unaccent(lower(", "gin_trgm_ops"));
     }

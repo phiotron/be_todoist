@@ -42,10 +42,13 @@ public class SearchService {
     private final ProjectService projectService;
     private final LabelService labelService;
     private final FilterService filterService;
+    /** M8b: comment trong search/objects. */
+    private final CommentService commentService;
 
     public SearchService(TaskSearchRepository taskSearchRepository, AccessPolicy accessPolicy,
                          TaskViewService taskViewService, ObjectSearchRepository objectSearchRepository,
-                         ProjectService projectService, LabelService labelService, FilterService filterService) {
+                         ProjectService projectService, LabelService labelService, FilterService filterService,
+                         CommentService commentService) {
         this.taskSearchRepository = taskSearchRepository;
         this.accessPolicy = accessPolicy;
         this.taskViewService = taskViewService;
@@ -53,6 +56,7 @@ public class SearchService {
         this.projectService = projectService;
         this.labelService = labelService;
         this.filterService = filterService;
+        this.commentService = commentService;
     }
 
     /** Dự án / section / label / filter khớp tên (spec 12.6): mỗi loại ≤ 20, label + filter chỉ của chính user. */
@@ -73,7 +77,8 @@ public class SearchService {
                 projectService.getResponses(userId, projectIds),
                 sections,
                 inOrder(labelIds, labelIds.isEmpty() ? List.of() : labelService.list(userId), LabelResponse::id),
-                inOrder(filterIds, filterIds.isEmpty() ? List.of() : filterService.list(userId), FilterResponse::id));
+                inOrder(filterIds, filterIds.isEmpty() ? List.of() : filterService.list(userId), FilterResponse::id),
+                commentService.search(workspaceIds, query, MAX_OBJECTS));
     }
 
     /** Giữ thứ tự của ids; DTO dựng bởi service chủ sở hữu (danh sách đầy đủ của user, bị chặn bởi giới hạn). */

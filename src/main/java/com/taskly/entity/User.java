@@ -122,6 +122,16 @@ public class User extends BaseEntity {
     @Formula("(select count(*) from user_totp t where t.user_id = id and t.enabled_at is not null)")
     private long enabledTwoFactorCount;
 
+    // ---- M8b: ảnh đại diện (file trên đĩa server qua FileStorage; V12). Đổi qua setAvatar / clearAvatar.
+    @Column(name = "avatar_key", length = 80)
+    private String avatarKey;
+
+    @Column(name = "avatar_content_type", length = 32)
+    private String avatarContentType;
+
+    @Column(name = "avatar_updated_at")
+    private java.time.Instant avatarUpdatedAt;
+
     protected User() {
         // cho JPA
     }
@@ -355,5 +365,30 @@ public class User extends BaseEntity {
         this.swipeLeft = DEFAULT_SWIPE_LEFT;
         this.swipeRight = DEFAULT_SWIPE_RIGHT;
         this.navTabs = String.join(NAV_TABS_SEPARATOR, DEFAULT_NAV_TABS);
+    }
+
+    // ---- M8b: ảnh đại diện
+
+    public String getAvatarKey() {
+        return avatarKey;
+    }
+
+    public String getAvatarContentType() {
+        return avatarContentType;
+    }
+
+    public java.time.Instant getAvatarUpdatedAt() {
+        return avatarUpdatedAt;
+    }
+
+    /** Thay ảnh: trigger V12 đưa khoá cũ vào hàng đợi dọn file. */
+    public void setAvatar(String storageKey, String contentType, java.time.Instant updatedAt) {
+        this.avatarKey = storageKey;
+        this.avatarContentType = contentType;
+        this.avatarUpdatedAt = updatedAt;
+    }
+
+    public void clearAvatar() {
+        setAvatar(null, null, null);
     }
 }

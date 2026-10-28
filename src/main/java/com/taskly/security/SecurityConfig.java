@@ -55,6 +55,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
+                        // M8b: link tải file đính kèm đã ký HMAC + hạn ngắn thay cho Bearer (AttachmentService.open)
+                        .requestMatchers(HttpMethod.GET, com.taskly.controller.AttachmentController.DOWNLOAD_PATH)
+                        .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(bearerTokenResolver)

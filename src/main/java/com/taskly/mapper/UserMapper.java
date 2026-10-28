@@ -15,6 +15,12 @@ public final class UserMapper {
     public static UserResponse toResponse(User user) {
         return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(),
                 user.getLocale(), user.getTimeZone(), user.isTwoFactorEnabled(), user.hasPassword(),
-                user.linkedProviders());
+                user.linkedProviders(), avatarUrl(user.getId(), user.getAvatarUpdatedAt()));
+    }
+
+    /** M8b: đường dẫn tương đối của ảnh đại diện; ?v= đổi mỗi lần thay ảnh để app không dùng ảnh cũ trong cache. */
+    public static String avatarUrl(java.util.UUID userId, java.time.Instant avatarUpdatedAt) {
+        return avatarUpdatedAt == null ? null
+                : "/api/v1/users/" + userId + "/avatar?v=" + avatarUpdatedAt.toEpochMilli();
     }
 }

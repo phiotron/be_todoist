@@ -9,6 +9,12 @@ app:
 taskly:
   limits:
     labels-per-task: 3
+    # M8b: hạ cỡ file để test "quá cỡ" không phải gửi 100 MB / 4 MB.
+    comment-file-bytes: 2048
+    avatar-bytes: 1024
+  # M8b: file test ghi vào thư mục tạm của máy (không đụng ./data). Mỗi lần chạy JVM dùng chung thư mục — khoá file ngẫu nhiên.
+  storage:
+    root: ${java.io.tmpdir}/taskly-test-files
   google:
     # Client ID GIẢ, khớp GoogleTestTokens.CLIENT_IDS — test không gọi Google thật.
     # test-android-client chỉ để test "nhiều client ID, aud khớp một trong số đó". Spec 3.1 (12.1): Android client ID

@@ -101,6 +101,35 @@ public class UsageLimits {
         return maxLabelsPerTask;
     }
 
+    // ---- M8b: cỡ file (spec 2.1: vượt → 400, không khoá — không đếm theo hàng cha)
+    @Value("${taskly.limits.comment-file-bytes:104857600}")
+    private long maxCommentFileBytes;
+
+    @Value("${taskly.limits.avatar-bytes:4194304}")
+    private long maxAvatarBytes;
+
+    public long maxCommentFileBytes() {
+        return maxCommentFileBytes;
+    }
+
+    public long maxAvatarBytes() {
+        return maxAvatarBytes;
+    }
+
+    /** File đính kèm comment (≤ 100 MB). size = số byte đã đọc (có thể dừng sớm ở max + 1). */
+    public void checkCommentFileSize(long size) {
+        if (size > maxCommentFileBytes) {
+            throw ApiException.badRequest(ErrorMessage.ATTACHMENT_TOO_LARGE).withProperty("max", maxCommentFileBytes);
+        }
+    }
+
+    /** Ảnh đại diện (≤ 4 MB). */
+    public void checkAvatarSize(long size) {
+        if (size > maxAvatarBytes) {
+            throw ApiException.badRequest(ErrorMessage.AVATAR_TOO_LARGE).withProperty("max", maxAvatarBytes);
+        }
+    }
+
     @Autowired
     public void setJdbcTemplate(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;

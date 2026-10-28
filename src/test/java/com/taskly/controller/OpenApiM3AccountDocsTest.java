@@ -68,6 +68,6 @@ class OpenApiM3AccountDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.DeleteAccountRequest.required").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.UserResponse.required")
                         .value(containsInAnyOrder("id", "email", "displayName", "locale", "timeZone",
-                                "twoFactorEnabled", "hasPassword", "linkedProviders")));
+                                "twoFactorEnabled", "hasPassword", "linkedProviders", "avatarUrl")));
     }
 }
