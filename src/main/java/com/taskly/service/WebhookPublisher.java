@@ -35,22 +35,35 @@ public class WebhookPublisher {
     /** Trả số hàng đã xếp hàng. Không bao giờ ném lỗi ra ngoài (webhook không được làm hỏng request gốc). */
     @Transactional
     public int publish(UUID userId, String eventName, Object eventData) {
+        return publishAll(userId, eventName, List.of(eventData));
+    }
+
+    /**
+     * Nhiều đối tượng cùng một sự kiện (tasks/batch): tra webhook đích MỘT lần, mỗi đối tượng một hàng giao cho mỗi
+     * webhook. Trả tổng số hàng đã xếp hàng; không ném lỗi ra ngoài.
+     */
+    @Transactional
+    public int publishAll(UUID userId, String eventName, List<?> eventDataList) {
         try {
             List<UUID> targets = webhooks.findTargets(userId, eventName);
             Instant now = clock.instant();
-            for (UUID webhookId : targets) {
-                UUID deliveryId = UUID.randomUUID();
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("deliveryId", deliveryId);
-                payload.put("eventName", eventName);
-                payload.put("userId", userId);
-                payload.put("eventData", eventData);
-                payload.put("triggeredAt", now.toString());
-                payload.put("version", "1");
-                webhooks.insertDelivery(deliveryId, webhookId, userId, eventName, jsonMapper.writeValueAsString(payload),
-                        now);
+            int queued = 0;
+            for (Object eventData : eventDataList) {
+                for (UUID webhookId : targets) {
+                    UUID deliveryId = UUID.randomUUID();
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("deliveryId", deliveryId);
+                    payload.put("eventName", eventName);
+                    payload.put("userId", userId);
+                    payload.put("eventData", eventData);
+                    payload.put("triggeredAt", now.toString());
+                    payload.put("version", "1");
+                    webhooks.insertDelivery(deliveryId, webhookId, userId, eventName,
+                            jsonMapper.writeValueAsString(payload), now);
+                    queued++;
+                }
             }
-            return targets.size();
+            return queued;
         } catch (RuntimeException e) {
             log.warn("Không xếp được sự kiện webhook {} ({})", eventName, e.getClass().getSimpleName());
             return 0;

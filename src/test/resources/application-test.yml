@@ -14,6 +14,10 @@ app:
       per-address:
         max-requests: 3
         window-seconds: 3600
+    # M13c: hạ trần oauth/token + oauth/revoke để OAuthRateLimitApiTest chạm tới được.
+    oauth:
+      max-requests: 10
+      window-seconds: 60
 
 taskly:
   limits:

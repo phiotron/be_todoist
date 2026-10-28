@@ -1,13 +1,19 @@
 package com.taskly.common.web;
 
+import com.taskly.dto.task.AffectedTasksResponse;
+import com.taskly.entity.BatchAction;
 import com.taskly.security.CurrentUser;
 import com.taskly.service.WebhookEvents;
 import com.taskly.service.WebhookPublisher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +42,18 @@ public class WebhookEventHook implements ResponseBodyAdvice<Object>, HandlerInte
 
     private static final Logger log = LoggerFactory.getLogger(WebhookEventHook.class);
     private static final String BODY_ATTRIBUTE = WebhookEventHook.class.getName() + ".body";
+    private static final String BATCH_ATTRIBUTE = WebhookEventHook.class.getName() + ".batch";
+
+    private record BatchContext(BatchAction action, List<UUID> taskIds) {
+    }
+
+    /**
+     * TaskBatchController gọi trước khi xử lý: cho hook biết action + các task người dùng chọn (response chỉ có id đã
+     * bị đổi, không có action). Lần phát lại theo Idempotency-Key không vào controller nên không có thuộc tính này.
+     */
+    public static void markBatch(HttpServletRequest request, BatchAction action, List<UUID> taskIds) {
+        request.setAttribute(BATCH_ATTRIBUTE, new BatchContext(action, List.copyOf(taskIds)));
+    }
 
     private final WebhookPublisher publisher;
 
@@ -70,6 +88,12 @@ public class WebhookEventHook implements ResponseBodyAdvice<Object>, HandlerInte
             if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
                 return;
             }
+            if (request.getAttribute(BATCH_ATTRIBUTE) instanceof BatchContext batch
+                    && request.getAttribute(BODY_ATTRIBUTE) instanceof AffectedTasksResponse affected
+                    && response.getStatus() >= 200 && response.getStatus() < 300) {
+                publishBatch(CurrentUser.id(jwt), batch, affected);
+                return;
+            }
             String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
             Optional<String> event = WebhookEvents.resolve(request.getMethod(), pattern, response.getStatus());
             if (event.isEmpty()) {
@@ -87,6 +111,26 @@ public class WebhookEventHook implements ResponseBodyAdvice<Object>, HandlerInte
             publisher.publish(userId, event.get(), body);
         } catch (RuntimeException e) {
             log.warn("Không phát được sự kiện webhook ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * tasks/batch: mỗi task NGƯỜI DÙNG CHỌN (và thật sự bị đổi) phát một sự kiện như thao tác đơn lẻ; con cháu bị kéo
+     * theo (đóng / xoá cha) không phát riêng — giống đóng / xoá cha ở endpoint đơn. eventData = {id} (không có body
+     * từng task; task đã xoá cũng chỉ còn id).
+     */
+    private void publishBatch(UUID userId, BatchContext batch, AffectedTasksResponse affected) {
+        Set<UUID> changed = new HashSet<>(affected.affectedTaskIds());
+        List<Map<String, Object>> data = new ArrayList<>();
+        for (UUID taskId : batch.taskIds()) {
+            if (changed.contains(taskId)) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("id", taskId.toString());
+                data.add(item);
+            }
+        }
+        if (!data.isEmpty()) {
+            publisher.publishAll(userId, WebhookEvents.batchEvent(batch.action()), data);
         }
     }
 }

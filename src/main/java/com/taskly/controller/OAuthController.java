@@ -6,8 +6,10 @@ import com.taskly.dto.oauth.OAuthAuthorizeRequest;
 import com.taskly.dto.oauth.OAuthAuthorizeResponse;
 import com.taskly.dto.oauth.OAuthTokenResponse;
 import com.taskly.security.CurrentUser;
+import com.taskly.security.OAuthRateLimiter;
 import com.taskly.service.OAuthService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,9 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OAuthController {
 
     private final OAuthService oauth;
+    private final OAuthRateLimiter rateLimiter;
 
-    public OAuthController(OAuthService oauth) {
+    public OAuthController(OAuthService oauth, OAuthRateLimiter rateLimiter) {
         this.oauth = oauth;
+        this.rateLimiter = rateLimiter;
     }
 
     @GetMapping("/authorize/preview")
@@ -51,21 +55,25 @@ public class OAuthController {
     /** Đổi mã lấy token. Form: grant_type, code, redirect_uri, client_id, client_secret, code_verifier. */
     @PostMapping(value = "/token", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public ResponseEntity<OAuthTokenResponse> token(
+            HttpServletRequest httpRequest,
             @RequestParam(name = "grant_type", required = false) String grantType,
             @RequestParam(required = false) String code,
             @RequestParam(name = "redirect_uri", required = false) String redirectUri,
             @RequestParam(name = "client_id", required = false) String clientId,
             @RequestParam(name = "client_secret", required = false) String clientSecret,
             @RequestParam(name = "code_verifier", required = false) String codeVerifier) {
+        rateLimiter.check(httpRequest);
         OAuthTokenResponse body = oauth.exchange(grantType, code, redirectUri, clientId, clientSecret, codeVerifier);
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(body);
     }
 
     /** Thu hồi token của chính app; luôn 200 (RFC 7009) trừ khi xác thực app sai (401). */
     @PostMapping(value = "/revoke", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    public void revoke(@RequestParam(name = "client_id", required = false) String clientId,
+    public void revoke(HttpServletRequest httpRequest,
+                       @RequestParam(name = "client_id", required = false) String clientId,
                        @RequestParam(name = "client_secret", required = false) String clientSecret,
                        @RequestParam(required = false) String token) {
+        rateLimiter.check(httpRequest);
         oauth.revoke(clientId, clientSecret, token);
     }
 }

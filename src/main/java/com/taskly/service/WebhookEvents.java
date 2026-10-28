@@ -1,5 +1,6 @@
 package com.taskly.service;
 
+import com.taskly.entity.BatchAction;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -61,6 +62,19 @@ public final class WebhookEvents {
             return Optional.empty();
         }
         return Optional.of(event);
+    }
+
+    /**
+     * Sự kiện của POST tasks/batch theo action (mỗi task trong lô một sự kiện, như thao tác đơn lẻ tương ứng):
+     * CLOSE → item:completed, REOPEN → item:uncompleted, DELETE → item:deleted, các action còn lại đổi task → item:updated.
+     */
+    public static String batchEvent(BatchAction action) {
+        return switch (action) {
+            case CLOSE -> "item:completed";
+            case REOPEN -> "item:uncompleted";
+            case DELETE -> "item:deleted";
+            case MOVE, SCHEDULE, PRIORITY, ADD_LABELS, REMOVE_LABELS -> "item:updated";
+        };
     }
 
     /** Tên biến đường dẫn chứa id của đối tượng (dùng khi response không có body, vd DELETE). */
