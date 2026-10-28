@@ -34,6 +34,9 @@ public class SecurityConfig {
             "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm", "/api/v1/auth/google"
     };
 
+    /** Webhook từ dịch vụ ngoài (chỉ POST): tự xác thực bằng chữ ký HMAC, không JWT (M13a). */
+    static final String[] PUBLIC_WEBHOOK_PATHS = {"/api/v1/integrations/email/inbound"};
+
     private static final String[] PUBLIC_DOC_PATHS = {
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/error"
     };
@@ -54,6 +57,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_WEBHOOK_PATHS).permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
@@ -77,7 +81,8 @@ public class SecurityConfig {
     @Bean
     BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
-        Set<String> publicPaths = Set.of(PUBLIC_AUTH_PATHS);
+        Set<String> publicPaths = new java.util.HashSet<>(Set.of(PUBLIC_AUTH_PATHS));
+        publicPaths.addAll(Set.of(PUBLIC_WEBHOOK_PATHS));
         return request -> publicPaths.contains(request.getRequestURI()) ? null : delegate.resolve(request);
     }
 

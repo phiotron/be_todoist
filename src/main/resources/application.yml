@@ -57,6 +57,15 @@ app:
     password-reset:
       max-requests: 5
       window-seconds: 3600
+    # Webhook email inbound (M13a): theo IP trước khi kiểm chữ ký; theo địa chỉ nhận thư (vượt → bỏ qua địa chỉ đó,
+    # mọi địa chỉ đều vượt → 429 để dịch vụ nhận thư gửi lại sau).
+    email-inbound:
+      per-ip:
+        max-requests: 120
+        window-seconds: 60
+      per-address:
+        max-requests: 50
+        window-seconds: 3600
 
 taskly:
   google:
@@ -80,6 +89,13 @@ taskly:
     filters: 150
     reminders: 700
     labels-per-task: 100
+  # Email → task (M13a). Người dùng tự cấu hình tên miền (MX trỏ về dịch vụ nhận thư) + adapter ký HMAC gửi tới
+  # POST /api/v1/integrations/email/inbound. Bí mật trống = webhook từ chối mọi yêu cầu (server vẫn chạy).
+  email-inbox:
+    domain: ${EMAIL_INBOX_DOMAIN:inbox.taskly.local}
+    webhook-secret: ${EMAIL_INBOUND_WEBHOOK_SECRET:}
+    signature-tolerance: 5m
+    max-body-bytes: 2097152
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:
