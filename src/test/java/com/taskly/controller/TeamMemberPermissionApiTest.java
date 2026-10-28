@@ -242,6 +242,27 @@ class TeamMemberPermissionApiTest extends M8aApiTestBase {
         assertThat((String) JsonPath.read(body, "$.results[1].status")).isEqualTo("ok");
     }
 
+    /** Nối PERM × DND: reorder TASK_DAY (kéo-thả trong Hôm nay / Sắp tới) là ghi → chỉ Admin của dự án nhóm. */
+    @Test
+    void reorderTaskDay_memberAndGuest403TeamAdminOnly_restAndSync_adminOk() throws Exception {
+        Fx fx = fixture();
+        UUID dated = readUuid(authPost(fx.admin().accessToken(), "/api/v1/tasks", "{\"content\": \"Có hạn\", "
+                + "\"projectId\": \"" + fx.project() + "\", \"dueDate\": \"2030-01-02\"}")
+                .andExpect(status().isCreated()), "$.id");
+        String reorder = "{\"type\": \"TASK_DAY\", \"id\": \"" + dated + "\", \"afterId\": null}";
+        for (RegisteredUser u : fx.limited()) {
+            expectAdminOnly(u, "POST", "/api/v1/reorder", reorder);
+            String json = "{\"syncToken\": null, \"commands\": [{\"uuid\": \"" + UUID.randomUUID()
+                    + "\", \"type\": \"reorder\", \"args\": " + reorder + "}]}";
+            String body = body(authPost(u.accessToken(), "/api/v1/sync", json).andExpect(status().isOk()).andReturn());
+            assertThat((String) JsonPath.read(body, "$.results[0].status")).isEqualTo("error");
+            assertThat((Integer) JsonPath.read(body, "$.results[0].error.status")).isEqualTo(403);
+            assertThat((String) JsonPath.read(body, "$.results[0].error.code")).isEqualTo(TEAM_ADMIN_ONLY);
+        }
+        authPost(fx.admin().accessToken(), "/api/v1/reorder", reorder).andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("TASK_DAY"));
+    }
+
     @Test
     void errorDetail_isVietnameseByDefault_andEnglishOnRequest() throws Exception {
         Fx fx = fixture();
