@@ -160,7 +160,26 @@ public enum ErrorMessage {
     CALENDAR_NOT_CONFIGURED("error.calendar.not-configured"),
     CALENDAR_UNAVAILABLE("error.calendar.unavailable"),
     CALENDAR_RANGE_INVALID("error.calendar.range-invalid"),
-    CALENDAR_FEED_NOT_FOUND("error.calendar.feed-not-found");
+    CALENDAR_FEED_NOT_FOUND("error.calendar.feed-not-found"),
+    // M13c - OAuth, app của nhà phát triển, webhook, push
+    OAUTH_CLIENT_INVALID("error.oauth.client-invalid"),
+    OAUTH_REDIRECT_URI_MISMATCH("error.oauth.redirect-uri-mismatch"),
+    OAUTH_SCOPE_INVALID("error.oauth.scope-invalid"),
+    OAUTH_PKCE_INVALID("error.oauth.pkce-invalid"),
+    OAUTH_REQUEST_INVALID("error.oauth.request-invalid"),
+    OAUTH_GRANT_INVALID("error.oauth.grant-invalid"),
+    OAUTH_GRANT_TYPE_UNSUPPORTED("error.oauth.grant-type-unsupported"),
+    OAUTH_CLIENT_AUTH_FAILED("error.oauth.client-auth-failed"),
+    OAUTH_INSUFFICIENT_SCOPE("error.oauth.insufficient-scope"),
+    DEVELOPER_APP_NOT_FOUND("error.developer-app-not-found"),
+    DEVELOPER_APP_NAME_SIZE("error.developer-app-name-size"),
+    REDIRECT_URI_INVALID("error.redirect-uri-invalid"),
+    AUTHORIZED_APP_NOT_FOUND("error.authorized-app-not-found"),
+    WEBHOOK_URL_INVALID("error.webhook.url-invalid"),
+    WEBHOOK_EVENTS_INVALID("error.webhook.events-invalid"),
+    WEBHOOK_NOT_FOUND("error.webhook-not-found"),
+    PUSH_TOKEN_INVALID("error.push-token-invalid"),
+    PUSH_PLATFORM_INVALID("error.push-platform-invalid");
 
     private final String key;
 

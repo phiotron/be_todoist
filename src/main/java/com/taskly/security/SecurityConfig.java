@@ -1,7 +1,9 @@
 package com.taskly.security;
 
 import com.taskly.common.web.IdempotencyFilter;
+import com.taskly.repository.OAuthRepository;
 import com.taskly.service.IdempotencyService;
+import java.time.Clock;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +16,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
@@ -33,7 +37,9 @@ public class SecurityConfig {
             "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/2fa/verify",
             "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm", "/api/v1/auth/google",
             // M13b: Apple / Facebook (callback Apple là form POST do Apple gửi)
-            "/api/v1/auth/apple", "/api/v1/auth/facebook", "/api/v1/auth/apple/callback"
+            "/api/v1/auth/apple", "/api/v1/auth/facebook", "/api/v1/auth/apple/callback",
+            // M13c: ứng dụng bên thứ ba đổi mã lấy token / thu hồi token (xác thực bằng client_id + client_secret)
+            "/api/v1/oauth/token", "/api/v1/oauth/revoke"
     };
 
     /** Webhook từ dịch vụ ngoài (chỉ POST): tự xác thực bằng chữ ký HMAC, không JWT (M13a). */
@@ -56,6 +62,9 @@ public class SecurityConfig {
                                             ProblemDetailAccessDeniedHandler accessDeniedHandler,
                                             BearerTokenResolver bearerTokenResolver,
                                             IdempotencyService idempotencyService,
+                                            JwtDecoder jwtDecoder,
+                                            OAuthRepository oauthRepository,
+                                            Clock clock,
                                             @Qualifier("handlerExceptionResolver")
                                             HandlerExceptionResolver handlerExceptionResolver) throws Exception {
         http
@@ -74,10 +83,12 @@ public class SecurityConfig {
                         .bearerTokenResolver(bearerTokenResolver)
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
-                        .jwt(Customizer.withDefaults()))
+                        .jwt(jwt -> jwt.decoder(new OAuthAwareJwtDecoder(jwtDecoder, oauthRepository, clock))))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
+                // M13c: token OAuth của app bên thứ ba chỉ đi qua khi đủ scope (sau khi Bearer được xác thực).
+                .addFilterAfter(new OAuthScopeFilter(handlerExceptionResolver), BearerTokenAuthenticationFilter.class)
                 // Sau AuthorizationFilter: đã biết user (khoá theo user). Không phải bean → không chạy hai lần.
                 .addFilterAfter(new IdempotencyFilter(idempotencyService, handlerExceptionResolver),
                         AuthorizationFilter.class);

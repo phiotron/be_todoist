@@ -35,3 +35,6 @@ taskly:
   email-inbox:
     domain: in.taskly.test
     webhook-secret: test-only-email-webhook-secret-not-real
+  webhooks:
+    # Test dùng server giả ở localhost qua http.
+    allow-insecure: true
