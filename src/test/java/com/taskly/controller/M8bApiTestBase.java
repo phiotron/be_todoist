@@ -23,12 +23,22 @@ abstract class M8bApiTestBase extends IntegrationTestBase {
     @Autowired
     protected StoredFileCleanupService cleanupService;
 
-    /** Thêm `member` vào workspace cá nhân của `owner` (Mức 1: thành viên workspace xem / ghi được mọi dự án). */
+    /**
+     * Sau tích hợp M8a (quyền theo DỰ ÁN): `member` thành cộng tác viên (project_members) của MỌI dự án đang có trong
+     * workspace cá nhân của `owner` (kể cả Inbox). Dự án tạo SAU đó phải gọi shareProject.
+     */
     protected void addMember(RegisteredUser owner, RegisteredUser member) {
+        for (UUID projectId : jdbcTemplate.queryForList("select id from projects where workspace_id = ?",
+                UUID.class, testData.workspaceOf(owner.id()))) {
+            shareProject(projectId, member);
+        }
+    }
+
+    /** Thêm `member` làm cộng tác viên của một dự án cá nhân (bỏ qua nếu đã có). */
+    protected void shareProject(UUID projectId, RegisteredUser member) {
         Timestamp now = Timestamp.from(clock.instant());
-        jdbcTemplate.update("insert into workspace_members (id, workspace_id, user_id, role, created_at, updated_at) "
-                + "values (?, ?, ?, 'MEMBER', ?, ?)", UUID.randomUUID(), testData.workspaceOf(owner.id()),
-                member.id(), now, now);
+        jdbcTemplate.update("insert into project_members (id, project_id, user_id, created_at, updated_at) "
+                + "values (?, ?, ?, ?, ?) on conflict do nothing", UUID.randomUUID(), projectId, member.id(), now, now);
     }
 
     protected ResultActions postComment(RegisteredUser user, String path, String json) throws Exception {

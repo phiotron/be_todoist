@@ -18,8 +18,8 @@ class NotificationApiTest extends M8bApiTestBase {
     private Setup setup() throws Exception {
         RegisteredUser owner = registerUser(uniqueEmail());
         RegisteredUser member = registerUser(uniqueEmail());
-        addMember(owner, member);
         UUID projectId = testData.project(owner.id(), "Chung");
+        shareProject(projectId, member); // M8a: quyền theo dự án — member là cộng tác viên của dự án này
         UUID taskId = testData.task(owner.id(), projectId, "Việc chung");
         return new Setup(owner, member, taskId, projectId);
     }
@@ -160,7 +160,7 @@ class NotificationApiTest extends M8bApiTestBase {
         mention(s, "một");
         authGet(s.member().accessToken(), "/api/v1/notifications/unread-count").andExpect(jsonPath("$.count").value(1));
 
-        jdbcTemplate.update("delete from workspace_members where user_id = ?", s.member().id());
+        jdbcTemplate.update("delete from project_members where user_id = ?", s.member().id()); // M8a: mất quyền = rời dự án
 
         authGet(s.member().accessToken(), "/api/v1/notifications").andExpect(jsonPath("$.items", hasSize(0)));
         authGet(s.member().accessToken(), "/api/v1/notifications/unread-count").andExpect(jsonPath("$.count").value(0));
