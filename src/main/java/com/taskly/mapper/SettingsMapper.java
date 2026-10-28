@@ -30,6 +30,9 @@ public final class SettingsMapper {
                 user.getAddButtonPlacement(),
                 user.isSyncHomeView(),
                 user.isNavMenuShowTaskCount(),
-                user.getNavMenuItems());
+                user.getNavMenuItems(),
+                user.getQuickAddChips(),
+                user.isQuickAddShowActionLabels(),
+                user.isQuickAddShowDescription());
     }
 }

@@ -59,5 +59,13 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Navigation menu: mục đang hiện theo thứ tự (vắng = ẩn): INBOX, TODAY, UPCOMING, "
                         + "FILTERS_LABELS, REPORTING, BROWSE_TEMPLATES")
-        List<String> navMenuItems) {
+        List<String> navMenuItems,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "M6b: chip Quick Add theo thứ tự hiển thị (vắng = ẩn, PROJECT luôn có): PROJECT, DATE, "
+                        + "ASSIGNEE, ATTACHMENT, PRIORITY, REMINDERS, LABELS, DEADLINE, LOCATION")
+        List<String> quickAddChips,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show action labels\"")
+        boolean quickAddShowActionLabels,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show description\"")
+        boolean quickAddShowDescription) {
 }

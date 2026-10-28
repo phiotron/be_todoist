@@ -52,7 +52,9 @@ class OpenApiM3DocsTest extends IntegrationTestBase {
                                 "weekendStartDay", "dateFormat", "timeFormat", "startPage", "smartDateRecognition",
                                 "swipeLeft", "swipeRight", "navTabs", "remindersEnabled", "autoReminderMinutes",
                                 // M3x
-                                "addButtonPlacement", "syncHomeView", "navMenuShowTaskCount", "navMenuItems")))
+                                "addButtonPlacement", "syncHomeView", "navMenuShowTaskCount", "navMenuItems",
+                                // M6b
+                                "quickAddChips", "quickAddShowActionLabels", "quickAddShowDescription")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.addButtonPlacement.enum")
                         .value(containsInAnyOrder("LEFT", "CENTER", "RIGHT")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.theme.enum")

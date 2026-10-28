@@ -98,6 +98,16 @@ public class SettingsService {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
         applyNavigationSettings(user, request);
+        // M6b: Quick Add (null = giữ nguyên).
+        if (request.quickAddChips() != null) {
+            user.changeQuickAddChips(request.quickAddChips());
+        }
+        if (request.quickAddShowActionLabels() != null) {
+            user.changeQuickAddShowActionLabels(request.quickAddShowActionLabels());
+        }
+        if (request.quickAddShowDescription() != null) {
+            user.changeQuickAddShowDescription(request.quickAddShowDescription());
+        }
         return SettingsMapper.toResponse(user);
     }
 

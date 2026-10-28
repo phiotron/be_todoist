@@ -4,6 +4,7 @@ import com.taskly.common.validation.AutoReminderMinutes;
 import com.taskly.common.validation.IanaTimeZone;
 import com.taskly.common.validation.NavMenuItems;
 import com.taskly.common.validation.NavTabs;
+import com.taskly.common.validation.QuickAddChips;
 import com.taskly.common.validation.StartPage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -99,5 +100,15 @@ public record UpdateSettingsRequest(
         @Schema(description = "Mục Navigation menu đang hiện theo thứ tự, không trùng: INBOX, TODAY, UPCOMING, "
                 + "FILTERS_LABELS, REPORTING, BROWSE_TEMPLATES; [] = ẩn hết")
         @NavMenuItems
-        List<String> navMenuItems) {
+        List<String> navMenuItems,
+        @Schema(description = "M6b: chip Quick Add theo thứ tự hiển thị, vắng = ẩn; PROJECT luôn có, không trùng. "
+                + "Chip: PROJECT, DATE, ASSIGNEE, ATTACHMENT, PRIORITY, REMINDERS, LABELS, DEADLINE, LOCATION")
+        @QuickAddChips
+        List<String> quickAddChips,
+
+        @Schema(description = "M6b: Quick Add hiện chữ cạnh biểu tượng chip (\"Show action labels\")")
+        Boolean quickAddShowActionLabels,
+
+        @Schema(description = "M6b: Quick Add hiện ô mô tả (\"Show description\")")
+        Boolean quickAddShowDescription) {
 }
