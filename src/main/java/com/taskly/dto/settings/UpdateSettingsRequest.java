@@ -84,5 +84,8 @@ public record UpdateSettingsRequest(
         @Schema(nullable = true, minimum = "0", maximum = "1440",
                 description = "Vắng = giữ nguyên; null = TẮT auto reminder. Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, "
                         + "180, 1440")
-        Optional<@AutoReminderMinutes Integer> autoReminderMinutes) {
+        Optional<@AutoReminderMinutes Integer> autoReminderMinutes,
+
+        @Schema(description = "M8a Auto accept invites; vắng hoặc null = giữ nguyên")
+        Boolean autoAcceptInvites) {
 }

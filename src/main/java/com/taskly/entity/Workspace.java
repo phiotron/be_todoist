@@ -25,6 +25,10 @@ public class Workspace extends BaseEntity {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    /** M8a: link mời workspace nhóm (lưu nguyên để chép lại; null = tắt — ADR 0003). */
+    @Column(name = "invite_link_token", length = 64)
+    private String inviteLinkToken;
+
     protected Workspace() {
         // cho JPA
     }
@@ -45,5 +49,26 @@ public class Workspace extends BaseEntity {
 
     public User getOwner() {
         return owner;
+    }
+
+    public boolean isTeam() {
+        return type == WorkspaceType.TEAM;
+    }
+
+    public void rename(String newName) {
+        this.name = newName;
+    }
+
+    /** Chủ sở hữu (cột owner_id, chỉ dùng khi xoá tài khoản) chuyển cho người khác — M8a. */
+    public void transferOwnership(User newOwner) {
+        this.owner = newOwner;
+    }
+
+    public String getInviteLinkToken() {
+        return inviteLinkToken;
+    }
+
+    public void setInviteLinkToken(String inviteLinkToken) {
+        this.inviteLinkToken = inviteLinkToken;
     }
 }

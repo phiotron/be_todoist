@@ -14,6 +14,7 @@ import com.taskly.repository.TaskViewRepository.KeyType;
 import com.taskly.repository.TaskViewRepository.KeyedTaskView;
 import com.taskly.repository.TaskViewRepository.Keyset;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -94,7 +95,7 @@ public class TaskViewService {
      */
     public Page<TaskResponse> listProject(UUID userId, UUID projectId, boolean completed, String cursor, Integer limit) {
         UUID id = projectService.requireReadable(userId, projectId).getId();
-        Request request = request(userId, limit);
+        Request request = request(userId, limit, accessPolicy.viewScope(userId)); // M8a: gồm xem trước dự án Team
         if (request == null) {
             return new Page<>(List.of(), null);
         }
@@ -104,7 +105,7 @@ public class TaskViewService {
     /** tasks?view= (bảng định nghĩa ở đầu Task 21). */
     public Page<TaskResponse> listView(UUID userId, TaskViewType view, LocalDate from, LocalDate to, LocalDate since,
                                        LocalDate until, String cursor, Integer limit) {
-        Request request = request(userId, limit);
+        Request request = request(userId, limit, accessPolicy.listScope(userId)); // M8a: dự án đã tham gia
         if (request == null) {
             return new Page<>(List.of(), null);
         }
@@ -181,7 +182,7 @@ public class TaskViewService {
             return List.of();
         }
         LocalDateTime localNow = localNow(userId);
-        Map<UUID, TaskView> byId = repository.findByIds(accessPolicy.readableWorkspaceIds(userId), ids)
+        Map<UUID, TaskView> byId = repository.findByIds(accessPolicy.viewScope(userId), ids)
                 .stream().collect(Collectors.toMap(TaskView::id, view -> view));
         return ids.stream().filter(byId::containsKey)
                 .map(id -> TaskMapper.toResponse(byId.get(id), localNow)).toList();
@@ -192,10 +193,10 @@ public class TaskViewService {
      * việc con cả khi task gốc đã hoàn thành (danh sách theo dự án chỉ phân trang theo task gốc). Quyết định Q31.
      */
     public List<TaskResponse> subtasks(UUID userId, UUID taskId) {
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        repository.findOne(workspaceIds, taskId)
+        ReadScope scope = accessPolicy.viewScope(userId); // M8a
+        repository.findOne(scope, taskId)
                 .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
-        Map<UUID, List<TaskView>> children = childrenByParent(repository.findSubtrees(workspaceIds, List.of(taskId)));
+        Map<UUID, List<TaskView>> children = childrenByParent(repository.findSubtrees(scope, List.of(taskId)));
         List<TaskView> ordered = new ArrayList<>();
         appendChildren(taskId, children, ordered);
         LocalDateTime localNow = localNow(userId);
@@ -203,7 +204,7 @@ public class TaskViewService {
     }
 
     /** Tham số chung của một lần gọi list. */
-    private record Context(List<UUID> workspaceIds, ZoneId zone, LocalDateTime localNow, LocalDate today,
+    private record Context(ReadScope scope, ZoneId zone, LocalDateTime localNow, LocalDate today,
                            int pageSize) {
     }
 
@@ -215,19 +216,17 @@ public class TaskViewService {
     }
 
     /** Dựng context + tham số SQL chung (workspaceIds, today); null nếu user không thuộc workspace nào. */
-    private Request request(UUID userId, Integer limit) {
+    private Request request(UUID userId, Integer limit, ReadScope scope) {
         int pageSize = CursorCodec.limit(limit);
         ZoneId zone = userService.timeZoneOf(userId);
         LocalDateTime localNow = TaskDueRules.localNow(clock.instant(), zone);
         LocalDate today = localNow.toLocalDate();
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        if (scope.isEmpty()) {
             return null;
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params() // M8a: :workspaceIds + :projectIds
                 .addValue("today", today);
-        return new Request(new Context(workspaceIds, zone, localNow, today, pageSize), params);
+        return new Request(new Context(scope, zone, localNow, today, pageSize), params);
     }
 
     private Page<TaskResponse> flatPage(Context context, Keyset keyset, MapSqlParameterSource params, String kind,
@@ -257,7 +256,7 @@ public class TaskViewService {
                 row -> CursorCodec.encode(kind, row.keys()));
 
         List<UUID> rootIds = rootPage.items().stream().map(row -> row.view().id()).toList();
-        Map<UUID, List<TaskView>> children = childrenByParent(repository.findSubtrees(context.workspaceIds(), rootIds));
+        Map<UUID, List<TaskView>> children = childrenByParent(repository.findSubtrees(context.scope(), rootIds));
         List<TaskView> ordered = new ArrayList<>();
         for (KeyedTaskView root : rootPage.items()) {
             ordered.add(root.view());

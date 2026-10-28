@@ -52,6 +52,15 @@ public final class ProblemCodes {
     // ---- M2 (spec 12.10)
     public static final String FILTER_SYNTAX = "filter-syntax";
     public static final String LABEL_NAME_TAKEN = "label-name-taken";
+    // ---- M8a (contract mục 2: invitation-expired; còn lại plan M8a)
+    /** 410: lời mời email hết hạn / đã dùng / đã từ chối. */
+    public static final String INVITATION_EXPIRED = "invitation-expired";
+    /** 409: mời / thêm người đã là thành viên. */
+    public static final String ALREADY_MEMBER = "already-member";
+    /** 409: thao tác làm workspace nhóm không còn Admin nào. */
+    public static final String LAST_ADMIN = "last-admin";
+    /** 409: người cuối cùng rời dự án Restricted (dự án sẽ mồ côi). */
+    public static final String LAST_PROJECT_MEMBER = "last-project-member";
 
     private ProblemCodes() {
     }

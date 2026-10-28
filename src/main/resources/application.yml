@@ -80,6 +80,12 @@ taskly:
     filters: 150
     reminders: 700
     labels-per-task: 100
+    # M8a: người / dự án cá nhân (chủ + cộng tác viên + lời mời email còn hiệu lực).
+    project-members: 5
+  # M8a: lời mời email hết hạn sau 7 ngày (ADR 0003); link = link-base + token (app mở deep link hoặc dán mã).
+  invitations:
+    ttl-days: 7
+    link-base: taskly://join/
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:

@@ -20,4 +20,16 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, UUID> {
     int deleteAllByOwnerId(@Param("ownerId") UUID ownerId);
 
     Optional<Workspace> findByOwnerIdAndType(UUID ownerId, WorkspaceType type);
+
+    /** M8a: workspace có link mời này. */
+    Optional<Workspace> findByInviteLinkToken(String inviteLinkToken);
+
+    /** M8a: id workspace nhóm user đang sở hữu (owner_id) — chuyển chủ khi xoá tài khoản (không nạp entity). */
+    @Query("select w.id from Workspace w where w.owner.id = :ownerId and w.type = 'TEAM'")
+    java.util.List<UUID> findTeamIdsByOwnerId(@Param("ownerId") UUID ownerId);
+
+    /** M8a: chuyển owner_id bằng UPDATE trực tiếp (xoá tài khoản: không để entity cũ nằm trong persistence context). */
+    @Modifying
+    @Query(value = "update workspaces set owner_id = :newOwnerId where id = :workspaceId", nativeQuery = true)
+    int transferOwner(@Param("workspaceId") UUID workspaceId, @Param("newOwnerId") UUID newOwnerId);
 }

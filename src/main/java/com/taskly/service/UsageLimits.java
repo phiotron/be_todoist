@@ -56,6 +56,15 @@ public class UsageLimits {
         configured.put(LimitKind.LABELS, labels);
         configured.put(LimitKind.FILTERS, filters);
         configured.put(LimitKind.REMINDERS, reminders);
+        configured.put(LimitKind.PROJECT_MEMBERS, DEFAULT_PROJECT_MEMBERS);
+    }
+
+    /** M8a: mặc định khi tạo bằng constructor (unit test); Spring ghi đè bằng taskly.limits.project-members. */
+    static final int DEFAULT_PROJECT_MEMBERS = 5;
+
+    @Value("${taskly.limits.project-members:5}")
+    public void setProjectMembersLimit(int projectMembers) {
+        configured.put(LimitKind.PROJECT_MEMBERS, projectMembers);
     }
 
     public int max(LimitKind kind) {

@@ -13,5 +13,7 @@ public enum LimitKind {
     PROJECT_SECTIONS_TOTAL,
     LABELS,
     FILTERS,
-    REMINDERS
+    REMINDERS,
+    /** M8a: số người của MỘT dự án cá nhân (chủ + thành viên + lời mời email còn hiệu lực) ≤ 5. */
+    PROJECT_MEMBERS
 }

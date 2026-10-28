@@ -2,6 +2,7 @@ package com.taskly.repository;
 
 import com.taskly.dto.search.SearchQuery;
 import com.taskly.dto.search.SectionSearchItem;
+import com.taskly.security.ReadScope;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -25,16 +26,19 @@ public class ObjectSearchRepository {
         this.jdbc = jdbc;
     }
 
-    public List<UUID> projectIds(List<UUID> workspaceIds, SearchQuery query, int max) {
-        return ids("projects x", "x.workspace_id IN (:workspaceIds) AND x.archived_at IS NULL",
-                new MapSqlParameterSource("workspaceIds", workspaceIds), query, max);
+    /** M8a: phạm vi = dự án đã tham gia (ReadScope). */
+    public List<UUID> projectIds(ReadScope scope, SearchQuery query, int max) {
+        return ids("projects x",
+                "x.workspace_id IN (:workspaceIds) AND x.id IN (:projectIds) AND x.archived_at IS NULL",
+                scope.params(), query, max);
     }
 
-    public List<SectionSearchItem> sections(List<UUID> workspaceIds, SearchQuery query, int max) {
-        MapSqlParameterSource params = new MapSqlParameterSource("workspaceIds", workspaceIds).addValue("max", max);
+    public List<SectionSearchItem> sections(ReadScope scope, SearchQuery query, int max) {
+        MapSqlParameterSource params = scope.params().addValue("max", max);
         String sql = "SELECT x.id, x.project_id, p.name AS project_name, x.name FROM sections x "
                 + "JOIN projects p ON p.id = x.project_id "
-                + "WHERE p.workspace_id IN (:workspaceIds) AND p.archived_at IS NULL AND x.archived_at IS NULL"
+                + "WHERE p.workspace_id IN (:workspaceIds) AND p.id IN (:projectIds) AND p.archived_at IS NULL"
+                + " AND x.archived_at IS NULL"
                 + terms(query, params) + ORDER + " LIMIT :max";
         return jdbc.query(sql, params, (rs, rowNum) -> new SectionSearchItem(rs.getObject("id", UUID.class),
                 rs.getObject("project_id", UUID.class), rs.getString("project_name"), rs.getString("name")));

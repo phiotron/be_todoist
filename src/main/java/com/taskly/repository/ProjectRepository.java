@@ -19,6 +19,32 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
             + "order by p.sortOrder, p.id")
     List<Project> findArchivedIn(Collection<UUID> workspaceIds);
 
+    /** M8a: dự án chưa lưu trữ trong tập id (phạm vi đã tham gia — AccessPolicy.listScope). */
+    @Query("select p from Project p join fetch p.workspace where p.id in :projectIds and p.archivedAt is null "
+            + "order by p.sortOrder, p.id")
+    List<Project> findActiveAmong(Collection<UUID> projectIds);
+
+    @Query("select p from Project p join fetch p.workspace where p.id in :projectIds and p.archivedAt is not null "
+            + "order by p.sortOrder, p.id")
+    List<Project> findArchivedAmong(Collection<UUID> projectIds);
+
+    /**
+     * M8a: chuyển dự án vào team → task của dự án đổi cột phi chuẩn workspace_id (native UPDATE, KHÔNG tăng version —
+     * như TaskRepository.relocate). Ngoại lệ ghi chéo bảng có chủ đích: ProjectService là nơi duy nhất đổi workspace dự án.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "update tasks set workspace_id = :workspaceId, updated_at = :now where project_id = :projectId",
+            nativeQuery = true)
+    int moveTasksToWorkspace(UUID projectId, UUID workspaceId, java.time.Instant now);
+
+    /** M8a: dự án có link mời này. */
+    Optional<Project> findByInviteLinkToken(String inviteLinkToken);
+
+    /** M8a Team Discovery: dự án chưa lưu trữ của workspace (lọc quyền ở service). */
+    @Query("select p from Project p where p.workspace.id = :workspaceId and p.archivedAt is null "
+            + "order by p.sortOrder, p.id")
+    List<Project> findActiveInWorkspace(UUID workspaceId);
+
     /** Vùng chứa sắp xếp gốc của workspace: dự án thường (không Inbox) không có cha, gồm cả lưu trữ. */
     @Query("select p from Project p where p.workspace.id = :workspaceId and p.inbox = false and p.parentId is null "
             + "order by p.sortOrder, p.id")

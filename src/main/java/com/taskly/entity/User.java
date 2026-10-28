@@ -115,6 +115,10 @@ public class User extends BaseEntity {
     @Column(name = "auto_reminder_minutes")
     private Integer autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
 
+    /** M8a: lời mời email tới tài khoản này được chấp nhận ngay khi gửi (mặc định tắt — plan M8a, chờ duyệt). */
+    @Column(name = "auto_accept_invites", nullable = false)
+    private boolean autoAcceptInvites;
+
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
      * twoFactorEnabled). Bật / tắt 2FA ghi ở TwoFactorService; entity đã nạp trước đó trong cùng transaction giữ giá trị cũ.
@@ -340,6 +344,14 @@ public class User extends BaseEntity {
     public void resetReminderSettings() {
         this.remindersEnabled = DEFAULT_REMINDERS_ENABLED;
         this.autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+    }
+
+    public boolean isAutoAcceptInvites() {
+        return autoAcceptInvites;
+    }
+
+    public void changeAutoAcceptInvites(boolean autoAcceptInvites) {
+        this.autoAcceptInvites = autoAcceptInvites;
     }
 
     private void applyDefaultSettings() {

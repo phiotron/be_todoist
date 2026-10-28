@@ -1,5 +1,6 @@
 package com.taskly.repository;
 
+import com.taskly.security.ReadScope;
 import com.taskly.common.web.CursorCodec;
 import com.taskly.repository.listing.DisplaySql;
 import com.taskly.repository.listing.FilterSqlTranslator;
@@ -28,7 +29,7 @@ import org.springframework.stereotype.Repository;
 public class TaskListingRepository {
 
     /** Bối cảnh của người gọi: today / now = giờ floating theo múi giờ tài khoản. */
-    public record Context(UUID userId, List<UUID> workspaceIds, LocalDate today, LocalDateTime now, String timeZone) {
+    public record Context(UUID userId, ReadScope readScope, LocalDate today, LocalDateTime now, String timeZone) {
     }
 
     /** Phạm vi: id = label / dự án; filter = cây đã parse; from / to = cửa sổ ngày (gồm hai đầu) của Upcoming (Task 19). */
@@ -42,6 +43,7 @@ public class TaskListingRepository {
             LEFT JOIN projects pg ON pg.id = pp.parent_id
             LEFT JOIN sections s ON s.id = t.section_id
             WHERE t.workspace_id IN (:workspaceIds)
+              AND t.project_id IN (:projectIds)
             """;
 
     private final KeysetPager pager;
@@ -58,9 +60,8 @@ public class TaskListingRepository {
 
     public List<KeysetPager.KeyedId> page(Context context, Scope scope, DisplayOptions display,
                                           CursorCodec.Cursor after, int limit) {
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        MapSqlParameterSource params = context.readScope().params() // M8a: :workspaceIds + :projectIds
                 .addValue("userId", context.userId())
-                .addValue("workspaceIds", context.workspaceIds())
                 .addValue("today", context.today())
                 .addValue("now", context.now());
         StringBuilder where = new StringBuilder(FROM).append(scopeSql(context, scope, params));

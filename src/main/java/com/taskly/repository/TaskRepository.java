@@ -59,9 +59,11 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     @Query("select t from Task t where t.completedAt is null "
             + "and (t.dueDate < :today or t.dueDatetime < :startOfToday) "
             + "and t.workspaceId in :workspaceIds "
+            + "and t.projectId in :projectIds "
             + "and t.projectId in (select p.id from Project p where p.archivedAt is null) "
             + "order by t.dueDate, t.dueDatetime, t.id")
-    List<Task> findOverdue(LocalDate today, LocalDateTime startOfToday, Collection<UUID> workspaceIds);
+    List<Task> findOverdue(LocalDate today, LocalDateTime startOfToday, Collection<UUID> workspaceIds,
+                           Collection<UUID> projectIds);
 
     default List<Task> findContainer(UUID projectId, UUID sectionId, UUID parentId) {
         if (parentId != null) {

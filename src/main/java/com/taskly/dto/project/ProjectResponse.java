@@ -1,6 +1,7 @@
 package com.taskly.dto.project;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.taskly.entity.ProjectAccess;
 import com.taskly.entity.ProjectColor;
 import com.taskly.entity.ViewStyle;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -31,5 +32,23 @@ public record ProjectResponse(
                 description = "Tổng task ĐANG MỞ của các dự án con cháu, KHÔNG gồm chính dự án: số task hiện trong hộp xoá = activeTaskCount + số này")
         long descendantActiveTaskCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+        // ---- M8a Team & chia sẻ
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Workspace chứa dự án (cá nhân hoặc nhóm)")
+        UUID workspaceId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, description = "Folder (chỉ dự án nhóm)")
+        UUID folderId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "TEAM | RESTRICTED với dự án nhóm; null với dự án cá nhân")
+        ProjectAccess access,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Số người của dự án: chủ + cộng tác viên (cá nhân) hoặc người đã tham gia (nhóm); "
+                        + "dự án cá nhân chưa chia sẻ = 1")
+        long memberCount,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Người gọi đã ở trong dự án (false = đang xem trước dự án Team, cần Join để sửa)")
+        boolean joined,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Người gọi được lưu trữ / xoá / đổi cha / chuyển vào team / đổi quyền truy cập")
+        boolean canManage) {
 }
