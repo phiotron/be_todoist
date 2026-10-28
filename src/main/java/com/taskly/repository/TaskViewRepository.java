@@ -39,7 +39,8 @@ public class TaskViewRepository {
             (select count(*) from tasks c where c.parent_id = t.id and c.completed_at is not null)
                     as completed_subtask_count,
             array(select tl.label_id from task_labels tl join labels l on l.id = tl.label_id
-                  where tl.task_id = t.id order by l.sort_order, l.id) as label_ids
+                  where tl.task_id = t.id order by l.sort_order, l.id) as label_ids,
+            (select count(*) from comments cm where cm.task_id = t.id) as comment_count
             """;
 
     /**
@@ -228,7 +229,8 @@ public class TaskViewRepository {
                 labelIds(rs),
                 rs.getString("recurrence_rule"),
                 rs.getBoolean("recurrence_from_completion"),
-                rs.getString("due_timezone"));
+                rs.getString("due_timezone"),
+                rs.getInt("comment_count"));
     }
 
     static List<UUID> labelIds(ResultSet rs) throws SQLException {

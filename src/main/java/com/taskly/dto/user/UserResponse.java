@@ -19,5 +19,8 @@ public record UserResponse(
         boolean hasPassword,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Nhà cung cấp đăng nhập đã liên kết, ví dụ [\"GOOGLE\"]")
-        List<IdentityProvider> linkedProviders) {
+        List<IdentityProvider> linkedProviders,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "M8b: đường dẫn ảnh đại diện (GET, cần Bearer), vd /api/v1/users/{id}/avatar?v=…; null = chưa có ảnh")
+        String avatarUrl) {
 }

@@ -12,5 +12,6 @@ public record TaskView(UUID id, UUID projectId, UUID sectionId, UUID parentId, S
                        LocalDate deadlineDate, String dueString, Instant completedAt, int subtaskCount,
                        int completedSubtaskCount, long sortOrder, long version, Instant createdAt, Instant updatedAt,
                        String projectName, String parentContent, List<UUID> labelIds, String recurrenceRule,
-                       boolean recurrenceFromCompletion, String dueTimezone) {
+                       boolean recurrenceFromCompletion, String dueTimezone,
+                       int commentCount) {
 }

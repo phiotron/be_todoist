@@ -11,9 +11,11 @@ public record SearchObjectsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ProjectResponse> projects,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SectionSearchItem> sections,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<LabelResponse> labels,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<FilterResponse> filters) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<FilterResponse> filters,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M8b: comment khớp, mới trước")
+        List<CommentSearchItem> comments) {
 
     public static SearchObjectsResponse empty() {
-        return new SearchObjectsResponse(List.of(), List.of(), List.of(), List.of());
+        return new SearchObjectsResponse(List.of(), List.of(), List.of(), List.of(), List.of());
     }
 }

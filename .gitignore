@@ -29,3 +29,6 @@ coverage/
 .DS_Store
 Thumbs.db
 *.log
+
+# M8b: file comment + ảnh đại diện khi chạy server dev (taskly.storage.root mặc định)
+data/

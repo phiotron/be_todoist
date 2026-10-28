@@ -51,5 +51,7 @@ public record TaskResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
                 description = "M6c: múi giờ cố định (IANA) của due có giờ; null = floating")
         String dueTimezone,
-        @JsonProperty("isRecurring") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isRecurring) {
+        @JsonProperty("isRecurring") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isRecurring,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M8b: số comment của task")
+        int commentCount) {
 }

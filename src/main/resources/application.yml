@@ -21,6 +21,13 @@ spring:
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 5000
       "[mail.smtp.writetimeout]": 5000
+  # M8b: tải file comment (≤ 100 MB, kiểm chính xác ở UsageLimits → 400) và ảnh đại diện. Trần multipart cao hơn một
+  # chút để request vừa quá 100 MB nhận 400 có mã riêng; quá trần → 413 của framework. Phần lớn ghi thẳng ra đĩa tạm.
+  servlet:
+    multipart:
+      max-file-size: 110MB
+      max-request-size: 110MB
+      file-size-threshold: 1MB
 
 app:
   jwt:
@@ -129,6 +136,9 @@ taskly:
     labels-per-task: 100
     templates: 100
     backups: 21
+    # M8b (spec 2.1): file đính kèm comment ≤ 100 MB, ảnh đại diện ≤ 4 MB — vượt → 400.
+    comment-file-bytes: 104857600
+    avatar-bytes: 4194304
   # M11: job backup hằng ngày (BackupJob) kiểm "tới nửa đêm theo múi giờ tài khoản" mỗi khoảng này.
   backups:
     check-interval: PT15M
@@ -139,6 +149,13 @@ taskly:
     webhook-secret: ${EMAIL_INBOUND_WEBHOOK_SECRET:}
     signature-tolerance: 5m
     max-body-bytes: 2097152
+  # M8b: file comment + ảnh đại diện lưu trên đĩa server (LocalFileStorage). STORAGE_DIR trong .env (mặc định ./data/files).
+  storage:
+    root: ${STORAGE_DIR:./data/files}
+    # Link tải file đính kèm ký HMAC (không cần Bearer để trình duyệt mở được) — sống ngắn.
+    download-link-ttl: 5m
+    # File tải lên mà chưa gắn comment quá thời gian này thì bị dọn.
+    unattached-ttl: 24h
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:

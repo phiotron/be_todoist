@@ -60,7 +60,7 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         .value(containsInAnyOrder("accessToken", "refreshToken", "accessTokenExpiresIn", "user")))
                 .andExpect(jsonPath("$.components.schemas.UserResponse.required")
                         .value(containsInAnyOrder("id", "email", "displayName", "locale", "timeZone", "twoFactorEnabled",
-                                "hasPassword", "linkedProviders")))
+                                "hasPassword", "linkedProviders", "avatarUrl")))
                 // request: field bắt buộc lấy từ Bean Validation
                 .andExpect(jsonPath("$.components.schemas.RegisterRequest.required")
                         .value(containsInAnyOrder("email", "password", "displayName")))
@@ -149,7 +149,9 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         "subtaskCount", "completedSubtaskCount", "sortOrder", "version", "createdAt", "updatedAt",
                         "projectName", "parentContent", "labelIds",
                         // M6c
-                        "recurrenceRule", "recurrenceFromCompletion", "dueTimezone", "isRecurring")))
+                        "recurrenceRule", "recurrenceFromCompletion", "dueTimezone", "isRecurring",
+                        // M8b
+                        "commentCount")))
                 .andExpect(jsonPath("$.components.schemas.TaskResponse.properties.isFavorite").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.TaskChangeResponse.required")
                         .value(containsInAnyOrder("task", "cascaded")))
@@ -283,7 +285,7 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         "filterDue", "showCompleted", "layout", "showFutureOccurrences"))) // M7: + layout, showFutureOccurrences
                 .andExpect(jsonPath("$.components.schemas.ValidateFilterResponse.required").value(containsInAnyOrder("parts")))
                 .andExpect(jsonPath("$.components.schemas.SearchObjectsResponse.required")
-                        .value(containsInAnyOrder("projects", "sections", "labels", "filters")))
+                        .value(containsInAnyOrder("projects", "sections", "labels", "filters", "comments")))
                 .andExpect(jsonPath("$.components.schemas.SectionSearchItem.required")
                         .value(containsInAnyOrder("id", "projectId", "projectName", "name")))
                 .andExpect(jsonPath("$.components.schemas.CreateLabelRequest.properties.id").exists())

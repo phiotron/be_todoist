@@ -181,7 +181,24 @@ public enum ErrorMessage {
     PUSH_TOKEN_INVALID("error.push-token-invalid"),
     PUSH_PLATFORM_INVALID("error.push-platform-invalid"),
     // ---- M10 - năng suất & lịch sử
-    ACTIVITY_QUERY_INVALID("error.activity-query-invalid");
+    ACTIVITY_QUERY_INVALID("error.activity-query-invalid"),
+    // ---- M8b: comment, file, thông báo, ảnh đại diện
+    COMMENT_NOT_FOUND("error.comment-not-found"),
+    COMMENT_NOT_AUTHOR("error.comment-not-author"),
+    COMMENT_EMPTY("error.comment-empty"),
+    MENTION_INVALID("error.mention-invalid"),
+    REACTION_EMOJI_INVALID("error.reaction-emoji-invalid"),
+    ATTACHMENT_NOT_FOUND("error.attachment-not-found"),
+    ATTACHMENT_TOO_LARGE("error.attachment-too-large"),
+    ATTACHMENT_EMPTY("error.attachment-empty"),
+    ATTACHMENT_IN_USE("error.attachment-in-use"),
+    DOWNLOAD_LINK_INVALID("error.download-link-invalid"),
+    NOTIFICATION_NOT_FOUND("error.notification-not-found"),
+    NOTIFICATION_SETTING_INVALID("error.notification-setting-invalid"),
+    AVATAR_NOT_FOUND("error.avatar-not-found"),
+    AVATAR_TOO_LARGE("error.avatar-too-large"),
+    AVATAR_TYPE("error.avatar-type"),
+    FILE_REQUIRED("error.file-required");
 
     private final String key;
 
