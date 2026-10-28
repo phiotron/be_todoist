@@ -263,6 +263,61 @@ class TeamMemberPermissionApiTest extends M8aApiTestBase {
                 .andExpect(jsonPath("$.type").value("TASK_DAY"));
     }
 
+    /**
+     * Nối PERM × DND: Thành viên kéo task CÁ NHÂN trong Hôm nay có lẫn task nhóm → chỉ ghi day_order của task mình sửa
+     * được (chèn vào khoảng giữa), day_order của task nhóm giữ nguyên; Admin vẫn sắp được task nhóm.
+     */
+    @Test
+    void reorderTaskDay_memberDragsOwnTask_teamTasksDayOrderUntouched() throws Exception {
+        clock.freezeAt(java.time.Instant.parse("2026-10-23T03:00:00Z")); // 10:00 ngày 23 giờ Việt Nam
+        Fx fx = fixture();
+        UUID ta = createDated(fx.admin(), fx.project(), "Nhóm A");
+        UUID tb = createDated(fx.admin(), fx.project(), "Nhóm B");
+        // Admin sắp task nhóm: B lên đầu
+        authPost(fx.admin().accessToken(), "/api/v1/reorder", dayReorder(tb, null)).andExpect(status().isOk());
+        authGet(fx.admin().accessToken(), "/api/v1/tasks?view=today")
+                .andExpect(jsonPath("$.items[*].content", org.hamcrest.Matchers.contains("Nhóm B", "Nhóm A")));
+        Long orderA = dayOrder(ta);
+        Long orderB = dayOrder(tb);
+        assertThat(orderA).isNotNull();
+        assertThat(orderB).isNotNull();
+
+        UUID inbox = readUuid(authGet(fx.member().accessToken(), "/api/v1/projects"), "$[0].id");
+        UUID mine = createDated(fx.member(), inbox, "Của tôi");
+        // Thành viên kéo task của mình lên đầu, rồi vào giữa B và A
+        authPost(fx.member().accessToken(), "/api/v1/reorder", dayReorder(mine, null)).andExpect(status().isOk());
+        authGet(fx.member().accessToken(), "/api/v1/tasks?view=today")
+                .andExpect(jsonPath("$.items[*].content", org.hamcrest.Matchers.contains("Của tôi", "Nhóm B", "Nhóm A")));
+        assertThat(dayOrder(ta)).isEqualTo(orderA);
+        assertThat(dayOrder(tb)).isEqualTo(orderB);
+
+        authPost(fx.member().accessToken(), "/api/v1/reorder", dayReorder(mine, tb)).andExpect(status().isOk());
+        authGet(fx.member().accessToken(), "/api/v1/tasks?view=today")
+                .andExpect(jsonPath("$.items[*].content", org.hamcrest.Matchers.contains("Nhóm B", "Của tôi", "Nhóm A")));
+        assertThat(dayOrder(ta)).isEqualTo(orderA);
+        assertThat(dayOrder(tb)).isEqualTo(orderB);
+
+        // Admin vẫn sắp được: A lên đầu
+        authPost(fx.admin().accessToken(), "/api/v1/reorder", dayReorder(ta, null)).andExpect(status().isOk());
+        authGet(fx.admin().accessToken(), "/api/v1/tasks?view=today")
+                .andExpect(jsonPath("$.items[*].content", org.hamcrest.Matchers.contains("Nhóm A", "Nhóm B")));
+    }
+
+    private UUID createDated(RegisteredUser user, UUID project, String content) throws Exception {
+        return readUuid(authPost(user.accessToken(), "/api/v1/tasks", "{\"content\": \"" + content
+                + "\", \"projectId\": \"" + project + "\", \"dueDate\": \"2026-10-23\"}")
+                .andExpect(status().isCreated()), "$.id");
+    }
+
+    private static String dayReorder(UUID id, UUID afterId) {
+        return "{\"type\": \"TASK_DAY\", \"id\": \"" + id + "\", \"afterId\": "
+                + (afterId == null ? "null" : "\"" + afterId + "\"") + "}";
+    }
+
+    private Long dayOrder(UUID taskId) {
+        return jdbcTemplate.queryForObject("SELECT day_order FROM tasks WHERE id = ?", Long.class, taskId);
+    }
+
     @Test
     void errorDetail_isVietnameseByDefault_andEnglishOnRequest() throws Exception {
         Fx fx = fixture();

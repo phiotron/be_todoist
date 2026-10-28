@@ -134,24 +134,33 @@ public class TaskListingRepository {
     }
 
     /**
-     * DND (V21): id các task MỞ có due_day = {@code day} trong phạm vi đọc (dự án chưa lưu trữ), đúng thứ tự Today /
+     * DND (V21): các task MỞ (id, dự án, day_order còn hiệu lực) có due_day = {@code day} trong phạm vi đọc (dự án chưa lưu trữ), đúng thứ tự Today /
      * Upcoming đang hiện với sort = date tăng dần (day_order → giờ → ưu tiên → dự án → sort_order → id).
      */
-    public List<UUID> dayOrderIds(ReadScope readScope, LocalDate day) {
+    public List<DayOrderRow> dayOrderRows(ReadScope readScope, LocalDate day) {
         MapSqlParameterSource params = readScope.params().addValue("day", day);
         String orderBy = DisplaySql.keys(ViewKind.UPCOMING, DisplayRules.defaults(ViewKind.UPCOMING)).stream()
                 .map(key -> key.expression() + (key.descending() ? " DESC" : ""))
                 .collect(Collectors.joining(", "));
-        return jdbc.queryForList("SELECT t.id " + FROM
-                + " AND p.archived_at IS NULL AND t.completed_at IS NULL AND t.due_day = :day ORDER BY " + orderBy,
-                params, UUID.class);
+        return jdbc.query("SELECT t.id, t.project_id, CASE WHEN t.day_order_day = t.due_day THEN t.day_order END"
+                        + " AS day_order " + FROM + " AND p.archived_at IS NULL AND t.completed_at IS NULL"
+                        + " AND t.due_day = :day ORDER BY " + orderBy,
+                params, (rs, n) -> new DayOrderRow(rs.getObject("id", UUID.class),
+                        rs.getObject("project_id", UUID.class), rs.getObject("day_order", Long.class)));
     }
 
-    /** DND: ghi day_order (+ ngày áp dụng) bằng native UPDATE — KHÔNG tăng version, không đổi updated_at. */
+    /** Một task của ngày: dayOrder = thứ tự CÒN hiệu lực (day_order_day = due_day), null = chưa xếp. */
+    public record DayOrderRow(UUID id, UUID projectId, Long dayOrder) {
+    }
+
+    /**
+     * DND: ghi day_order (+ ngày áp dụng) bằng native UPDATE — KHÔNG tăng version, không đổi updated_at. Giá trị null =
+     * bỏ thứ tự (task về nhóm "chưa xếp" cuối ngày).
+     */
     public void writeDayOrders(Map<UUID, Long> orders, LocalDate day) {
         MapSqlParameterSource[] batch = orders.entrySet().stream()
                 .map(entry -> new MapSqlParameterSource("id", entry.getKey())
-                        .addValue("dayOrder", entry.getValue()).addValue("day", day))
+                        .addValue("dayOrder", entry.getValue(), java.sql.Types.BIGINT).addValue("day", day))
                 .toArray(MapSqlParameterSource[]::new);
         jdbc.batchUpdate("UPDATE tasks SET day_order = :dayOrder, day_order_day = :day WHERE id = :id", batch);
     }
