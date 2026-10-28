@@ -43,7 +43,7 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({TestcontainersConfiguration.class, TestClockConfiguration.class, TestMailConfiguration.class,
-        GoogleTestConfiguration.class})
+        GoogleTestConfiguration.class, com.taskly.support.M13bTestConfiguration.class})
 public abstract class IntegrationTestBase {
 
     /** Mật khẩu fixture cho test tự động — không phải mật khẩu thật của ai. */

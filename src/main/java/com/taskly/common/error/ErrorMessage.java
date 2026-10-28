@@ -115,6 +115,26 @@ public enum ErrorMessage {
     GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
     GOOGLE_NOT_LINKED("error.google.not-linked"),
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
+    // M13b - đăng nhập / liên kết Apple, Facebook (cùng mẫu Google M5)
+    IDENTITY_INVALID_TOKEN("error.identity.invalid-token"),
+    IDENTITY_INVALID_TOKEN_FOR_LINK("error.identity.invalid-token-for-link"),
+    IDENTITY_EXACTLY_ONE_TOKEN("error.identity.exactly-one-token"),
+    IDENTITY_EMAIL_NOT_VERIFIED("error.identity.email-not-verified"),
+    IDENTITY_EMAIL_MISSING("error.identity.email-missing"),
+    IDENTITY_LINK_TOKEN_OTHER_ACCOUNT("error.identity.link-token-other-account"),
+    IDENTITY_LINK_REQUIRED("error.identity.link-required"),
+    IDENTITY_LINKED_ELSEWHERE("error.identity.linked-elsewhere"),
+    IDENTITY_ACCOUNT_ALREADY_LINKED("error.identity.account-already-linked"),
+    IDENTITY_PASSWORD_REQUIRED_BEFORE_UNLINK("error.identity.password-required-before-unlink"),
+    IDENTITY_NOT_LINKED("error.identity.not-linked"),
+    IDENTITY_UNAVAILABLE("error.identity.unavailable"),
+    // M13b - Calendar
+    CALENDAR_ALREADY_CONNECTED("error.calendar.already-connected"),
+    CALENDAR_NOT_CONNECTED("error.calendar.not-connected"),
+    CALENDAR_NOT_CONFIGURED("error.calendar.not-configured"),
+    CALENDAR_UNAVAILABLE("error.calendar.unavailable"),
+    CALENDAR_RANGE_INVALID("error.calendar.range-invalid"),
+    CALENDAR_FEED_NOT_FOUND("error.calendar.feed-not-found"),
     PASSWORD_NOT_SET("error.password.not-set");
 
     private final String key;
