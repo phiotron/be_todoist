@@ -80,6 +80,11 @@ taskly:
     filters: 150
     reminders: 700
     labels-per-task: 100
+    templates: 100
+    backups: 21
+  # M11: job backup hằng ngày (BackupJob) kiểm "tới nửa đêm theo múi giờ tài khoản" mỗi khoảng này.
+  backups:
+    check-interval: PT15M
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:

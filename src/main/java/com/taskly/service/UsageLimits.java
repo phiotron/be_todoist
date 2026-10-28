@@ -37,6 +37,20 @@ public class UsageLimits {
     /** Chỉ test dùng (overrideMax) để hạ giới hạn mà không tạo Spring context mới; IntegrationTestBase gỡ mỗi test. */
     private final Map<LimitKind, Integer> overrides = new ConcurrentHashMap<>();
 
+    // M11: mặc định cho UsageLimits dựng bằng constructor (unit test); bean Spring ghi đè từ taskly.limits.* bên dưới.
+    {
+        configured.put(LimitKind.TEMPLATES, 100);
+        configured.put(LimitKind.BACKUPS, 21);
+    }
+
+    /** M11: TEMPLATES / BACKUPS đọc qua setter để không đổi constructor dùng chung (ít xung đột khi gộp). */
+    @Autowired
+    public void setM11Limits(@Value("${taskly.limits.templates:100}") int templates,
+                             @Value("${taskly.limits.backups:21}") int backups) {
+        configured.put(LimitKind.TEMPLATES, templates);
+        configured.put(LimitKind.BACKUPS, backups);
+    }
+
     /** Chỉ cần cho lock*; unit test của check(...) tạo UsageLimits bằng constructor và không có JdbcTemplate. */
     private JdbcTemplate jdbcTemplate;
 

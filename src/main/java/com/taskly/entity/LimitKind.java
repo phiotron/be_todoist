@@ -13,5 +13,9 @@ public enum LimitKind {
     PROJECT_SECTIONS_TOTAL,
     LABELS,
     FILTERS,
-    REMINDERS
+    REMINDERS,
+    /** M11: template của mình (≤ 100 / người, taskly.limits.templates). */
+    TEMPLATES,
+    /** M11: số bản backup hằng ngày giữ lại (21, taskly.limits.backups) — vượt thì xoá bản cũ nhất, không trả 422. */
+    BACKUPS
 }

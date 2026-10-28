@@ -115,7 +115,11 @@ public enum ErrorMessage {
     GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
     GOOGLE_NOT_LINKED("error.google.not-linked"),
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
-    PASSWORD_NOT_SET("error.password.not-set");
+    PASSWORD_NOT_SET("error.password.not-set"),
+    // ---- M11 template & dữ liệu
+    TEMPLATE_NOT_FOUND("error.template-not-found"),
+    TEMPLATE_NAME_SIZE("error.template-name-size"),
+    SECTION_MOVE_PROJECT_REQUIRED("error.section-move-project-required");
 
     private final String key;
 

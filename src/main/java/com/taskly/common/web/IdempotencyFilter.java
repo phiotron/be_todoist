@@ -46,7 +46,13 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             "/api/v1/tasks/batch",
             "/api/v1/labels",
             "/api/v1/filters",
-            "/api/v1/tasks/{taskId}/reminders").stream().map(PathPatternParser.defaultInstance::parse).toList();
+            "/api/v1/tasks/{taskId}/reminders",
+            // M11: nhân bản dự án / section, Save as template, Apply a template
+            "/api/v1/projects/{projectId}/duplicate",
+            "/api/v1/projects/{projectId}/sections/{sectionId}/duplicate",
+            "/api/v1/templates",
+            "/api/v1/templates/{templateId}/apply",
+            "/api/v1/templates/library/{key}/apply").stream().map(PathPatternParser.defaultInstance::parse).toList();
 
     /** Đường dẫn (requestURI) có nằm trong danh sách POST được bảo vệ không — test đơn vị gọi trực tiếp. */
     public static boolean covers(String requestUri) {

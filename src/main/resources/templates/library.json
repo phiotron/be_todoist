@@ -1,0 +1,236 @@
+{
+  "templates": [
+    {
+      "key": "weekly-planning",
+      "category": "FEATURED",
+      "color": "teal",
+      "name": { "vi": "Lên kế hoạch tuần", "en": "Plan your week" },
+      "description": {
+        "vi": "Dành 30 phút đầu tuần để chọn việc quan trọng, xếp lịch và dọn những việc còn dang dở.",
+        "en": "Spend 30 minutes at the start of the week choosing what matters, blocking time and clearing loose ends."
+      },
+      "tasks": [
+        {
+          "content": { "vi": "Xem lại việc còn tồn từ tuần trước", "en": "Review what is left over from last week" },
+          "priority": 2
+        }
+      ],
+      "sections": [
+        {
+          "name": { "vi": "Chọn mục tiêu", "en": "Pick the goals" },
+          "tasks": [
+            { "content": { "vi": "Viết ra 3 kết quả muốn đạt trong tuần", "en": "Write down 3 outcomes for this week" }, "priority": 1 },
+            { "content": { "vi": "Chia mỗi kết quả thành bước nhỏ", "en": "Break each outcome into small steps" } }
+          ]
+        },
+        {
+          "name": { "vi": "Xếp lịch", "en": "Schedule" },
+          "tasks": [
+            { "content": { "vi": "Giữ chỗ trong lịch cho việc cần tập trung", "en": "Block calendar time for focused work" } },
+            { "content": { "vi": "Gom việc vặt vào một buổi", "en": "Batch small errands into one slot" } }
+          ]
+        },
+        {
+          "name": { "vi": "Dọn dẹp", "en": "Tidy up" },
+          "tasks": [
+            {
+              "content": { "vi": "Làm trống hộp Inbox", "en": "Empty the Inbox" },
+              "children": [
+                { "content": { "vi": "Xoá việc không còn cần", "en": "Delete tasks you no longer need" } },
+                { "content": { "vi": "Chuyển việc còn lại vào đúng dự án", "en": "Move the rest into the right project" } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "moving-house",
+      "category": "FEATURED",
+      "color": "orange",
+      "name": { "vi": "Chuyển nhà", "en": "Moving house" },
+      "description": {
+        "vi": "Danh sách việc trước, trong và sau ngày chuyển để không quên đồ hay giấy tờ.",
+        "en": "Things to do before, during and after moving day so nothing gets left behind."
+      },
+      "sections": [
+        {
+          "name": { "vi": "Một tháng trước", "en": "One month before" },
+          "tasks": [
+            { "content": { "vi": "Chốt ngày chuyển và đặt xe", "en": "Fix the moving date and book a van" }, "priority": 1 },
+            { "content": { "vi": "Phân loại đồ: giữ, cho, bán", "en": "Sort belongings: keep, give away, sell" } },
+            { "content": { "vi": "Mua thùng, băng keo, bút đánh dấu", "en": "Buy boxes, tape and markers" } }
+          ]
+        },
+        {
+          "name": { "vi": "Tuần chuyển nhà", "en": "Moving week" },
+          "tasks": [
+            {
+              "content": { "vi": "Đóng thùng theo từng phòng", "en": "Pack box by box, room by room" },
+              "children": [
+                { "content": { "vi": "Ghi tên phòng lên mỗi thùng", "en": "Label each box with its room" } },
+                { "content": { "vi": "Để riêng một túi đồ dùng đêm đầu", "en": "Pack a first-night bag" } }
+              ]
+            },
+            { "content": { "vi": "Chụp ảnh chỉ số điện nước nhà cũ", "en": "Photograph the old meter readings" } }
+          ]
+        },
+        {
+          "name": { "vi": "Sau khi chuyển", "en": "After the move" },
+          "tasks": [
+            { "content": { "vi": "Cập nhật địa chỉ với ngân hàng và nơi làm việc", "en": "Update your address with the bank and employer" } },
+            { "content": { "vi": "Làm quen hàng xóm", "en": "Say hello to the neighbours" }, "priority": 4 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "eisenhower-matrix",
+      "category": "PRODUCTIVITY_METHODS",
+      "color": "blue",
+      "name": { "vi": "Ma trận Eisenhower", "en": "Eisenhower matrix" },
+      "description": {
+        "vi": "Chia việc theo hai câu hỏi: có gấp không, có quan trọng không — rồi làm, hẹn, giao hoặc bỏ.",
+        "en": "Sort work by two questions — is it urgent, is it important — then do, schedule, delegate or drop it."
+      },
+      "sections": [
+        {
+          "name": { "vi": "Gấp và quan trọng — làm ngay", "en": "Urgent and important — do now" },
+          "description": { "vi": "Việc có hạn sát và hậu quả rõ.", "en": "Close deadlines with clear consequences." },
+          "tasks": [
+            { "content": { "vi": "Ví dụ: nộp báo cáo hôm nay", "en": "Example: send today's report" }, "priority": 1 }
+          ]
+        },
+        {
+          "name": { "vi": "Quan trọng, không gấp — hẹn lịch", "en": "Important, not urgent — schedule" },
+          "tasks": [
+            { "content": { "vi": "Ví dụ: tập thể dục ba buổi mỗi tuần", "en": "Example: exercise three times a week" }, "priority": 2 }
+          ]
+        },
+        {
+          "name": { "vi": "Gấp, không quan trọng — nhờ người khác", "en": "Urgent, not important — delegate" },
+          "tasks": [
+            { "content": { "vi": "Ví dụ: đặt phòng họp cho nhóm", "en": "Example: book the team meeting room" }, "priority": 3 }
+          ]
+        },
+        {
+          "name": { "vi": "Không gấp, không quan trọng — bỏ", "en": "Neither — drop it" },
+          "tasks": [
+            { "content": { "vi": "Ví dụ: lướt tin tức không mục đích", "en": "Example: aimless news scrolling" }, "priority": 4 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "personal-kanban",
+      "category": "PRODUCTIVITY_METHODS",
+      "color": "violet",
+      "name": { "vi": "Kanban cá nhân", "en": "Personal kanban" },
+      "description": {
+        "vi": "Ba cột Cần làm · Đang làm · Xong, giới hạn số việc đang làm cùng lúc để làm xong nhiều hơn.",
+        "en": "Three columns — To do, Doing, Done — with a cap on work in progress so more gets finished."
+      },
+      "sections": [
+        {
+          "name": { "vi": "Cần làm", "en": "To do" },
+          "tasks": [
+            { "content": { "vi": "Thêm mọi việc bạn nghĩ tới vào đây", "en": "Add every task you think of here" } },
+            { "content": { "vi": "Sắp việc quan trọng nhất lên đầu", "en": "Put the most important task on top" } }
+          ]
+        },
+        {
+          "name": { "vi": "Đang làm", "en": "Doing" },
+          "description": { "vi": "Không quá 3 việc cùng lúc.", "en": "No more than 3 tasks at a time." },
+          "tasks": [
+            { "content": { "vi": "Kéo một việc từ Cần làm sang đây khi rảnh tay", "en": "Pull a task from To do when you have room" } }
+          ]
+        },
+        {
+          "name": { "vi": "Xong", "en": "Done" },
+          "tasks": [
+            { "content": { "vi": "Cuối tuần xem lại cột này rồi lưu trữ", "en": "Review this column at the weekend, then archive it" } }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "trip-preparation",
+      "category": "POPULAR",
+      "color": "sky_blue",
+      "name": { "vi": "Chuẩn bị chuyến đi", "en": "Trip preparation" },
+      "description": {
+        "vi": "Giấy tờ, hành lý và việc nhà cần lo trước khi đi xa.",
+        "en": "Documents, packing and home tasks to sort out before you travel."
+      },
+      "sections": [
+        {
+          "name": { "vi": "Giấy tờ", "en": "Documents" },
+          "tasks": [
+            { "content": { "vi": "Kiểm tra hạn hộ chiếu và thị thực", "en": "Check passport and visa expiry" }, "priority": 1 },
+            { "content": { "vi": "Lưu bản chụp vé và đặt phòng", "en": "Save copies of tickets and bookings" } }
+          ]
+        },
+        {
+          "name": { "vi": "Hành lý", "en": "Packing" },
+          "tasks": [
+            {
+              "content": { "vi": "Soạn đồ theo số ngày đi", "en": "Pack clothes for the number of days" },
+              "children": [
+                { "content": { "vi": "Áo khoác phòng khi trời lạnh", "en": "A jacket in case it gets cold" } },
+                { "content": { "vi": "Bộ sạc và ổ cắm chuyển đổi", "en": "Chargers and a plug adapter" } }
+              ]
+            },
+            { "content": { "vi": "Thuốc thường dùng", "en": "Everyday medicine" } }
+          ]
+        },
+        {
+          "name": { "vi": "Ở nhà", "en": "At home" },
+          "tasks": [
+            { "content": { "vi": "Nhờ người tưới cây", "en": "Ask someone to water the plants" } },
+            { "content": { "vi": "Rút điện thiết bị không dùng", "en": "Unplug appliances you will not need" } }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "study-plan",
+      "category": "POPULAR",
+      "color": "green",
+      "name": { "vi": "Kế hoạch học tập", "en": "Study plan" },
+      "description": {
+        "vi": "Theo dõi một môn học: tài liệu, buổi ôn và bài kiểm tra.",
+        "en": "Keep track of one course: materials, review sessions and tests."
+      },
+      "tasks": [
+        { "content": { "vi": "Ghi lại mục tiêu của môn học", "en": "Write down the goal of the course" }, "priority": 2 }
+      ],
+      "sections": [
+        {
+          "name": { "vi": "Tài liệu", "en": "Materials" },
+          "tasks": [
+            { "content": { "vi": "Tải đề cương và giáo trình", "en": "Get the syllabus and textbook" } },
+            { "content": { "vi": "Tạo sổ ghi chú cho từng chương", "en": "Start a notebook for each chapter" } }
+          ]
+        },
+        {
+          "name": { "vi": "Ôn tập hằng tuần", "en": "Weekly review" },
+          "tasks": [
+            {
+              "content": { "vi": "Ôn lại bài tuần này", "en": "Go over this week's lessons" },
+              "children": [
+                { "content": { "vi": "Tóm tắt mỗi bài trong 5 dòng", "en": "Summarise each lesson in 5 lines" } },
+                { "content": { "vi": "Làm thử 10 câu hỏi", "en": "Try 10 practice questions" } }
+              ]
+            }
+          ]
+        },
+        {
+          "name": { "vi": "Kiểm tra", "en": "Tests" },
+          "tasks": [
+            { "content": { "vi": "Ghi lịch kiểm tra giữa kỳ và cuối kỳ", "en": "Note the midterm and final dates" }, "priority": 1 }
+          ]
+        }
+      ]
+    }
+  ]
+}
