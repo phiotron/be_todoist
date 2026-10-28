@@ -2,6 +2,7 @@ package com.taskly.dto.settings;
 
 import com.taskly.common.validation.AutoReminderMinutes;
 import com.taskly.common.validation.IanaTimeZone;
+import com.taskly.common.validation.NavMenuItems;
 import com.taskly.common.validation.NavTabs;
 import com.taskly.common.validation.StartPage;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -84,5 +85,19 @@ public record UpdateSettingsRequest(
         @Schema(nullable = true, minimum = "0", maximum = "1440",
                 description = "Vắng = giữ nguyên; null = TẮT auto reminder. Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, "
                         + "180, 1440")
-        Optional<@AutoReminderMinutes Integer> autoReminderMinutes) {
+        Optional<@AutoReminderMinutes Integer> autoReminderMinutes,
+
+        // M3x (điều hướng): vắng / null = giữ nguyên.
+        @Schema(allowableValues = {"LEFT", "CENTER", "RIGHT"})
+        @Pattern(regexp = "LEFT|CENTER|RIGHT", message = "{validation.add-button-placement.invalid}")
+        String addButtonPlacement,
+
+        Boolean syncHomeView,
+
+        Boolean navMenuShowTaskCount,
+
+        @Schema(description = "Mục Navigation menu đang hiện theo thứ tự, không trùng: INBOX, TODAY, UPCOMING, "
+                + "FILTERS_LABELS, REPORTING, BROWSE_TEMPLATES; [] = ẩn hết")
+        @NavMenuItems
+        List<String> navMenuItems) {
 }

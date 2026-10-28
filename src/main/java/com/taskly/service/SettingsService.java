@@ -6,6 +6,7 @@ import com.taskly.common.error.FieldErrorItem;
 import com.taskly.common.validation.SettingsTargets;
 import com.taskly.dto.settings.SettingsResponse;
 import com.taskly.dto.settings.UpdateSettingsRequest;
+import com.taskly.entity.AddButtonPlacement;
 import com.taskly.entity.Appearance;
 import com.taskly.entity.DateFormat;
 import com.taskly.entity.SwipeAction;
@@ -96,6 +97,7 @@ public class SettingsService {
         if (request.autoReminderMinutes() != null) {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
+        applyNavigationSettings(user, request);
         return SettingsMapper.toResponse(user);
     }
 
@@ -104,6 +106,22 @@ public class SettingsService {
         User user = userService.requireUser(userId);
         user.resetSettings();
         return SettingsMapper.toResponse(user);
+    }
+
+    /** M3x: vị trí nút +, Sync home view, Navigation menu (null = giữ nguyên; DTO đã kiểm giá trị). */
+    private static void applyNavigationSettings(User user, UpdateSettingsRequest request) {
+        if (request.addButtonPlacement() != null) {
+            user.changeAddButtonPlacement(AddButtonPlacement.valueOf(request.addButtonPlacement()));
+        }
+        if (request.syncHomeView() != null) {
+            user.changeSyncHomeView(request.syncHomeView());
+        }
+        if (request.navMenuShowTaskCount() != null) {
+            user.changeNavMenuShowTaskCount(request.navMenuShowTaskCount());
+        }
+        if (request.navMenuItems() != null) {
+            user.changeNavMenuItems(request.navMenuItems());
+        }
     }
 
     /** Kiểm xong mới sửa → request lỗi không đổi dòng nào (kể cả field hợp lệ gửi cùng). */

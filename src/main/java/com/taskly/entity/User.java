@@ -1,6 +1,7 @@
 package com.taskly.entity;
 
 import com.taskly.common.persistence.BaseEntity;
+import com.taskly.common.validation.NavMenuItemsValidator;
 import com.taskly.common.validation.SettingsTargets;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -44,6 +45,11 @@ public class User extends BaseEntity {
     public static final boolean DEFAULT_REMINDERS_ENABLED = true;
     /** spec 5.8: mặc định 30 phút; null = tắt auto reminder. */
     public static final Integer DEFAULT_AUTO_REMINDER_MINUTES = 30;
+    /** M3x (V7): vị trí nút +, Sync home view, Navigation menu. */
+    public static final AddButtonPlacement DEFAULT_ADD_BUTTON_PLACEMENT = AddButtonPlacement.RIGHT;
+    public static final boolean DEFAULT_SYNC_HOME_VIEW = true;
+    public static final boolean DEFAULT_NAV_MENU_SHOW_TASK_COUNT = true;
+    public static final List<String> DEFAULT_NAV_MENU_ITEMS = NavMenuItemsValidator.ALL_ITEMS;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -114,6 +120,20 @@ public class User extends BaseEntity {
 
     @Column(name = "auto_reminder_minutes")
     private Integer autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "add_button_placement", nullable = false, length = 6)
+    private AddButtonPlacement addButtonPlacement = DEFAULT_ADD_BUTTON_PLACEMENT;
+
+    @Column(name = "sync_home_view", nullable = false)
+    private boolean syncHomeView = DEFAULT_SYNC_HOME_VIEW;
+
+    @Column(name = "nav_menu_show_task_count", nullable = false)
+    private boolean navMenuShowTaskCount = DEFAULT_NAV_MENU_SHOW_TASK_COUNT;
+
+    /** Mục Navigation menu đang hiện, nối dấu phẩy; chuỗi rỗng = ẩn hết. */
+    @Column(name = "nav_menu_items", nullable = false, columnDefinition = "text")
+    private String navMenuItems = String.join(NAV_TABS_SEPARATOR, DEFAULT_NAV_MENU_ITEMS);
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -315,6 +335,7 @@ public class User extends BaseEntity {
         this.locale = DEFAULT_LOCALE;
         applyDefaultSettings();
         resetReminderSettings();
+        resetNavigationSettings();
     }
 
     public boolean isRemindersEnabled() {
@@ -340,6 +361,48 @@ public class User extends BaseEntity {
     public void resetReminderSettings() {
         this.remindersEnabled = DEFAULT_REMINDERS_ENABLED;
         this.autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+    }
+
+    public AddButtonPlacement getAddButtonPlacement() {
+        return addButtonPlacement;
+    }
+
+    public boolean isSyncHomeView() {
+        return syncHomeView;
+    }
+
+    public boolean isNavMenuShowTaskCount() {
+        return navMenuShowTaskCount;
+    }
+
+    /** Mục Navigation menu đang hiện, theo thứ tự (không sửa được); rỗng = ẩn hết. */
+    public List<String> getNavMenuItems() {
+        return navMenuItems.isEmpty() ? List.of() : List.of(navMenuItems.split(NAV_TABS_SEPARATOR));
+    }
+
+    public void changeAddButtonPlacement(AddButtonPlacement addButtonPlacement) {
+        this.addButtonPlacement = addButtonPlacement;
+    }
+
+    public void changeSyncHomeView(boolean syncHomeView) {
+        this.syncHomeView = syncHomeView;
+    }
+
+    public void changeNavMenuShowTaskCount(boolean navMenuShowTaskCount) {
+        this.navMenuShowTaskCount = navMenuShowTaskCount;
+    }
+
+    /** items đã qua @NavMenuItems. Cùng danh sách → cùng chuỗi → không UPDATE. */
+    public void changeNavMenuItems(List<String> items) {
+        this.navMenuItems = String.join(NAV_TABS_SEPARATOR, items);
+    }
+
+    /** M3x — về mặc định (spec 12.1 reset): nút + bên phải, đồng bộ trang mở đầu, menu đủ 6 mục có đếm task. */
+    public void resetNavigationSettings() {
+        this.addButtonPlacement = DEFAULT_ADD_BUTTON_PLACEMENT;
+        this.syncHomeView = DEFAULT_SYNC_HOME_VIEW;
+        this.navMenuShowTaskCount = DEFAULT_NAV_MENU_SHOW_TASK_COUNT;
+        this.navMenuItems = String.join(NAV_TABS_SEPARATOR, DEFAULT_NAV_MENU_ITEMS);
     }
 
     private void applyDefaultSettings() {

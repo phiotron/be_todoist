@@ -1,5 +1,6 @@
 package com.taskly.dto.settings;
 
+import com.taskly.entity.AddButtonPlacement;
 import com.taskly.entity.Appearance;
 import com.taskly.entity.DateFormat;
 import com.taskly.entity.SwipeAction;
@@ -45,5 +46,18 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, minimum = "0", maximum = "1440",
                 description = "Auto reminder: số phút trước giờ của task có giờ; null = tắt. "
                         + "Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, 180, 1440")
-        Integer autoReminderMinutes) {
+        Integer autoReminderMinutes,
+        // M3x (điều hướng):
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Vị trí nút + nổi")
+        AddButtonPlacement addButtonPlacement,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Sync home view: false = mỗi máy giữ trang mở đầu riêng (app lưu trên máy)")
+        boolean syncHomeView,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Navigation menu: hiện số task cạnh mục menu")
+        boolean navMenuShowTaskCount,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Navigation menu: mục đang hiện theo thứ tự (vắng = ẩn): INBOX, TODAY, UPCOMING, "
+                        + "FILTERS_LABELS, REPORTING, BROWSE_TEMPLATES")
+        List<String> navMenuItems) {
 }
