@@ -123,7 +123,17 @@ public enum ErrorMessage {
     // M6c - viec lap
     RECURRENCE_INVALID("error.recurrence-invalid"),
     RECURRENCE_REQUIRES_DUE("error.recurrence-requires-due"),
-    DUE_TIMEZONE_INVALID("error.due-timezone-invalid");
+    DUE_TIMEZONE_INVALID("error.due-timezone-invalid"),
+    // ---- M9 - đồng bộ (POST sync)
+    SYNC_COMMANDS_SIZE("error.sync-commands-size"),
+    SYNC_COMMAND_UNKNOWN("error.sync-command-unknown"),
+    SYNC_UUID_REQUIRED("error.sync-uuid-required"),
+    SYNC_TEMP_ID_SIZE("error.sync-temp-id-size"),
+    SYNC_ARGS_INVALID("error.sync-args-invalid"),
+    SYNC_ID_REQUIRED("error.sync-id-required"),
+    SYNC_TOKEN_INVALID("error.sync-token-invalid"),
+    SYNC_RESOURCE_TYPE("error.sync-resource-type"),
+    SYNC_CONFLICT("error.sync-conflict");
 
     private final String key;
 
