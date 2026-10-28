@@ -218,7 +218,7 @@ public class TaskBatchService {
     private Set<UUID> schedule(List<Task> tasks, LocalDate date) {
         lockAndRecheckAll(tasks);
         if (tasks.stream().anyMatch(task -> task.getCompletedAt() != null)) { // vừa hoàn thành trong lúc chờ khoá
-            throw ApiException.conflict(ProblemTexts.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
+            throw ApiException.conflict(ErrorMessage.TASK_COMPLETED).withCode(ProblemCodes.TASK_COMPLETED);
         }
         Set<UUID> affected = new LinkedHashSet<>();
         for (Task task : tasks) {
