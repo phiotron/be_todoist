@@ -29,8 +29,8 @@ public class UserIdentity extends BaseEntity {
     @Column(name = "subject", nullable = false, length = 255)
     private String subject;
 
-    /** Email Google tại thời điểm liên kết (đã chuẩn hoá). */
-    @Column(name = "email", nullable = false, length = 254)
+    /** Email của nhà cung cấp tại thời điểm liên kết (đã chuẩn hoá). M13b: null được (Facebook không cấp email). */
+    @Column(name = "email", length = 254)
     private String email;
 
     protected UserIdentity() {

@@ -73,6 +73,36 @@ taskly:
     # Người dùng tự điền GOOGLE_CLIENT_IDS trong .env; nhiều ID cách nhau bởi dấu phẩy; để trống = từ chối mọi token.
     client-ids: ${GOOGLE_CLIENT_IDS:}
     jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+  # M13b — đăng nhập Apple / Facebook (luồng web trên Android) và Calendar. Người dùng tự tạo app và tự điền .env.
+  apple:
+    # aud hợp lệ của ID token Apple = Services ID (luồng web). Trống = từ chối mọi token Apple.
+    client-ids: ${APPLE_CLIENT_IDS:}
+    jwk-set-uri: https://appleid.apple.com/auth/keys
+    app-redirect: taskly://oauth/apple
+  facebook:
+    app-id: ${FACEBOOK_APP_ID:}
+    app-secret: ${FACEBOOK_APP_SECRET:}
+    # URL công khai của GET /api/v1/auth/facebook/callback (đăng ký trong Meta for Developers).
+    redirect-uri: ${FACEBOOK_REDIRECT_URI:}
+    app-redirect: taskly://oauth/facebook
+  calendar:
+    # URL công khai của GET /api/v1/calendar/oauth/callback (đăng ký ở Google Cloud và Microsoft Entra).
+    redirect-uri: ${CALENDAR_OAUTH_REDIRECT_URI:http://localhost:8080/api/v1/calendar/oauth/callback}
+    app-redirect: taskly://calendar/connected
+    # Tiền tố link iCal (phải là URL công khai mà Google / Outlook gọi được để đọc feed).
+    feed-base-url: ${CALENDAR_FEED_BASE_URL:http://localhost:8080/api/v1/calendar/feed/}
+    google:
+      client-id: ${GOOGLE_CALENDAR_CLIENT_ID:}
+      client-secret: ${GOOGLE_CALENDAR_CLIENT_SECRET:}
+    outlook:
+      client-id: ${OUTLOOK_CALENDAR_CLIENT_ID:}
+      client-secret: ${OUTLOOK_CALENDAR_CLIENT_SECRET:}
+      tenant: common
+    window-past-days: 30
+    window-future-days: 365
+    max-tasks: 500
+    default-event-minutes: 60
+    sync-interval: PT5M
   totp:
     # Khoá AES-256 (base64 của 32 byte) mã hoá secret 2FA — biến TOTP_ENCRYPTION_KEY trong .env (xem .env.example).
     # Thiếu / sai → server không khởi động. Mất khoá → người đã bật 2FA chỉ đăng nhập được bằng mã khôi phục.

@@ -52,7 +52,8 @@ class GoogleIdentitySchemaTest extends IntegrationTestBase {
     void providerCheckRejectsUnknownValues() {
         UUID userId = insertUser(uniqueEmail(), "hash-not-used");
 
-        assertThatThrownBy(() -> insertIdentity(userId, "FACEBOOK", uniqueSubject()))
+        // M13b (V18) mở thêm APPLE / FACEBOOK — giá trị lạ vẫn bị chặn.
+        assertThatThrownBy(() -> insertIdentity(userId, "TWITTER", uniqueSubject()))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_user_identities_provider");
     }

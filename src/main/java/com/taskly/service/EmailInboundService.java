@@ -157,7 +157,8 @@ public class EmailInboundService {
         }
         CreateTaskRequest request = new CreateTaskRequest(null, inbox.getProjectId(), null, null, content,
                 EmailSubjectParser.truncate(body, MAX_DESCRIPTION), parsed.priority(), parsed.dueDate(),
-                parsed.dueDatetime(), null, null, null, parsed.labelIds());
+                parsed.dueDatetime(), null, null, null, parsed.labelIds(),
+                null, null, null, null);
         taskService.create(userId, request);
         return Outcome.CREATED;
     }

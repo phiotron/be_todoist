@@ -23,6 +23,11 @@ taskly:
     # test-android-client chỉ để test "nhiều client ID, aud khớp một trong số đó". Spec 3.1 (12.1): Android client ID
     # KHÔNG đưa vào BE hay app — GOOGLE_CLIENT_IDS thật chỉ chứa Web client ID (aud của ID token).
     client-ids: test-web-client.apps.googleusercontent.com,test-android-client.apps.googleusercontent.com
+  apple:
+    # Services ID GIẢ, khớp AppleTestTokens.SERVICE_ID — test không gọi Apple (M13b).
+    client-ids: test.taskly.apple.service
+  calendar:
+    feed-base-url: https://taskly.test/api/v1/calendar/feed/
   totp:
     # base64 của chuỗi ASCII "test-only-totp-key-not-for-prod!" (32 byte) — khoá GIẢ chỉ cho test.
     encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LW5vdC1mb3ItcHJvZCE=

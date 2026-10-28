@@ -31,11 +31,20 @@ public class SecurityConfig {
     /** Endpoint không cần JWT (chỉ POST). */
     static final String[] PUBLIC_AUTH_PATHS = {
             "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/2fa/verify",
-            "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm", "/api/v1/auth/google"
+            "/api/v1/auth/password-reset/request", "/api/v1/auth/password-reset/confirm", "/api/v1/auth/google",
+            // M13b: Apple / Facebook (callback Apple là form POST do Apple gửi)
+            "/api/v1/auth/apple", "/api/v1/auth/facebook", "/api/v1/auth/apple/callback"
     };
 
     /** Webhook từ dịch vụ ngoài (chỉ POST): tự xác thực bằng chữ ký HMAC, không JWT (M13a). */
     static final String[] PUBLIC_WEBHOOK_PATHS = {"/api/v1/integrations/email/inbound"};
+    /** M13b: GET công khai — callback luồng web (Facebook, Calendar OAuth) và calendar feed iCal (token trong đường dẫn). */
+    static final String[] PUBLIC_GET_PATHS = {
+            "/api/v1/auth/facebook/callback", "/api/v1/calendar/oauth/callback", "/api/v1/calendar/feed/*"
+    };
+
+    /** Tiền tố đường dẫn feed: bỏ qua header Authorization như các đường công khai khác. */
+    static final String CALENDAR_FEED_PREFIX = "/api/v1/calendar/feed/";
 
     private static final String[] PUBLIC_DOC_PATHS = {
             "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**", "/error"
@@ -58,6 +67,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_AUTH_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, PUBLIC_WEBHOOK_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(PUBLIC_DOC_PATHS).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
@@ -83,7 +93,10 @@ public class SecurityConfig {
         DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
         Set<String> publicPaths = new java.util.HashSet<>(Set.of(PUBLIC_AUTH_PATHS));
         publicPaths.addAll(Set.of(PUBLIC_WEBHOOK_PATHS));
-        return request -> publicPaths.contains(request.getRequestURI()) ? null : delegate.resolve(request);
+        publicPaths.add("/api/v1/auth/facebook/callback");
+        publicPaths.add("/api/v1/calendar/oauth/callback");
+        return request -> publicPaths.contains(request.getRequestURI())
+                || request.getRequestURI().startsWith(CALENDAR_FEED_PREFIX) ? null : delegate.resolve(request);
     }
 
     @Bean

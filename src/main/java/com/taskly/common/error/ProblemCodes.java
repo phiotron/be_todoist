@@ -64,6 +64,13 @@ public final class ProblemCodes {
     public static final String SYNC_TOKEN_INVALID = "sync-token-invalid";
     /** Chỉ khi taskly.sync.conflict-policy = version: task_update gửi version cũ (409, kèm "current"). */
     public static final String SYNC_CONFLICT = "sync-conflict";
+    // ---- M13b (Calendar)
+    /** 409 ở me/calendar/connect: tài khoản đã nối một lịch (chỉ 1 nhà cung cấp / 1 tài khoản). */
+    public static final String CALENDAR_ALREADY_CONNECTED = "calendar-already-connected";
+    /** 503: chưa cấu hình client id / secret của nhà cung cấp lịch. */
+    public static final String CALENDAR_NOT_CONFIGURED = "calendar-not-configured";
+    /** 503: không gọi được API lịch của nhà cung cấp. */
+    public static final String CALENDAR_UNAVAILABLE = "calendar-unavailable";
 
     private ProblemCodes() {
     }
