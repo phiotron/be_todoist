@@ -4,6 +4,7 @@ import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.task.TaskResponse;
+import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.Task;
 import java.util.HashMap;
 import java.util.List;
@@ -29,9 +30,11 @@ public class TaskDuplicateService {
     private final TaskService taskService;
     private final SubtaskTreeService subtaskTreeService;
     private final TaskLabelService taskLabelService;
+    private final ActivityService activityService; // M10
 
     public TaskDuplicateService(TaskService taskService, SubtaskTreeService subtaskTreeService,
-                                TaskLabelService taskLabelService) {
+                                TaskLabelService taskLabelService, ActivityService activityService) {
+        this.activityService = activityService;
         this.taskService = taskService;
         this.subtaskTreeService = subtaskTreeService;
         this.taskLabelService = taskLabelService;
@@ -73,6 +76,7 @@ public class TaskDuplicateService {
         }
         taskService.flush();
         taskLabelService.copyLabels(copyIdByOriginal); // chép label của bản gốc + mọi con được chép (spec 10.1)
+        activityService.tasks(userId, copyIdByOriginal.values(), ActivityEventType.ADDED); // M10
         return taskService.toResponse(userId, rootCopyId);
     }
 }

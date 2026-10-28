@@ -32,10 +32,13 @@ public class SettingsService {
 
     private final UserService userService;
     private final PinnedTargetChecker pinnedTargetChecker;
+    private final ProductivitySettingsService productivitySettings; // M10
 
-    public SettingsService(UserService userService, PinnedTargetChecker pinnedTargetChecker) {
+    public SettingsService(UserService userService, PinnedTargetChecker pinnedTargetChecker,
+                           ProductivitySettingsService productivitySettings) {
         this.userService = userService;
         this.pinnedTargetChecker = pinnedTargetChecker;
+        this.productivitySettings = productivitySettings;
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +99,7 @@ public class SettingsService {
         if (request.autoReminderMinutes() != null) {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
+        productivitySettings.apply(user, request); // M10: Settings → Productivity
         return SettingsMapper.toResponse(user);
     }
 

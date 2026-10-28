@@ -1,6 +1,7 @@
 package com.taskly.dto.settings;
 
 import com.taskly.common.validation.AutoReminderMinutes;
+import com.taskly.common.validation.DaysOff;
 import com.taskly.common.validation.IanaTimeZone;
 import com.taskly.common.validation.NavTabs;
 import com.taskly.common.validation.StartPage;
@@ -84,5 +85,29 @@ public record UpdateSettingsRequest(
         @Schema(nullable = true, minimum = "0", maximum = "1440",
                 description = "Vắng = giữ nguyên; null = TẮT auto reminder. Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, "
                         + "180, 1440")
-        Optional<@AutoReminderMinutes Integer> autoReminderMinutes) {
+        Optional<@AutoReminderMinutes Integer> autoReminderMinutes,
+
+        // ---- M10 (Settings → Productivity): vắng hoặc null = giữ nguyên
+        @Schema(minimum = "1", maximum = "200", description = "Mục tiêu ngày (số công việc hoàn thành)")
+        @Min(value = 1, message = "{validation.daily-goal.range}")
+        @Max(value = 200, message = "{validation.daily-goal.range}")
+        Integer dailyGoal,
+
+        @Schema(minimum = "1", maximum = "1000", description = "Mục tiêu tuần (số công việc hoàn thành)")
+        @Min(value = 1, message = "{validation.weekly-goal.range}")
+        @Max(value = 1000, message = "{validation.weekly-goal.range}")
+        Integer weeklyGoal,
+
+        @Schema(description = "Ngày nghỉ: ngày ISO 1 = Thứ Hai … 7 = Chủ nhật, khác nhau, tối đa 6; [] = không nghỉ")
+        @DaysOff
+        List<Integer> daysOff,
+
+        @Schema(description = "Vacation mode: giữ streak, không bị trừ Karma")
+        Boolean vacationMode,
+
+        @Schema(description = "Chúc mừng khi đạt mục tiêu ngày / tuần")
+        Boolean goalCelebrations,
+
+        @Schema(description = "Hiện Karma")
+        Boolean karmaEnabled) {
 }

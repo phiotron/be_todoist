@@ -45,5 +45,14 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, minimum = "0", maximum = "1440",
                 description = "Auto reminder: số phút trước giờ của task có giờ; null = tắt. "
                         + "Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, 180, 1440")
-        Integer autoReminderMinutes) {
+        Integer autoReminderMinutes,
+        // ---- M10 (Settings → Productivity)
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "200") int dailyGoal,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "1", maximum = "1000") int weeklyGoal,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Ngày nghỉ ISO (1 = Thứ Hai … 7 = Chủ nhật), tăng dần; không tính vào streak")
+        List<Integer> daysOff,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean vacationMode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean goalCelebrations,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean karmaEnabled) {
 }

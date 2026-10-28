@@ -7,6 +7,7 @@ import com.taskly.dto.common.Created;
 import com.taskly.dto.task.CreateTaskRequest;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.dto.task.UpdateTaskRequest;
+import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.LimitKind;
 import com.taskly.entity.Project;
 import com.taskly.entity.Task;
@@ -61,13 +62,15 @@ public class TaskService {
     private final TaskLabelService taskLabelService;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ActivityService activityService; // M10
 
     public TaskService(TaskRepository taskRepository, TaskViewRepository taskViewRepository,
                        ProjectService projectService, SectionService sectionService, UserService userService,
                        AccessPolicy accessPolicy, SortOrderService sortOrderService,
                        SubtaskTreeService subtaskTreeService, UsageLimits usageLimits,
                        TaskLabelService taskLabelService,
-                       ApplicationEventPublisher events, Clock clock) {
+                       ApplicationEventPublisher events, Clock clock, ActivityService activityService) {
+        this.activityService = activityService;
         this.taskRepository = taskRepository;
         this.taskViewRepository = taskViewRepository;
         this.projectService = projectService;
@@ -181,6 +184,7 @@ public class TaskService {
         taskRepository.save(task);
         taskRepository.flush(); // task phải nằm trong DB trước khi chèn task_labels (FK)
         taskLabelService.attach(task.getId(), labelIds);
+        activityService.task(userId, task, ActivityEventType.ADDED); // M10
         return Created.fresh(toResponse(userId, task.getId()));
     }
 
@@ -192,6 +196,7 @@ public class TaskService {
                     .withCode(ProblemCodes.VERSION_CONFLICT)
                     .withProperty("current", toResponse(userId, taskId));
         }
+        List<Object> tracked = ActivityService.trackedFields(task); // M10: UPDATED chỉ khi field theo dõi đổi
         if (request.content() != null) {
             task.setContent(request.content());
         }
@@ -224,6 +229,9 @@ public class TaskService {
                 taskLabelService.touch(List.of(taskId)); // chỉ label đổi → version + 1 đúng một lần bằng SQL
             }
         }
+        if (!tracked.equals(ActivityService.trackedFields(task))) {
+            activityService.task(userId, task, ActivityEventType.UPDATED); // M10
+        }
         // Hibernate chỉ UPDATE (tăng version, đổi updated_at) khi giá trị thực sự khác — PATCH không đổi gì giữ nguyên.
         return toResponse(userId, taskId);
     }
@@ -236,6 +244,7 @@ public class TaskService {
     public void delete(UUID userId, UUID taskId) {
         Task task = requireWritable(userId, taskId);
         task = lockAndRecheck(task); // khoá P rồi đọc lại (cùng cổng reopen / close / reorder): không xoá trong dự án vừa lưu trữ
+        activityService.task(userId, task, ActivityEventType.DELETED); // M10 (cây con mất theo, không ghi riêng)
         taskRepository.delete(task);
         taskRepository.flush();
     }

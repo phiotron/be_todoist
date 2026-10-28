@@ -26,11 +26,14 @@ public class TaskCompletionService {
     private final TaskService taskService;
     private final SubtaskTreeService subtaskTreeService;
     private final Clock clock;
+    private final ProductivityEvents productivityEvents; // M10: Activity log + Karma
 
-    public TaskCompletionService(TaskService taskService, SubtaskTreeService subtaskTreeService, Clock clock) {
+    public TaskCompletionService(TaskService taskService, SubtaskTreeService subtaskTreeService, Clock clock,
+                                 ProductivityEvents productivityEvents) {
         this.taskService = taskService;
         this.subtaskTreeService = subtaskTreeService;
         this.clock = clock;
+        this.productivityEvents = productivityEvents;
     }
 
     /** Mỗi lần gọi sinh MỘT completion_batch_id mới (căn cứ của Undo, spec 5.1). */
@@ -58,7 +61,9 @@ public class TaskCompletionService {
         if (task.getCompletedAt() != null) {
             return List.of();
         }
-        return closeWithin(taskService.tree(task.getProjectId()), taskId, now, batchId);
+        List<UUID> changed = closeWithin(taskService.tree(task.getProjectId()), taskId, now, batchId);
+        productivityEvents.tasksCompleted(userId, changed); // M10
+        return changed;
     }
 
     /**
@@ -94,6 +99,7 @@ public class TaskCompletionService {
         List<UUID> changed = undo ? subtaskTreeService.idsToUndo(tree, taskId) : subtaskTreeService.idsToReopen(tree, taskId);
         taskService.checkActiveTaskLimit(task.getProjectId(), changed.size());
         taskService.loadAll(changed).forEach(Task::reopen);
+        productivityEvents.tasksReopened(userId, changed); // M10
         return changed;
     }
 

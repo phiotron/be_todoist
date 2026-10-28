@@ -8,6 +8,7 @@ import com.taskly.dto.project.CreateProjectRequest;
 import com.taskly.dto.project.MoveProjectRequest;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.dto.project.UpdateProjectRequest;
+import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.FavoriteTargetType;
 import com.taskly.entity.LimitKind;
 import com.taskly.entity.Project;
@@ -60,11 +61,14 @@ public class ProjectService {
     private final UsageLimits usageLimits;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ActivityService activityService; // M10
 
     public ProjectService(ProjectRepository projectRepository, WorkspaceService workspaceService,
                           AccessPolicy accessPolicy, FavoriteService favoriteService,
                           SortOrderService sortOrderService, ProjectTreeService projectTreeService,
-                          UsageLimits usageLimits, ApplicationEventPublisher events, Clock clock) {
+                          UsageLimits usageLimits, ApplicationEventPublisher events, Clock clock,
+                          ActivityService activityService) {
+        this.activityService = activityService;
         this.projectRepository = projectRepository;
         this.workspaceService = workspaceService;
         this.accessPolicy = accessPolicy;
@@ -139,12 +143,14 @@ public class ProjectService {
                 false, ViewStyle.LIST, sortOrder);
         project.assignId(request.id()); // null → id do server sinh
         projectRepository.save(project);
+        activityService.project(userId, project, ActivityEventType.ADDED); // M10
         return Created.fresh(toResponse(userId, project));
     }
 
     public ProjectResponse update(UUID userId, UUID projectId, UpdateProjectRequest request) {
         Project project = requireWritable(userId, projectId); // Inbox không bao giờ lưu trữ → rơi xuống 403 dưới
         rejectInbox(project);
+        List<Object> tracked = ActivityService.trackedFields(project); // M10
         if (request.name() != null) {
             project.rename(request.name());
         }
@@ -153,6 +159,9 @@ public class ProjectService {
         }
         if (request.description() != null) {
             project.setDescription(request.description());
+        }
+        if (!tracked.equals(ActivityService.trackedFields(project))) {
+            activityService.project(userId, project, ActivityEventType.UPDATED); // M10
         }
         projectRepository.flush(); // để updatedAt trong response là giá trị đã ghi (không đổi nếu không có gì đổi)
         return toResponse(userId, project);
@@ -213,6 +222,7 @@ public class ProjectService {
             usageLimits.lockProjects(ids); // id TĂNG DẦN TRƯỚC khi UPDATE (không theo thứ tự nạp) — tránh deadlock với task move
             projectRepository.findAllById(ids).forEach(p -> p.archive(now));
             projectRepository.flush();
+            activityService.project(userId, project, ActivityEventType.ARCHIVED); // M10 (dự án con không ghi riêng)
         }
         return toResponse(userId, project);
     }
@@ -244,6 +254,7 @@ public class ProjectService {
             }
             restored.forEach(Project::unarchive);
             projectRepository.flush();
+            activityService.project(userId, project, ActivityEventType.UNARCHIVED); // M10
         }
         return toResponse(userId, project);
     }
@@ -262,6 +273,7 @@ public class ProjectService {
         usageLimits.lockProjects(ids);
         favoriteService.removeAllFor(FavoriteTargetType.PROJECT, ids);
         events.publishEvent(new ProjectsDeletedEvent(ids));
+        activityService.project(userId, project, ActivityEventType.DELETED); // M10 (ghi trước khi xoá: còn tên)
         projectRepository.delete(project);
         projectRepository.flush();
     }

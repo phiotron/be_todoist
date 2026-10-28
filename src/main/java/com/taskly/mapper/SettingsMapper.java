@@ -26,6 +26,13 @@ public final class SettingsMapper {
                 user.getSwipeRight(),
                 user.getNavTabs(),
                 user.isRemindersEnabled(),
-                user.getAutoReminderMinutes());
+                user.getAutoReminderMinutes(),
+                // M10
+                user.getDailyGoal(),
+                user.getWeeklyGoal(),
+                user.getDaysOff(),
+                user.isVacationMode(),
+                user.isGoalCelebrations(),
+                user.isKarmaEnabled());
     }
 }
