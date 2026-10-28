@@ -45,7 +45,9 @@ class OpenApiM8aDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.TeamProjectResponse.required").value(containsInAnyOrder(
                         "id", "name", "color", "folderId", "access", "memberCount", "activeTaskCount", "joined")))
                 .andExpect(jsonPath("$.components.schemas.ProjectMemberResponse.required")
-                        .value(containsInAnyOrder("userId", "email", "displayName", "isOwner")))
+                        .value(containsInAnyOrder("userId", "email", "displayName", "isOwner", "avatarUrl")))
+                .andExpect(jsonPath("$.components.schemas.WorkspaceMemberResponse.required")
+                        .value(containsInAnyOrder("userId", "email", "displayName", "role", "joinedAt", "avatarUrl")))
                 .andExpect(jsonPath("$.components.schemas.InviteLinkResponse.required")
                         .value(containsInAnyOrder("token", "url")))
                 .andExpect(jsonPath("$.components.schemas.AcceptInvitationResponse.required")

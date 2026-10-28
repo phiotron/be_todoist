@@ -1,10 +1,12 @@
 package com.taskly.service.sync.handler;
 
 import com.taskly.dto.reorder.ReorderRequest;
+import com.taskly.dto.task.AffectedTasksResponse;
 import com.taskly.dto.task.BatchTasksRequest;
 import com.taskly.dto.task.RescheduleOverdueRequest;
 import com.taskly.service.ReorderService;
 import com.taskly.service.TaskBatchService;
+import com.taskly.service.WebhookPublisher;
 import com.taskly.service.sync.SyncCommandHandler;
 import com.taskly.service.sync.SyncCommandOutcome;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
  *   trong cùng request được thay bằng id thật).
  * - task_batch: POST tasks/batch {action, taskIds, ...}; mọi action (CLOSE / REOPEN / MOVE / DELETE / SCHEDULE / PRIORITY /
  *   ADD_LABELS / REMOVE_LABELS) trong MỘT loại lệnh, cả lô là một lệnh (all-or-nothing như REST); uuid của lệnh thay
- *   Idempotency-Key.
+ *   Idempotency-Key; phát webhook từng task như REST (WebhookPublisher.publishBatch).
  * - task_reschedule_overdue: POST tasks/overdue/reschedule {date}.
  */
 @Configuration(proxyBeanMethods = false)
@@ -32,9 +34,12 @@ public class OrganizeSyncCommands {
     }
 
     @Bean
-    SyncCommandHandler taskBatchCommand(TaskBatchService batches) {
+    SyncCommandHandler taskBatchCommand(TaskBatchService batches, WebhookPublisher webhooks) {
         return SyncCommandHandler.of("task_batch", ctx -> {
-            batches.execute(ctx.userId(), ctx.body(BatchTasksRequest.class));
+            BatchTasksRequest request = ctx.body(BatchTasksRequest.class);
+            AffectedTasksResponse affected = batches.execute(ctx.userId(), request);
+            // webhook như POST tasks/batch (X1): xếp hàng trong transaction của lệnh, cùng commit / rollback với lô
+            webhooks.publishBatch(ctx.userId(), request.action(), request.taskIds(), affected.affectedTaskIds());
             return SyncCommandOutcome.ok();
         });
     }

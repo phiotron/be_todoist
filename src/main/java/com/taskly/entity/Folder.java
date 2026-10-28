@@ -45,4 +45,8 @@ public class Folder extends BaseEntity {
     public long getSortOrder() {
         return sortOrder;
     }
+
+    public void setSortOrder(long sortOrder) {
+        this.sortOrder = sortOrder;
+    }
 }

@@ -18,6 +18,7 @@ import com.taskly.entity.Workspace;
 import com.taskly.entity.WorkspaceMember;
 import com.taskly.entity.WorkspaceRole;
 import com.taskly.entity.WorkspaceType;
+import com.taskly.mapper.UserMapper;
 import com.taskly.repository.FolderRepository;
 import com.taskly.repository.ProjectMemberRepository;
 import com.taskly.repository.ProjectRepository;
@@ -54,12 +55,15 @@ public class TeamService {
     private final AccessPolicy accessPolicy;
     private final UsageLimits usageLimits;
     private final ApplicationEventPublisher events;
+    private final SortOrderService sortOrderService;
 
     public TeamService(WorkspaceRepository workspaces, WorkspaceMemberRepository workspaceMembers,
                        ProjectRepository projects, ProjectMemberRepository projectMembers, FolderRepository folders,
                        MembershipService membership, InvitationService invitationService,
                        FavoriteService favoriteService, UserService userService, AccessPolicy accessPolicy,
-                       UsageLimits usageLimits, ApplicationEventPublisher events) {
+                       UsageLimits usageLimits, ApplicationEventPublisher events,
+                       SortOrderService sortOrderService) {
+        this.sortOrderService = sortOrderService;
         this.workspaces = workspaces;
         this.workspaceMembers = workspaceMembers;
         this.projects = projects;
@@ -122,7 +126,8 @@ public class TeamService {
         accessPolicy.requireWorkspaceMember(userId, workspaceId); // Guest → 403
         return workspaceMembers.findAllWithUser(workspaceId).stream()
                 .map(m -> new WorkspaceMemberResponse(m.getUser().getId(), m.getUser().getEmail(),
-                        m.getUser().getDisplayName(), m.getRole(), m.getCreatedAt()))
+                        m.getUser().getDisplayName(), m.getRole(), m.getCreatedAt(),
+                        UserMapper.avatarUrl(m.getUser().getId(), m.getUser().getAvatarUpdatedAt())))
                 .toList();
     }
 
@@ -223,6 +228,31 @@ public class TeamService {
         folder.rename(name);
         folders.flush();
         return toResponse(folder);
+    }
+
+    /**
+     * POST reorder type FOLDER: vùng chứa = mọi folder của workspace; chỉ Admin (người ngoài workspace → 404, Member /
+     * Guest → 403). Khoá workspace trước khi đọc anh em để hai lần sắp xếp song song không ghi đè sort_order của nhau.
+     */
+    public long reorderFolder(UUID userId, UUID folderId, UUID afterId) {
+        Folder folder = folders.findById(folderId)
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.FOLDER_NOT_FOUND));
+        UUID workspaceId = folder.getWorkspaceId();
+        if (!workspaceMembers.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
+            throw ApiException.notFound(ErrorMessage.FOLDER_NOT_FOUND);
+        }
+        requireTeamAdmin(userId, workspaceId);
+        usageLimits.lockWorkspace(workspaceId);
+        List<Folder> siblings = folders.findAllInWorkspace(workspaceId).stream()
+                .filter(f -> !f.getId().equals(folderId)).toList();
+        SortOrderService.Placement placement = sortOrderService.placeAfter(
+                siblings.stream().map(f -> new SortOrderService.Item(f.getId(), f.getSortOrder())).toList(), afterId);
+        if (placement.renumbers()) {
+            siblings.forEach(f -> f.setSortOrder(placement.renumbered().get(f.getId())));
+        }
+        folder.setSortOrder(placement.sortOrder());
+        folders.flush();
+        return placement.sortOrder();
     }
 
     /** Xoá folder: dự án trong folder giữ nguyên, folder_id → null (ON DELETE SET NULL). */

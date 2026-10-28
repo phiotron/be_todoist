@@ -1,11 +1,16 @@
 package com.taskly.service;
 
+import com.taskly.entity.BatchAction;
 import com.taskly.repository.WebhookRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +41,25 @@ public class WebhookPublisher {
     @Transactional
     public int publish(UUID userId, String eventName, Object eventData) {
         return publishAll(userId, eventName, List.of(eventData));
+    }
+
+    /**
+     * tasks/batch (REST và lệnh sync task_batch dùng CHUNG): mỗi task NGƯỜI DÙNG CHỌN (và thật sự bị đổi) phát một sự
+     * kiện như thao tác đơn lẻ; con cháu bị kéo theo (đóng / xoá cha) không phát riêng. eventData = {id} (không có
+     * body từng task; task đã xoá cũng chỉ còn id). Trả số hàng đã xếp hàng.
+     */
+    @Transactional
+    public int publishBatch(UUID userId, BatchAction action, List<UUID> selectedTaskIds, Collection<UUID> affectedTaskIds) {
+        Set<UUID> changed = new HashSet<>(affectedTaskIds);
+        List<Map<String, Object>> data = new ArrayList<>();
+        for (UUID taskId : selectedTaskIds) {
+            if (changed.contains(taskId)) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("id", taskId.toString());
+                data.add(item);
+            }
+        }
+        return data.isEmpty() ? 0 : publishAll(userId, WebhookEvents.batchEvent(action), data);
     }
 
     /**

@@ -9,5 +9,8 @@ public record ProjectMemberResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String email,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
-        @JsonProperty("isOwner") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isOwner) {
+        @JsonProperty("isOwner") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isOwner,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Đường dẫn ảnh đại diện (GET, cần Bearer) hoặc null = chưa có ảnh (như UserResponse.avatarUrl)")
+        String avatarUrl) {
 }

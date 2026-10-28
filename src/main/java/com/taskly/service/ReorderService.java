@@ -30,10 +30,12 @@ public class ReorderService {
     private final UsageLimits usageLimits;
     private final LabelService labelService;
     private final FilterService filterService;
+    private final TeamService teamService;
 
     public ReorderService(ProjectService projectService, SectionService sectionService, TaskService taskService,
                           SortOrderService sortOrderService, UsageLimits usageLimits,
-                          LabelService labelService, FilterService filterService) {
+                          LabelService labelService, FilterService filterService, TeamService teamService) {
+        this.teamService = teamService;
         this.usageLimits = usageLimits;
         this.projectService = projectService;
         this.sectionService = sectionService;
@@ -51,6 +53,7 @@ public class ReorderService {
             case TASK -> reorderTask(userId, request.id(), afterId);
             case LABEL -> labelService.reorder(userId, request.id(), afterId);
             case FILTER -> filterService.reorder(userId, request.id(), afterId);
+            case FOLDER -> teamService.reorderFolder(userId, request.id(), afterId);
         };
         return new ReorderResponse(request.type(), request.id(), sortOrder);
     }

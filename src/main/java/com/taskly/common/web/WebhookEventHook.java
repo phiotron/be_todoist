@@ -7,13 +7,10 @@ import com.taskly.service.WebhookEvents;
 import com.taskly.service.WebhookPublisher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,23 +111,8 @@ public class WebhookEventHook implements ResponseBodyAdvice<Object>, HandlerInte
         }
     }
 
-    /**
-     * tasks/batch: mỗi task NGƯỜI DÙNG CHỌN (và thật sự bị đổi) phát một sự kiện như thao tác đơn lẻ; con cháu bị kéo
-     * theo (đóng / xoá cha) không phát riêng — giống đóng / xoá cha ở endpoint đơn. eventData = {id} (không có body
-     * từng task; task đã xoá cũng chỉ còn id).
-     */
+    /** tasks/batch: dùng chung với lệnh sync task_batch qua WebhookPublisher.publishBatch. */
     private void publishBatch(UUID userId, BatchContext batch, AffectedTasksResponse affected) {
-        Set<UUID> changed = new HashSet<>(affected.affectedTaskIds());
-        List<Map<String, Object>> data = new ArrayList<>();
-        for (UUID taskId : batch.taskIds()) {
-            if (changed.contains(taskId)) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", taskId.toString());
-                data.add(item);
-            }
-        }
-        if (!data.isEmpty()) {
-            publisher.publishAll(userId, WebhookEvents.batchEvent(batch.action()), data);
-        }
+        publisher.publishBatch(userId, batch.action(), batch.taskIds(), affected.affectedTaskIds());
     }
 }

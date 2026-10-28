@@ -2,6 +2,7 @@ package com.taskly.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
@@ -254,5 +255,72 @@ class WebhookBatchApiTest extends M13cApiTestBase {
         assertThat(deliveries(collaborator.id())).isEmpty();
         authPost(collaborator.accessToken(), "/api/v1/tasks/" + secretTask + "/close").andExpect(status().isNotFound());
         assertThat(deliveries(collaborator.id())).isEmpty();
+    }
+
+    // ---------------------------------------------------------------- lệnh sync task_batch (X3) phát webhook như REST
+
+    private ResultActions syncBatch(RegisteredUser user, UUID commandUuid, String action, String extra, UUID... ids)
+            throws Exception {
+        String idList = String.join(", ", java.util.Arrays.stream(ids).map(id -> "\"" + id + "\"").toList());
+        return authPost(user.accessToken(), "/api/v1/sync", "{\"syncToken\": \"*\", \"commands\": [{\"uuid\": \""
+                + commandUuid + "\", \"type\": \"task_batch\", \"args\": {\"action\": \"" + action
+                + "\", \"taskIds\": [" + idList + "]" + extra + "}}]}");
+    }
+
+    @Test
+    void syncTaskBatch_queuesTheSameEventsAsRestBatch_onceEvenWhenTheCommandIsReplayed() throws Exception {
+        subscribe("[\"item:completed\", \"item:deleted\"]");
+        UUID p = project(owner, "P");
+        UUID t1 = task(owner, p, "một");
+        UUID t2 = task(owner, p, "hai");
+        UUID t3 = task(owner, p, "ba");
+        jdbcTemplate.update("delete from webhook_deliveries");
+
+        UUID command = UUID.randomUUID();
+        syncBatch(owner, command, "CLOSE", "", t1, t2).andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("ok"));
+        List<Delivery> got = deliveries(owner.id());
+        assertThat(got).hasSize(2).allSatisfy(d -> assertThat(d.eventName()).isEqualTo("item:completed"));
+        assertThat(taskIds(got)).containsExactlyInAnyOrder(t1.toString(), t2.toString());
+
+        // cùng uuid lệnh gửi lại (offline retry): không chạy lại, không thêm sự kiện
+        syncBatch(owner, command, "CLOSE", "", t1, t2).andExpect(status().isOk());
+        assertThat(deliveries(owner.id())).hasSize(2);
+
+        // action không đăng ký (PRIORITY) không xếp hàng gì; DELETE qua sync → item:deleted cho task chọn
+        jdbcTemplate.update("delete from webhook_deliveries");
+        syncBatch(owner, UUID.randomUUID(), "PRIORITY", ", \"priority\": 2", t3).andExpect(status().isOk());
+        assertThat(deliveries(owner.id())).isEmpty();
+        syncBatch(owner, UUID.randomUUID(), "DELETE", "", t3).andExpect(status().isOk());
+        got = deliveries(owner.id());
+        assertThat(got).hasSize(1);
+        assertThat(got.get(0).eventName()).isEqualTo("item:deleted");
+        assertThat(got.get(0).taskId()).isEqualTo(t3.toString());
+    }
+
+    @Test
+    void syncTaskBatch_thatFails_queuesNothing_andOnlyTheActorGetsEvents() throws Exception {
+        subscribe("[\"item:completed\"]");
+        RegisteredUser stranger = registerUser(uniqueEmail());
+        authorizeApp(stranger);
+        UUID p = project(owner, "Riêng");
+        UUID t1 = task(owner, p, "một");
+        jdbcTemplate.update("delete from webhook_deliveries");
+
+        // người lạ: lỗi 404 nằm trong results, không sự kiện cho ai
+        syncBatch(stranger, UUID.randomUUID(), "CLOSE", "", t1).andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("error"));
+        assertThat(deliveries(stranger.id())).isEmpty();
+        assertThat(deliveries(owner.id())).isEmpty();
+
+        // lô có id không tồn tại: cả lô rollback, không sự kiện
+        syncBatch(owner, UUID.randomUUID(), "CLOSE", "", t1, UUID.randomUUID()).andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].status").value("error"));
+        assertThat(deliveries(owner.id())).isEmpty();
+
+        // chủ đóng qua sync: chỉ chủ có hàng đợi
+        syncBatch(owner, UUID.randomUUID(), "CLOSE", "", t1).andExpect(status().isOk());
+        assertThat(taskIds(deliveries(owner.id()))).containsExactly(t1.toString());
+        assertThat(deliveries(stranger.id())).isEmpty();
     }
 }

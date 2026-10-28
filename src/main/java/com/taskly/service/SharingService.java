@@ -10,6 +10,7 @@ import com.taskly.dto.sharing.ProjectMemberResponse;
 import com.taskly.entity.Project;
 import com.taskly.entity.ProjectAccess;
 import com.taskly.entity.User;
+import com.taskly.mapper.UserMapper;
 import com.taskly.repository.ProjectMemberRepository;
 import com.taskly.repository.ProjectRepository;
 import com.taskly.security.AccessPolicy;
@@ -164,6 +165,7 @@ public class SharingService {
     }
 
     private static ProjectMemberResponse toMember(User user, boolean owner) {
-        return new ProjectMemberResponse(user.getId(), user.getEmail(), user.getDisplayName(), owner);
+        return new ProjectMemberResponse(user.getId(), user.getEmail(), user.getDisplayName(), owner,
+                UserMapper.avatarUrl(user.getId(), user.getAvatarUpdatedAt()));
     }
 }

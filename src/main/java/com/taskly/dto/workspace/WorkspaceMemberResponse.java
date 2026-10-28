@@ -11,5 +11,8 @@ public record WorkspaceMemberResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String email,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) WorkspaceRole role,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant joinedAt) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant joinedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Đường dẫn ảnh đại diện (GET, cần Bearer) hoặc null = chưa có ảnh (như UserResponse.avatarUrl)")
+        String avatarUrl) {
 }
