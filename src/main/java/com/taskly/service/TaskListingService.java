@@ -5,6 +5,7 @@ import com.taskly.common.error.ApiException;
 import com.taskly.common.web.CursorCodec;
 import com.taskly.dto.common.Page;
 import com.taskly.dto.task.TaskResponse;
+import com.taskly.entity.DueFilter;
 import com.taskly.entity.TaskViewType;
 import com.taskly.repository.TaskListingRepository;
 import com.taskly.repository.TaskListingRepository.Context;
@@ -25,6 +26,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,6 +77,9 @@ public class TaskListingService {
     public Optional<Page<TaskResponse>> tryList(UUID userId, ListingParams params, String cursor, Integer limit) {
         DisplayQuery display = params.display() == null ? new DisplayQuery(null, null, null, null, null, null)
                 : params.display();
+        if (params.view() == TaskViewType.calendar) {
+            return Optional.of(byCalendar(userId, params, display, cursor, limit));
+        }
         if (params.labelId() == null && params.filter() == null && display.isEmpty()) {
             return Optional.empty();
         }
@@ -150,6 +155,75 @@ public class TaskListingService {
         projectService.requireReadable(userId, projectId);
         DisplayOptions options = options(userId, ViewKind.PROJECT, display);
         return run(userId, new Scope(ViewKind.PROJECT, projectId, null, null, null), options, cursor, pageSize);
+    }
+
+    /** M7: tối đa 42 ngày mỗi lần (lưới tháng 6 tuần): to − from ≤ 41. */
+    static final int CALENDAR_MAX_SPAN_DAYS = 41;
+    /** M7: tầm xem lịch ± 2 năm quanh hôm nay (như tầm xem Upcoming). */
+    static final int CALENDAR_MAX_YEARS = 2;
+
+    /**
+     * M7 GET tasks?view=calendar&from=&to= (spec 12.9): ngoại lệ DUY NHẤT được kèm tối đa một phạm vi projectId /
+     * labelId / filter. from / to bắt buộc; sort / order / group không nhận (thứ tự cố định); filterDue=no_date → 400
+     * (lịch chỉ có task có ngày). Lấy mọi cấp task (sub-task có due cũng hiện).
+     */
+    public Page<TaskResponse> byCalendar(UUID userId, ListingParams params, DisplayQuery display, String cursor,
+                                         Integer limit) {
+        int pageSize = CursorCodec.limit(limit);
+        long scopes = Stream.of(params.projectId(), params.labelId(), params.filter())
+                .filter(selector -> selector != null).count();
+        if (scopes > 1 || params.completed() || params.since() != null || params.until() != null) {
+            throw ApiException.badRequest(ErrorMessage.TASK_LIST_SELECTOR);
+        }
+        if (display.sort() != null || display.order() != null || display.group() != null) {
+            throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
+        }
+        ZoneId zone = userService.timeZoneOf(userId);
+        LocalDate today = LocalDate.now(clock.withZone(zone));
+        LocalDate from = params.from();
+        LocalDate to = params.to();
+        if (from == null || to == null || to.isBefore(from)
+                || ChronoUnit.DAYS.between(from, to) > CALENDAR_MAX_SPAN_DAYS
+                || from.isBefore(today.minusYears(CALENDAR_MAX_YEARS))
+                || to.isAfter(today.plusYears(CALENDAR_MAX_YEARS))) {
+            throw ApiException.badRequest(ErrorMessage.CALENDAR_WINDOW_INVALID);
+        }
+        // Chỉ bộ lọc: kiểm bằng luật của view dự án (nhận đủ 7 filterDue), rồi chặn no_date.
+        DisplayOptions options = options(userId, ViewKind.PROJECT, display);
+        if (options.filterDue() == DueFilter.NO_DATE) {
+            throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
+        }
+        Scope scope;
+        if (params.projectId() != null) {
+            projectService.requireReadable(userId, params.projectId());
+            scope = new Scope(ViewKind.PROJECT, params.projectId(), null, from, to);
+        } else if (params.labelId() != null) {
+            labelService.requireOwned(userId, params.labelId());
+            scope = new Scope(ViewKind.LABEL, params.labelId(), null, from, to);
+        } else if (params.filter() != null) {
+            FilterNode node;
+            try {
+                node = FilterQueryParser.parse(params.filter(), filterService.dateOrder(userId));
+            } catch (FilterSyntaxException ex) {
+                throw ex.toApiException();
+            }
+            scope = new Scope(ViewKind.FILTER, null, node, from, to);
+        } else {
+            scope = new Scope(null, null, null, from, to);
+        }
+        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
+        if (workspaceIds.isEmpty()) {
+            return new Page<>(List.of(), null);
+        }
+        Clock local = clock.withZone(zone);
+        Context context = new Context(userId, workspaceIds, today, LocalDateTime.now(local), zone.getId());
+        String kind = "calendar:" + scope.kind();
+        CursorCodec.Cursor after = CursorCodec.hasCursor(cursor)
+                ? CursorCodec.decode(kind, cursor, TaskListingRepository.CALENDAR_KEYS.size()) : null;
+        List<KeyedId> rows = repository.calendarPage(context, scope, options, after, pageSize + 1);
+        Page<KeyedId> page = Page.fromLookahead(rows, pageSize, row -> CursorCodec.encode(kind, row.keys()));
+        List<UUID> ids = page.items().stream().map(KeyedId::id).toList();
+        return new Page<>(taskViewService.getResponsesInOrder(userId, ids), page.nextCursor());
     }
 
     /** Display của request (hoặc mặc định của view); filterLabelId phải là label của user (404). */

@@ -5,5 +5,7 @@ package com.taskly.entity;
  * upcoming (cửa sổ ngày), overdue, completed (màn Completed toàn cục, xuyên dự án).
  */
 public enum TaskViewType {
-    today, upcoming, overdue, completed
+    today, upcoming, overdue, completed,
+    /** M7: lịch — task đang mở có due_day trong [from, to] (bắt buộc), xem TaskListingService.byCalendar. */
+    calendar
 }

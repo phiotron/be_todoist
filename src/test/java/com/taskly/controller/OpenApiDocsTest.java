@@ -278,7 +278,7 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         .value(containsInAnyOrder("id", "name", "query", "color", "isFavorite", "sortOrder")))
                 .andExpect(jsonPath("$.components.schemas.ViewOptionsResponse.required").value(containsInAnyOrder(
                         "viewKey", "sortBy", "sortDirection", "groupBy", "filterPriority", "filterLabelId",
-                        "filterDue", "showCompleted")))
+                        "filterDue", "showCompleted", "layout", "showFutureOccurrences"))) // M7: + layout, showFutureOccurrences
                 .andExpect(jsonPath("$.components.schemas.ValidateFilterResponse.required").value(containsInAnyOrder("parts")))
                 .andExpect(jsonPath("$.components.schemas.SearchObjectsResponse.required")
                         .value(containsInAnyOrder("projects", "sections", "labels", "filters")))

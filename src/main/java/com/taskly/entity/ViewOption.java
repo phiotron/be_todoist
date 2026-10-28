@@ -44,6 +44,15 @@ public class ViewOption extends BaseEntity {
     @Column(name = "show_completed", nullable = false)
     private boolean showCompleted;
 
+    /** M7: List / Board / Calendar. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "layout", nullable = false, length = 16)
+    private Layout layout = Layout.LIST;
+
+    /** M7: công tắc Future occurrences (chỉ Upcoming; có dữ liệu khi có việc lặp M6c). */
+    @Column(name = "show_future_occurrences", nullable = false)
+    private boolean showFutureOccurrences;
+
     protected ViewOption() {
         // cho JPA
     }
@@ -51,6 +60,24 @@ public class ViewOption extends BaseEntity {
     public ViewOption(UUID userId, String viewKey) {
         this.userId = userId;
         this.viewKey = viewKey;
+    }
+
+    /** M7: null = giữ giá trị đang có (PUT của app cũ không gửi hai field này). */
+    public void applyLayout(Layout layout, Boolean showFutureOccurrences) {
+        if (layout != null) {
+            this.layout = layout;
+        }
+        if (showFutureOccurrences != null) {
+            this.showFutureOccurrences = showFutureOccurrences;
+        }
+    }
+
+    public Layout getLayout() {
+        return layout;
+    }
+
+    public boolean isShowFutureOccurrences() {
+        return showFutureOccurrences;
     }
 
     public void apply(SortBy sortBy, SortDirection sortDirection, GroupBy groupBy, Integer filterPriority,

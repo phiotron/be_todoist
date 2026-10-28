@@ -52,6 +52,10 @@ public class ViewOptionsService {
         if (showCompleted && !DisplayRules.allowsShowCompleted(key.kind())) {
             throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
         }
+        if (Boolean.TRUE.equals(request.showFutureOccurrences())
+                && !DisplayRules.allowsFutureOccurrences(key.kind())) {
+            throw ApiException.badRequest(ErrorMessage.DISPLAY_INVALID);
+        }
         if (request.filterLabelId() != null) {
             labelService.requireOwned(userId, request.filterLabelId());
         }
@@ -59,6 +63,7 @@ public class ViewOptionsService {
                 .orElseGet(() -> new ViewOption(userId, key.format()));
         option.apply(request.sortBy(), request.sortDirection(), request.groupBy(), request.filterPriority(),
                 request.filterLabelId(), request.filterDue(), showCompleted);
+        option.applyLayout(request.layout(), request.showFutureOccurrences());
         viewOptionRepository.save(option);
         return toResponse(option);
     }
@@ -109,6 +114,6 @@ public class ViewOptionsService {
     private static ViewOptionsResponse toResponse(ViewOption option) {
         return new ViewOptionsResponse(option.getViewKey(), option.getSortBy(), option.getSortDirection(),
                 option.getGroupBy(), option.getFilterPriority(), option.getFilterLabelId(), option.getFilterDue(),
-                option.isShowCompleted());
+                option.isShowCompleted(), option.getLayout(), option.isShowFutureOccurrences());
     }
 }

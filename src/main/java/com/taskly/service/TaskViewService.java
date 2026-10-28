@@ -125,6 +125,8 @@ public class TaskViewService {
             case overdue -> new Keyset(OPEN_IN_ACTIVE_PROJECT + " and " + OVERDUE_BLOCK,
                     List.of(DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);
             case completed -> completedKeyset(since, until, request.context().zone(), params);
+            // M7: view=calendar do TaskListingService.byCalendar xử lý trước (tryList); tới đây là gọi sai.
+            case calendar -> throw ApiException.badRequest(ErrorMessage.CALENDAR_WINDOW_INVALID);
         };
         return flatPage(request.context(), keyset, params, view.name(), cursor);
     }

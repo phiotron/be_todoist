@@ -15,7 +15,8 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
 /**
  * Khoá sắp / nhóm và điều kiện lọc của Display (spec 12.7). Alias: t = tasks, p = projects, pp = cha của p,
- * pg = ông của p, s = sections. Tham số có sẵn từ TaskListingRepository: :today (DATE), :now (TIMESTAMP floating).
+ * pg = ông của p, s = sections. Tham số có sẵn từ TaskListingRepository: :today (DATE), :now (TIMESTAMP floating),
+ * :tz (id múi giờ tài khoản, M7).
  * Mọi khoá KHÔNG null; khoá cuối luôn là t.id.
  */
 public final class DisplaySql {
@@ -47,6 +48,8 @@ public final class DisplaySql {
     private static final String FIRST_LABEL_ORDER =
             "COALESCE(" + FIRST_LABEL.formatted("l.sort_order") + ", 9223372036854775807)";
     private static final String FIRST_LABEL_ID = "COALESCE(" + FIRST_LABEL.formatted("l.id") + ", " + ZERO_UUID + ")";
+    /** M7 group=added: ngày tạo theo múi giờ tài khoản (tham số :tz = id IANA do TaskListingRepository đặt). */
+    public static final String ADDED_DAY = "CAST((t.created_at AT TIME ZONE CAST(:tz AS text)) AS date)";
 
     private DisplaySql() {
     }
@@ -75,6 +78,7 @@ public final class DisplaySql {
                     new SortKey("p.id", KeyKind.ID, false));
             case LABEL -> List.of(new SortKey(FIRST_LABEL_ORDER, KeyKind.LONG, false),
                     new SortKey(FIRST_LABEL_ID, KeyKind.ID, false));
+            case ADDED -> List.of(new SortKey(ADDED_DAY, KeyKind.DATE, true)); // M7: ngày mới trước
         };
     }
 

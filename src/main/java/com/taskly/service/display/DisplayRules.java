@@ -31,11 +31,12 @@ public final class DisplayRules {
         SORTS.put(ViewKind.PROJECT, EnumSet.allOf(SortBy.class));
         SORTS.put(ViewKind.LABEL, dated);
         SORTS.put(ViewKind.FILTER, dated);
-        GROUPS.put(ViewKind.TODAY,
-                EnumSet.of(GroupBy.NONE, GroupBy.PRIORITY, GroupBy.PROJECT, GroupBy.LABEL, GroupBy.DEADLINE));
+        // M7: + ADDED (Grouping "Added date" của Todoist) ở mọi view trừ Upcoming (luôn nhóm theo ngày).
+        GROUPS.put(ViewKind.TODAY, EnumSet.of(GroupBy.NONE, GroupBy.PRIORITY, GroupBy.PROJECT, GroupBy.LABEL,
+                GroupBy.DEADLINE, GroupBy.ADDED));
         GROUPS.put(ViewKind.UPCOMING, EnumSet.of(GroupBy.NONE));
-        GROUPS.put(ViewKind.PROJECT,
-                EnumSet.of(GroupBy.NONE, GroupBy.DATE, GroupBy.DEADLINE, GroupBy.PRIORITY, GroupBy.LABEL));
+        GROUPS.put(ViewKind.PROJECT, EnumSet.of(GroupBy.NONE, GroupBy.DATE, GroupBy.DEADLINE, GroupBy.PRIORITY,
+                GroupBy.LABEL, GroupBy.ADDED));
         GROUPS.put(ViewKind.LABEL, EnumSet.allOf(GroupBy.class));
         GROUPS.put(ViewKind.FILTER, EnumSet.allOf(GroupBy.class));
     }
@@ -73,8 +74,14 @@ public final class DisplayRules {
         };
     }
 
+    /** Công tắc Completed tasks: dự án (M2), Today và Upcoming (M7, như Todoist); label / filter không có. */
     public static boolean allowsShowCompleted(ViewKind kind) {
-        return kind == ViewKind.PROJECT;
+        return kind == ViewKind.PROJECT || kind == ViewKind.TODAY || kind == ViewKind.UPCOMING;
+    }
+
+    /** M7: công tắc Future occurrences chỉ có ở Upcoming. */
+    public static boolean allowsFutureOccurrences(ViewKind kind) {
+        return kind == ViewKind.UPCOMING;
     }
 
     /**

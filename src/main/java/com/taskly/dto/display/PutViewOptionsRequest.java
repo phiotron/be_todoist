@@ -3,6 +3,7 @@ package com.taskly.dto.display;
 import com.taskly.common.error.ErrorMessage;
 import com.taskly.entity.DueFilter;
 import com.taskly.entity.GroupBy;
+import com.taskly.entity.Layout;
 import com.taskly.entity.SortBy;
 import com.taskly.entity.SortDirection;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -19,5 +20,8 @@ public record PutViewOptionsRequest(
         @Schema(description = "1–4") Integer filterPriority,
         @Schema(description = "Label của mình") UUID filterLabelId,
         DueFilter filterDue,
-        @Schema(description = "Chỉ view dự án (công tắc Completed tasks)") Boolean showCompleted) {
+        @Schema(description = "Công tắc Completed tasks: dự án, Today, Upcoming (M7)") Boolean showCompleted,
+        @Schema(description = "M7: LIST | BOARD | CALENDAR; vắng = giữ giá trị đang lưu (bản ghi mới = LIST)")
+        Layout layout,
+        @Schema(description = "M7: công tắc Future occurrences, chỉ Upcoming; vắng = giữ") Boolean showFutureOccurrences) {
 }
