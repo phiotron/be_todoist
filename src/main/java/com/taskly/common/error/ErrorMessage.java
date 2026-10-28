@@ -115,7 +115,17 @@ public enum ErrorMessage {
     GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
     GOOGLE_NOT_LINKED("error.google.not-linked"),
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
-    PASSWORD_NOT_SET("error.password.not-set");
+    PASSWORD_NOT_SET("error.password.not-set"),
+    // ---- M9 - đồng bộ (POST sync)
+    SYNC_COMMANDS_SIZE("error.sync-commands-size"),
+    SYNC_COMMAND_UNKNOWN("error.sync-command-unknown"),
+    SYNC_UUID_REQUIRED("error.sync-uuid-required"),
+    SYNC_TEMP_ID_SIZE("error.sync-temp-id-size"),
+    SYNC_ARGS_INVALID("error.sync-args-invalid"),
+    SYNC_ID_REQUIRED("error.sync-id-required"),
+    SYNC_TOKEN_INVALID("error.sync-token-invalid"),
+    SYNC_RESOURCE_TYPE("error.sync-resource-type"),
+    SYNC_CONFLICT("error.sync-conflict");
 
     private final String key;
 

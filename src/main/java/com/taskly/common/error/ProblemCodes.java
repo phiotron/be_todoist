@@ -52,6 +52,13 @@ public final class ProblemCodes {
     // ---- M2 (spec 12.10)
     public static final String FILTER_SYNTAX = "filter-syntax";
     public static final String LABEL_NAME_TAKEN = "label-name-taken";
+    // ---- M9 (POST sync — plan 2026-10-27-m9-chuc-nang.md F2 / F4)
+    /** Lỗi một lệnh: type không có handler (400). */
+    public static final String SYNC_COMMAND_UNKNOWN = "sync-command-unknown";
+    /** syncToken sai dạng (400 cả request). */
+    public static final String SYNC_TOKEN_INVALID = "sync-token-invalid";
+    /** Chỉ khi taskly.sync.conflict-policy = version: task_update gửi version cũ (409, kèm "current"). */
+    public static final String SYNC_CONFLICT = "sync-conflict";
 
     private ProblemCodes() {
     }
