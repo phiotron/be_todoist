@@ -50,7 +50,9 @@ class OpenApiM3DocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.required")
                         .value(containsInAnyOrder("theme", "appearance", "locale", "timeZone", "startDay", "nextWeek",
                                 "weekendStartDay", "dateFormat", "timeFormat", "startPage", "smartDateRecognition",
-                                "swipeLeft", "swipeRight", "navTabs", "remindersEnabled", "autoReminderMinutes")))
+                                "swipeLeft", "swipeRight", "navTabs", "remindersEnabled", "autoReminderMinutes",
+                                // M6b
+                                "quickAddChips", "quickAddShowActionLabels", "quickAddShowDescription")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.theme.enum")
                         .value(containsInAnyOrder("TASKLY", "MOONSTONE", "TANGERINE", "KALE", "BLUEBERRY",
                                 "LAVENDER", "RASPBERRY")))

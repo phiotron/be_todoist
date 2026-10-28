@@ -96,6 +96,16 @@ public class SettingsService {
         if (request.autoReminderMinutes() != null) {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
+        // M6b: Quick Add (null = giữ nguyên).
+        if (request.quickAddChips() != null) {
+            user.changeQuickAddChips(request.quickAddChips());
+        }
+        if (request.quickAddShowActionLabels() != null) {
+            user.changeQuickAddShowActionLabels(request.quickAddShowActionLabels());
+        }
+        if (request.quickAddShowDescription() != null) {
+            user.changeQuickAddShowDescription(request.quickAddShowDescription());
+        }
         return SettingsMapper.toResponse(user);
     }
 

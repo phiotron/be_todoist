@@ -1,6 +1,7 @@
 package com.taskly.entity;
 
 import com.taskly.common.persistence.BaseEntity;
+import com.taskly.common.validation.QuickAddChipRules;
 import com.taskly.common.validation.SettingsTargets;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -44,6 +45,11 @@ public class User extends BaseEntity {
     public static final boolean DEFAULT_REMINDERS_ENABLED = true;
     /** spec 5.8: mặc định 30 phút; null = tắt auto reminder. */
     public static final Integer DEFAULT_AUTO_REMINDER_MINUTES = 30;
+
+    /** M6b: chip Quick Add mặc định + hai công tắc "Show action labels" / "Show description" (mặc định bật). */
+    public static final List<String> DEFAULT_QUICK_ADD_CHIPS = QuickAddChipRules.DEFAULT;
+    public static final boolean DEFAULT_QUICK_ADD_SHOW_ACTION_LABELS = true;
+    public static final boolean DEFAULT_QUICK_ADD_SHOW_DESCRIPTION = true;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -114,6 +120,16 @@ public class User extends BaseEntity {
 
     @Column(name = "auto_reminder_minutes")
     private Integer autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+
+    /** M6b: chip Quick Add nối bằng dấu phẩy như nav_tabs (khoá chip không chứa dấu phẩy). */
+    @Column(name = "quick_add_chips", nullable = false, columnDefinition = "text")
+    private String quickAddChips = String.join(NAV_TABS_SEPARATOR, DEFAULT_QUICK_ADD_CHIPS);
+
+    @Column(name = "quick_add_show_action_labels", nullable = false)
+    private boolean quickAddShowActionLabels = DEFAULT_QUICK_ADD_SHOW_ACTION_LABELS;
+
+    @Column(name = "quick_add_show_description", nullable = false)
+    private boolean quickAddShowDescription = DEFAULT_QUICK_ADD_SHOW_DESCRIPTION;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -315,6 +331,40 @@ public class User extends BaseEntity {
         this.locale = DEFAULT_LOCALE;
         applyDefaultSettings();
         resetReminderSettings();
+        resetQuickAddSettings();
+    }
+
+    /** M6b: thứ tự chip Quick Add (không sửa được). */
+    public List<String> getQuickAddChips() {
+        return List.of(quickAddChips.split(NAV_TABS_SEPARATOR));
+    }
+
+    public boolean isQuickAddShowActionLabels() {
+        return quickAddShowActionLabels;
+    }
+
+    public boolean isQuickAddShowDescription() {
+        return quickAddShowDescription;
+    }
+
+    /** chips đã qua @QuickAddChips. Cùng danh sách → cùng chuỗi → không UPDATE. */
+    public void changeQuickAddChips(List<String> chips) {
+        this.quickAddChips = String.join(NAV_TABS_SEPARATOR, chips);
+    }
+
+    public void changeQuickAddShowActionLabels(boolean show) {
+        this.quickAddShowActionLabels = show;
+    }
+
+    public void changeQuickAddShowDescription(boolean show) {
+        this.quickAddShowDescription = show;
+    }
+
+    /** M6b: về mặc định (spec 12.1 reset). resetSettings() gọi hàm này. */
+    public void resetQuickAddSettings() {
+        this.quickAddChips = String.join(NAV_TABS_SEPARATOR, DEFAULT_QUICK_ADD_CHIPS);
+        this.quickAddShowActionLabels = DEFAULT_QUICK_ADD_SHOW_ACTION_LABELS;
+        this.quickAddShowDescription = DEFAULT_QUICK_ADD_SHOW_DESCRIPTION;
     }
 
     public boolean isRemindersEnabled() {

@@ -3,6 +3,7 @@ package com.taskly.dto.settings;
 import com.taskly.common.validation.AutoReminderMinutes;
 import com.taskly.common.validation.IanaTimeZone;
 import com.taskly.common.validation.NavTabs;
+import com.taskly.common.validation.QuickAddChips;
 import com.taskly.common.validation.StartPage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -84,5 +85,16 @@ public record UpdateSettingsRequest(
         @Schema(nullable = true, minimum = "0", maximum = "1440",
                 description = "Vắng = giữ nguyên; null = TẮT auto reminder. Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, "
                         + "180, 1440")
-        Optional<@AutoReminderMinutes Integer> autoReminderMinutes) {
+        Optional<@AutoReminderMinutes Integer> autoReminderMinutes,
+
+        @Schema(description = "M6b: chip Quick Add theo thứ tự hiển thị, vắng = ẩn; PROJECT luôn có, không trùng. "
+                + "Chip: PROJECT, DATE, ASSIGNEE, ATTACHMENT, PRIORITY, REMINDERS, LABELS, DEADLINE, LOCATION")
+        @QuickAddChips
+        List<String> quickAddChips,
+
+        @Schema(description = "M6b: Quick Add hiện chữ cạnh biểu tượng chip (\"Show action labels\")")
+        Boolean quickAddShowActionLabels,
+
+        @Schema(description = "M6b: Quick Add hiện ô mô tả (\"Show description\")")
+        Boolean quickAddShowDescription) {
 }

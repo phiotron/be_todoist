@@ -45,5 +45,13 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, minimum = "0", maximum = "1440",
                 description = "Auto reminder: số phút trước giờ của task có giờ; null = tắt. "
                         + "Giá trị: 0, 5, 10, 15, 30, 45, 60, 120, 180, 1440")
-        Integer autoReminderMinutes) {
+        Integer autoReminderMinutes,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "M6b: chip Quick Add theo thứ tự hiển thị (vắng = ẩn, PROJECT luôn có): PROJECT, DATE, "
+                        + "ASSIGNEE, ATTACHMENT, PRIORITY, REMINDERS, LABELS, DEADLINE, LOCATION")
+        List<String> quickAddChips,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show action labels\"")
+        boolean quickAddShowActionLabels,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show description\"")
+        boolean quickAddShowDescription) {
 }
