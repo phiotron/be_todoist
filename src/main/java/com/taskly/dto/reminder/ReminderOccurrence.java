@@ -20,5 +20,8 @@ public record ReminderOccurrence(
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime fireAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Tên task — nội dung thông báo")
-        String content) {
+        String content,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "M12: urgent reminder — báo thức toàn màn hình trên thiết bị urgentDeviceId; false với AUTO")
+        boolean urgent) {
 }

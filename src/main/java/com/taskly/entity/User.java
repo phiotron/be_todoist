@@ -62,6 +62,9 @@ public class User extends BaseEntity {
     public static final int DEFAULT_DAILY_GOAL = 5;
     public static final int DEFAULT_WEEKLY_GOAL = 30;
     public static final String DEFAULT_DAYS_OFF = "6,7";
+    /** M12: giữ 15 như M4 (Todoist 30 — chờ người dùng duyệt, contract mục 6 câu 6). */
+    public static final int DEFAULT_SNOOZE_MINUTES = 15;
+    public static final boolean DEFAULT_PIN_REMINDERS = false;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -177,6 +180,16 @@ public class User extends BaseEntity {
 
     @Column(name = "karma_enabled", nullable = false)
     private boolean karmaEnabled = true;
+    // ---- M12 (V16): snooze, pin, thiết bị nhận urgent reminder
+    @Column(name = "snooze_minutes", nullable = false)
+    private int snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
+
+    @Column(name = "pin_reminders", nullable = false)
+    private boolean pinReminders = DEFAULT_PIN_REMINDERS;
+
+    /** null = chưa chọn thiết bị nhận urgent reminder. */
+    @Column(name = "urgent_device_id", length = 64)
+    private String urgentDeviceId;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -457,6 +470,37 @@ public class User extends BaseEntity {
     public void resetReminderSettings() {
         this.remindersEnabled = DEFAULT_REMINDERS_ENABLED;
         this.autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+        // M12
+        this.snoozeMinutes = DEFAULT_SNOOZE_MINUTES;
+        this.pinReminders = DEFAULT_PIN_REMINDERS;
+        this.urgentDeviceId = null;
+    }
+
+    public int getSnoozeMinutes() {
+        return snoozeMinutes;
+    }
+
+    public boolean isPinReminders() {
+        return pinReminders;
+    }
+
+    /** null = chưa chọn thiết bị nhận urgent reminder. */
+    public String getUrgentDeviceId() {
+        return urgentDeviceId;
+    }
+
+    /** minutes đã được @SnoozeMinutes kiểm ở DTO (CHECK ck_users_snooze_minutes chặn lần cuối). */
+    public void changeSnoozeMinutes(int minutes) {
+        this.snoozeMinutes = minutes;
+    }
+
+    public void changePinReminders(boolean pinReminders) {
+        this.pinReminders = pinReminders;
+    }
+
+    /** deviceId đã qua @Pattern ở DTO; null = bỏ chọn. */
+    public void changeUrgentDeviceId(String deviceId) {
+        this.urgentDeviceId = deviceId;
     }
 
     public AddButtonPlacement getAddButtonPlacement() {

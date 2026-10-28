@@ -41,6 +41,9 @@ public final class SettingsMapper {
                 user.getDaysOff(),
                 user.isVacationMode(),
                 user.isGoalCelebrations(),
-                user.isKarmaEnabled());
+                user.isKarmaEnabled(),
+                user.getSnoozeMinutes(),
+                user.isPinReminders(),
+                user.getUrgentDeviceId());
     }
 }

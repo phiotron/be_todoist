@@ -35,24 +35,66 @@ public class Reminder extends BaseEntity {
     @Column(name = "minute_offset", updatable = false)
     private Integer minuteOffset;
 
+    /** LOCATION (M12): địa điểm đã lưu; xoá địa điểm → DB xoá nhắc (FK cascade). */
+    @Column(name = "location_id", updatable = false)
+    private UUID locationId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "location_trigger", length = 10, updatable = false)
+    private LocationTrigger locationTrigger;
+
+    /** M12: urgent reminder (báo thức toàn màn hình trên thiết bị đã chọn) — chỉ nhắc theo giờ. */
+    @Column(name = "urgent", nullable = false, updatable = false)
+    private boolean urgent;
+
     protected Reminder() {
         // cho JPA
     }
 
-    private Reminder(UUID taskId, UUID userId, ReminderType type, LocalDateTime at, Integer minuteOffset) {
+    private Reminder(UUID taskId, UUID userId, ReminderType type, LocalDateTime at, Integer minuteOffset,
+                     boolean urgent) {
         this.taskId = taskId;
         this.userId = userId;
         this.type = type;
         this.at = at;
         this.minuteOffset = minuteOffset;
+        this.urgent = urgent;
     }
 
     public static Reminder absolute(UUID taskId, UUID userId, LocalDateTime at) {
-        return new Reminder(taskId, userId, ReminderType.ABSOLUTE, at, null);
+        return absolute(taskId, userId, at, false);
+    }
+
+    public static Reminder absolute(UUID taskId, UUID userId, LocalDateTime at, boolean urgent) {
+        return new Reminder(taskId, userId, ReminderType.ABSOLUTE, at, null, urgent);
     }
 
     public static Reminder relative(UUID taskId, UUID userId, int minuteOffset) {
-        return new Reminder(taskId, userId, ReminderType.RELATIVE, null, minuteOffset);
+        return relative(taskId, userId, minuteOffset, false);
+    }
+
+    public static Reminder relative(UUID taskId, UUID userId, int minuteOffset, boolean urgent) {
+        return new Reminder(taskId, userId, ReminderType.RELATIVE, null, minuteOffset, urgent);
+    }
+
+    /** M12: nhắc theo vị trí, không bao giờ urgent (CHECK ck_reminders_urgent). */
+    public static Reminder location(UUID taskId, UUID userId, UUID locationId, LocationTrigger trigger) {
+        Reminder reminder = new Reminder(taskId, userId, ReminderType.LOCATION, null, null, false);
+        reminder.locationId = locationId;
+        reminder.locationTrigger = trigger;
+        return reminder;
+    }
+
+    public UUID getLocationId() {
+        return locationId;
+    }
+
+    public LocationTrigger getLocationTrigger() {
+        return locationTrigger;
+    }
+
+    public boolean isUrgent() {
+        return urgent;
     }
 
     public UUID getTaskId() {

@@ -198,7 +198,11 @@ public enum ErrorMessage {
     AVATAR_NOT_FOUND("error.avatar-not-found"),
     AVATAR_TOO_LARGE("error.avatar-too-large"),
     AVATAR_TYPE("error.avatar-type"),
-    FILE_REQUIRED("error.file-required");
+    FILE_REQUIRED("error.file-required"),
+    // ---- M12 - địa điểm, nhắc theo vị trí, urgent reminder
+    LOCATION_NOT_FOUND("error.location-not-found"),
+    REMINDER_LOCATION_FIELDS("error.reminder-location-fields"),
+    REMINDER_URGENT_LOCATION("error.reminder-urgent-location");
 
     private final String key;
 

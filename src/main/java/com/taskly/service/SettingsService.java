@@ -116,6 +116,16 @@ public class SettingsService {
             user.changeResetSubtasks(request.resetSubtasks());
         }
         productivitySettings.apply(user, request); // M10: Settings → Productivity
+        // M12: snoozeMinutes / pinReminders null = giữ; urgentDeviceId vắng = giữ, null = bỏ chọn thiết bị.
+        if (request.snoozeMinutes() != null) {
+            user.changeSnoozeMinutes(request.snoozeMinutes());
+        }
+        if (request.pinReminders() != null) {
+            user.changePinReminders(request.pinReminders());
+        }
+        if (request.urgentDeviceId() != null) {
+            user.changeUrgentDeviceId(request.urgentDeviceId().orElse(null));
+        }
         return SettingsMapper.toResponse(user);
     }
 

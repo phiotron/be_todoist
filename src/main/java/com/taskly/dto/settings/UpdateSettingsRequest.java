@@ -6,6 +6,7 @@ import com.taskly.common.validation.IanaTimeZone;
 import com.taskly.common.validation.NavMenuItems;
 import com.taskly.common.validation.NavTabs;
 import com.taskly.common.validation.QuickAddChips;
+import com.taskly.common.validation.SnoozeMinutes;
 import com.taskly.common.validation.StartPage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
@@ -136,5 +137,17 @@ public record UpdateSettingsRequest(
         Boolean goalCelebrations,
 
         @Schema(description = "Hiện Karma")
-        Boolean karmaEnabled) {
+        Boolean karmaEnabled,
+        // ---- M12 (contract mục 2)
+        @Schema(nullable = true, description = "Số phút Hoãn: 5, 10, 15, 30, 45, 60, 120, 180; vắng / null = giữ nguyên")
+        @SnoozeMinutes
+        Integer snoozeMinutes,
+
+        @Schema(description = "Ghim thông báo nhắc (không vuốt bỏ được); vắng / null = giữ nguyên")
+        Boolean pinReminders,
+
+        @Schema(nullable = true, maxLength = 64,
+                description = "Id cài đặt của thiết bị nhận urgent reminder; vắng = giữ nguyên, null = bỏ chọn")
+        Optional<@Pattern(regexp = "[A-Za-z0-9-]{8,64}", message = "{validation.urgent-device-id.invalid}")
+                String> urgentDeviceId) {
 }

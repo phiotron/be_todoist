@@ -79,5 +79,15 @@ public record SettingsResponse(
         List<Integer> daysOff,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean vacationMode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean goalCelebrations,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean karmaEnabled) {
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean karmaEnabled,
+        // ---- M12 (contract mục 2)
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, minimum = "5", maximum = "180",
+                description = "Số phút của nút Hoãn trên thông báo nhắc: 5, 10, 15, 30, 45, 60, 120, 180 (mặc định 15)")
+        int snoozeMinutes,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Ghim thông báo nhắc: không vuốt bỏ được tới khi người dùng bấm")
+        boolean pinReminders,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Id cài đặt của thiết bị nhận urgent reminder; null = chưa chọn")
+        String urgentDeviceId) {
 }

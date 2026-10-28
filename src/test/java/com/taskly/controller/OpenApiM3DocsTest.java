@@ -58,7 +58,9 @@ class OpenApiM3DocsTest extends IntegrationTestBase {
                                 "resetSubtasks", // M6c
                                 // M10
                                 "dailyGoal", "weeklyGoal", "daysOff", "vacationMode", "goalCelebrations",
-                                "karmaEnabled")))
+                                "karmaEnabled",
+                                // M12
+                                "snoozeMinutes", "pinReminders", "urgentDeviceId")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.addButtonPlacement.enum")
                         .value(containsInAnyOrder("LEFT", "CENTER", "RIGHT")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.theme.enum")

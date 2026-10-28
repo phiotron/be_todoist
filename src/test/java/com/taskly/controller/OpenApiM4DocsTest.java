@@ -34,9 +34,11 @@ class OpenApiM4DocsTest extends IntegrationTestBase {
     void reminderResponseSchemasMarkEveryFieldRequired() throws Exception {
         docs()
                 .andExpect(jsonPath("$.components.schemas.ReminderResponse.required").value(containsInAnyOrder(
-                        "id", "taskId", "type", "at", "minuteOffset", "createdAt")))
+                        "id", "taskId", "type", "at", "minuteOffset", "createdAt",
+                        // M12: nhắc theo vị trí + cờ khẩn cấp
+                        "locationId", "locationTrigger", "urgent")))
                 .andExpect(jsonPath("$.components.schemas.ReminderOccurrence.required").value(containsInAnyOrder(
-                        "key", "taskId", "reminderId", "kind", "fireAt", "content")))
+                        "key", "taskId", "reminderId", "kind", "fireAt", "content", "urgent")))
                 .andExpect(jsonPath("$.components.schemas.CreateReminderRequest.required")
                         .value(containsInAnyOrder("type")));
     }
@@ -45,7 +47,7 @@ class OpenApiM4DocsTest extends IntegrationTestBase {
     void reminderEnumsAreDocumented() throws Exception {
         docs()
                 .andExpect(jsonPath("$.components.schemas.CreateReminderRequest.properties.type.enum")
-                        .value(containsInAnyOrder("ABSOLUTE", "RELATIVE")))
+                        .value(containsInAnyOrder("ABSOLUTE", "RELATIVE", "LOCATION"))) // LOCATION: M12
                 .andExpect(jsonPath("$.components.schemas.ReminderOccurrence.properties.kind.enum")
                         .value(containsInAnyOrder("AUTO", "ABSOLUTE", "RELATIVE")));
     }
