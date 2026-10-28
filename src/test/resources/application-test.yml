@@ -17,3 +17,6 @@ taskly:
   totp:
     # base64 của chuỗi ASCII "test-only-totp-key-not-for-prod!" (32 byte) — khoá GIẢ chỉ cho test.
     encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LW5vdC1mb3ItcHJvZCE=
+  webhooks:
+    # Test dùng server giả ở localhost qua http.
+    allow-insecure: true

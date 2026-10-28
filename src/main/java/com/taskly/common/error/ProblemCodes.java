@@ -53,6 +53,15 @@ public final class ProblemCodes {
     public static final String FILTER_SYNTAX = "filter-syntax";
     public static final String LABEL_NAME_TAKEN = "label-name-taken";
 
+    // ---- M13c (OAuth cho ứng dụng bên thứ ba)
+    /** 403: token OAuth thiếu scope cho request, hoặc endpoint không mở cho token OAuth. */
+    public static final String INSUFFICIENT_SCOPE = "insufficient-scope";
+    public static final String OAUTH_INVALID_REQUEST = "oauth-invalid-request";
+    public static final String OAUTH_INVALID_GRANT = "oauth-invalid-grant";
+    public static final String OAUTH_INVALID_CLIENT = "oauth-invalid-client";
+    public static final String OAUTH_INVALID_SCOPE = "oauth-invalid-scope";
+    public static final String OAUTH_UNSUPPORTED_GRANT_TYPE = "oauth-unsupported-grant-type";
+
     private ProblemCodes() {
     }
 }

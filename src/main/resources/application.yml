@@ -69,6 +69,14 @@ taskly:
     # Thiếu / sai → server không khởi động. Mất khoá → người đã bật 2FA chỉ đăng nhập được bằng mã khôi phục.
     encryption-key: ${TOTP_ENCRYPTION_KEY:}
     issuer: Taskly
+  # M13c: webhook cho app bên thứ ba. allow-insecure chỉ bật khi dev (cho http + địa chỉ nội bộ); mặc định chặn (SSRF).
+  webhooks:
+    allow-insecure: ${WEBHOOKS_ALLOW_INSECURE:false}
+  # M13c: push từ server. provider = fake (mặc định, không gọi mạng) | fcm (cần FCM_PROJECT_ID + file service account).
+  push:
+    provider: ${PUSH_PROVIDER:fake}
+    project-id: ${FCM_PROJECT_ID:}
+    service-account-file: ${FCM_SERVICE_ACCOUNT_FILE:}
   # Giới hạn theo gói Pro của Todoist (spec 2.1) — đọc DUY NHẤT ở UsageLimits. Vượt → 422 code limit-reached.
   limits:
     active-projects: 300
