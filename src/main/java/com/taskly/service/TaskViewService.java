@@ -50,6 +50,20 @@ public class TaskViewService {
     private static final Key PROJECT_ORDER = new Key("p.sort_order", KeyType.LONG);
     private static final Key TASK_ORDER = new Key("t.sort_order", KeyType.LONG);
     private static final Key COMPLETED_AT = new Key("t.completed_at", KeyType.TIMESTAMP);
+    /**
+     * view=inbox_team: task gốc chưa có ngày (không Inbox) của dự án NHÓM = dự án workspace Team, hoặc dự án cá nhân có
+     * hàng project_members của người khác chủ (đã chia sẻ). Phạm vi đọc (listScope) đã lọc dự án đã tham gia.
+     */
+    private static final String INBOX_TEAM = """
+            t.parent_id is null and t.due_date is null and t.due_datetime is null and not p.is_inbox
+            and exists (select 1 from workspaces w where w.id = t.workspace_id
+                        and (w.type = 'TEAM' or exists (select 1 from project_members pm
+                                                         where pm.project_id = t.project_id
+                                                           and pm.user_id is distinct from w.owner_id)))""";
+    /** Dự án workspace Team trước (0), dự án cá nhân được chia sẻ sau (1). */
+    private static final Key TEAM_FIRST = new Key(
+            "(select case when w.type = 'TEAM' then 0 else 1 end from workspaces w where w.id = t.workspace_id)",
+            KeyType.INT);
 
     private final TaskViewRepository repository;
     private final ProjectService projectService;
@@ -128,6 +142,10 @@ public class TaskViewService {
             case completed -> completedKeyset(since, until, request.context().zone(), params);
             // M7: view=calendar do TaskListingService.byCalendar xử lý trước (tryList); tới đây là gọi sai.
             case calendar -> throw ApiException.badRequest(ErrorMessage.CALENDAR_WINDOW_INVALID);
+            // Hộp thư đến › Việc nhóm: gom theo workspace (Team trước) → dự án → thứ tự thủ công.
+            case inbox_team -> new Keyset(OPEN_IN_ACTIVE_PROJECT + " and " + INBOX_TEAM,
+                    List.of(TEAM_FIRST, new Key("t.workspace_id", KeyType.ID), PROJECT_ORDER,
+                            new Key("t.project_id", KeyType.ID), TASK_ORDER), false);
         };
         return flatPage(request.context(), keyset, params, view.name(), cursor);
     }
