@@ -76,8 +76,20 @@ class DisplaySqlTest {
         List<SortKey> keys = DisplaySql.keys(ViewKind.TODAY, options(SortBy.DATE, SortDirection.ASC, GroupBy.NONE));
 
         assertThat(keys.get(0).expression()).isEqualTo("CASE WHEN t.due_day < :today THEN 0 ELSE 1 END");
-        assertThat(keys).extracting(SortKey::kind).containsExactly(KeyKind.INT, KeyKind.INT, KeyKind.LOCAL_DATETIME,
-                KeyKind.INT, KeyKind.LONG_ARRAY, KeyKind.LONG, KeyKind.ID);
+        // DND (V21): ngày + day order (thứ tự trong ngày) chen giữa cờ null và khoá ngày-giờ
+        assertThat(keys).extracting(SortKey::kind).containsExactly(KeyKind.INT, KeyKind.INT, KeyKind.DATE,
+                KeyKind.LONG, KeyKind.LOCAL_DATETIME, KeyKind.INT, KeyKind.LONG_ARRAY, KeyKind.LONG, KeyKind.ID);
+        assertThat(keys.get(3).expression()).isEqualTo(DisplaySql.DAY_ORDER_KEY);
+    }
+
+    @Test
+    void dayOrderKeyOnlyForTodayAndUpcomingWithDateSort() {
+        assertThat(DisplaySql.keys(ViewKind.UPCOMING, options(SortBy.DATE, SortDirection.ASC, GroupBy.NONE)))
+                .extracting(SortKey::expression).contains(DisplaySql.DAY_ORDER_KEY);
+        assertThat(DisplaySql.keys(ViewKind.TODAY, options(SortBy.PRIORITY, SortDirection.ASC, GroupBy.NONE)))
+                .extracting(SortKey::expression).doesNotContain(DisplaySql.DAY_ORDER_KEY);
+        assertThat(DisplaySql.keys(ViewKind.LABEL, options(SortBy.DATE, SortDirection.ASC, GroupBy.NONE)))
+                .extracting(SortKey::expression).doesNotContain(DisplaySql.DAY_ORDER_KEY);
     }
 
     /** Spec 3.1: khối Quá hạn luôn đứng đầu Today — order=desc chỉ đảo khoá ngày-giờ bên trong từng khối. */
@@ -88,8 +100,11 @@ class DisplaySqlTest {
         assertThat(keys.get(0).expression()).isEqualTo("CASE WHEN t.due_day < :today THEN 0 ELSE 1 END");
         assertThat(keys.get(0).descending()).isFalse();   // cờ khối Quá hạn: KHÔNG đảo theo order
         assertThat(keys.get(1).descending()).isFalse();   // cờ null
-        assertThat(keys.get(2).kind()).isEqualTo(KeyKind.LOCAL_DATETIME);
-        assertThat(keys.get(2).descending()).isTrue();    // khoá ngày-giờ theo order
+        assertThat(keys.get(2).kind()).isEqualTo(KeyKind.DATE);
+        assertThat(keys.get(2).descending()).isTrue();    // khoá ngày theo order
+        assertThat(keys.get(3).descending()).isFalse();   // day order (DND) luôn tăng
+        assertThat(keys.get(4).kind()).isEqualTo(KeyKind.LOCAL_DATETIME);
+        assertThat(keys.get(4).descending()).isTrue();    // khoá ngày-giờ theo order
     }
 
     @Test

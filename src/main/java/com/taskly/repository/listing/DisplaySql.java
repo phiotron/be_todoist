@@ -39,6 +39,9 @@ public final class DisplaySql {
     public static final String OVERDUE_BLOCK = "t.due_day < :today";
     /** Khoá ngày-giờ floating = cột sinh {@code tasks.due_sort} của V2 (cùng khoá với view M1); không due → cuối. */
     private static final String DUE_KEY = "COALESCE(t.due_sort, TIMESTAMP '9999-12-31 00:00:00')";
+    /** DND (V21): day_order chỉ tính khi còn đúng ngày đã xếp (day_order_day = due_day); không thì cuối ngày. */
+    public static final String DAY_ORDER_KEY =
+            "COALESCE(CASE WHEN t.day_order_day = t.due_day THEN t.day_order END, 9223372036854775807)";
     /** Đường dẫn sort_order từ dự án gốc tới dự án của task (≤ 3 cấp): cha đứng trước con. */
     private static final String PROJECT_PATH = "CASE WHEN pg.id IS NOT NULL THEN ARRAY[pg.sort_order, pp.sort_order,"
             + " p.sort_order] WHEN pp.id IS NOT NULL THEN ARRAY[pp.sort_order, p.sort_order]"
@@ -104,6 +107,11 @@ public final class DisplaySql {
                     DisplayRules.OVERDUE_BLOCK_DESCENDING));
         }
         keys.add(new SortKey("CASE WHEN t.due_day IS NULL THEN 1 ELSE 0 END", KeyKind.INT, false));
+        if (kind == ViewKind.TODAY || kind == ViewKind.UPCOMING) {
+            // DND: thứ tự trong ngày (V21) đứng sau NGÀY, trước GIỜ; chưa xếp (NULL) → cuối ngày, theo khoá cũ
+            keys.add(new SortKey("COALESCE(t.due_day, " + FAR_DATE + ")", KeyKind.DATE, desc));
+            keys.add(new SortKey(DAY_ORDER_KEY, KeyKind.LONG, false));
+        }
         keys.add(new SortKey(DUE_KEY, KeyKind.LOCAL_DATETIME, desc));
         if (kind == ViewKind.TODAY || kind == ViewKind.UPCOMING) { // khớp thứ tự mặc định của M1
             keys.add(new SortKey("t.priority", KeyKind.INT, false));
