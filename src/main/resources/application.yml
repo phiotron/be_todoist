@@ -76,6 +76,10 @@ app:
       per-address:
         max-requests: 50
         window-seconds: 3600
+    # OAuth cho app bên thứ ba (M13c): POST oauth/token + oauth/revoke dùng chung một bộ đếm theo IP; vượt → 429 + Retry-After.
+    oauth:
+      max-requests: 30
+      window-seconds: 60
 
 taskly:
   google:

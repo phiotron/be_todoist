@@ -1,5 +1,6 @@
 package com.taskly.controller;
 
+import com.taskly.common.web.WebhookEventHook;
 import com.taskly.config.OpenApiConfig;
 import com.taskly.dto.task.AffectedTasksResponse;
 import com.taskly.dto.task.BatchTasksRequest;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,7 +36,9 @@ public class TaskBatchController {
     @PostMapping("/api/v1/tasks/batch")
     @Parameter(in = ParameterIn.HEADER, name = "Idempotency-Key", description = "Chống gửi trùng (UUID v4); MOVE / DELETE không idempotent nếu thiếu",
             schema = @Schema(type = "string", maxLength = 64))
-    public AffectedTasksResponse batch(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody BatchTasksRequest request) {
+    public AffectedTasksResponse batch(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody BatchTasksRequest request,
+                                       HttpServletRequest httpRequest) {
+        WebhookEventHook.markBatch(httpRequest, request.action(), request.taskIds()); // M13c: sự kiện webhook cho từng task
         return taskBatchService.execute(CurrentUser.id(jwt), request);
     }
 
