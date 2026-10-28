@@ -89,6 +89,9 @@ public final class ProblemCodes {
     public static final String LAST_ADMIN = "last-admin";
     /** 409: người cuối cùng rời dự án Restricted (dự án sẽ mồ côi). */
     public static final String LAST_PROJECT_MEMBER = "last-project-member";
+    // ---- PERM (quy tắc người dùng chốt 28/10, khác Todoist)
+    /** 403: Thành viên / Khách của dự án NHÓM chỉ được xem + đánh dấu hoàn thành / mở lại; mọi ghi khác chỉ Admin. */
+    public static final String TEAM_ADMIN_ONLY = "team-admin-only";
 
     private ProblemCodes() {
     }

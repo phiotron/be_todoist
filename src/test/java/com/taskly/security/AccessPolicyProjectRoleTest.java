@@ -41,15 +41,42 @@ class AccessPolicyProjectRoleTest {
         assertThat(outsider.canManage()).isFalse();
     }
 
+    /**
+     * PERM (quy tắc người dùng chốt 28/10, KHÁC Todoist): trong dự án NHÓM chỉ Admin sửa / quản lý; Member và Guest đã
+     * tham gia chỉ xem + đánh dấu hoàn thành / mở lại (kể cả Member là người tạo dự án).
+     */
     @Test
-    void teamProject_joinedMembersEdit_managersAreAdminOrCreator() {
-        assertThat(team(WorkspaceRole.ADMIN, true, ProjectAccess.TEAM, false).canManage()).isTrue();
-        assertThat(team(WorkspaceRole.MEMBER, true, ProjectAccess.TEAM, true).canManage()).isTrue();
-        assertThat(team(WorkspaceRole.MEMBER, true, ProjectAccess.TEAM, false).canManage()).isFalse();
-        assertThat(team(WorkspaceRole.MEMBER, true, ProjectAccess.TEAM, false).canWrite()).isTrue();
+    void teamProject_onlyAdminEditsAndManages_memberAndGuestOnlyComplete() {
+        ProjectAccessInfo admin = team(WorkspaceRole.ADMIN, true, ProjectAccess.TEAM, false);
+        assertThat(admin.canEdit()).isTrue();
+        assertThat(admin.canComplete()).isTrue();
+        assertThat(admin.canManage()).isTrue();
+
+        for (boolean creator : new boolean[] {false, true}) {
+            ProjectAccessInfo member = team(WorkspaceRole.MEMBER, true, ProjectAccess.TEAM, creator);
+            assertThat(member.canComplete()).isTrue();
+            assertThat(member.canEdit()).isFalse();
+            assertThat(member.canManage()).isFalse();
+        }
         ProjectAccessInfo guest = team(WorkspaceRole.GUEST, true, ProjectAccess.RESTRICTED, true);
-        assertThat(guest.canWrite()).isTrue();
-        assertThat(guest.canManage()).isFalse(); // Guest không quản lý dù là "người tạo"
+        assertThat(guest.canComplete()).isTrue();
+        assertThat(guest.canEdit()).isFalse();
+        assertThat(guest.canManage()).isFalse();
+    }
+
+    @Test
+    void personalProject_ownerAndCollaboratorEditAndComplete() {
+        assertThat(personal(true, false).canEdit()).isTrue();
+        assertThat(personal(false, true).canEdit()).isTrue();
+        assertThat(personal(false, true).canComplete()).isTrue();
+        assertThat(personal(false, false).canComplete()).isFalse();
+    }
+
+    @Test
+    void teamPreview_cannotCompleteNorEdit() {
+        ProjectAccessInfo adminPreview = team(WorkspaceRole.ADMIN, false, ProjectAccess.TEAM, false);
+        assertThat(adminPreview.canComplete()).isFalse();
+        assertThat(adminPreview.canEdit()).isFalse();
     }
 
     @Test

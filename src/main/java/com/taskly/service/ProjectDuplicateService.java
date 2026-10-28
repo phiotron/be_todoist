@@ -65,8 +65,8 @@ public class ProjectDuplicateService {
         if (source.isInbox()) {
             throw ApiException.forbidden(ErrorMessage.INBOX_PROTECTED);
         }
-        if (source.getWorkspace().isTeam()) { // M8a: bản sao nằm trong workspace nhóm → phải là Admin / Member (Guest 403)
-            accessPolicy.requireWorkspaceMember(userId, source.getWorkspace().getId());
+        if (source.getWorkspace().isTeam()) { // PERM: bản sao nằm trong workspace nhóm → chỉ Admin (Member / Guest 403)
+            accessPolicy.requireTeamEditor(userId, source.getWorkspace().getId());
         } else {
             accessPolicy.checkWrite(userId, source.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
         }

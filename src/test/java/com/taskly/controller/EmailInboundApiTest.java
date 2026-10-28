@@ -121,6 +121,36 @@ class EmailInboundApiTest extends IntegrationTestBase {
                 task.get("id"))).containsExactly(label);
     }
 
+    /** PERM: Thành viên (không phải Admin) của dự án NHÓM — thư tới địa chỉ dự án / task bị từ chối, không ghi gì. */
+    @Test
+    void mailFromTeamMember_toTeamProjectOrTaskAddress_isRejected() throws Exception {
+        RegisteredUser admin = registerUser(uniqueEmail());
+        RegisteredUser member = registerUser(uniqueEmail());
+        UUID team = readUuid(authPost(admin.accessToken(), "/api/v1/workspaces", "{\"name\": \"Nhóm\"}")
+                .andExpect(status().isCreated()), "$.id");
+        UUID invitation = readUuid(authPost(admin.accessToken(), "/api/v1/workspaces/" + team + "/invitations",
+                "{\"email\": \"" + member.email() + "\"}").andExpect(status().isCreated()), "$.id");
+        authPost(member.accessToken(), "/api/v1/invitations/" + invitation + "/accept").andExpect(status().isOk());
+        UUID project = readUuid(authPost(admin.accessToken(), "/api/v1/projects", "{\"name\": \"Nhóm\", "
+                + "\"workspaceId\": \"" + team + "\"}").andExpect(status().isCreated()), "$.id");
+        authPost(member.accessToken(), "/api/v1/projects/" + project + "/join").andExpect(status().isOk());
+        UUID task = readUuid(authPost(admin.accessToken(), "/api/v1/tasks", "{\"content\": \"Việc\", "
+                + "\"projectId\": \"" + project + "\"}").andExpect(status().isCreated()), "$.id");
+        String projectAddress = addressOf(member, "/api/v1/projects/" + project);
+        String taskAddress = addressOf(member, "/api/v1/tasks/" + task);
+
+        deliver(mail(newMessageId(), quote(projectAddress), "Việc mới", ""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(0))
+                .andExpect(jsonPath("$.rejected").value(1));
+        deliver(mail(newMessageId(), quote(taskAddress), "Nối thêm", "nội dung"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.appended").value(0))
+                .andExpect(jsonPath("$.rejected").value(1));
+        assertThat(tasksIn(project)).extracting(t -> t.get("content")).containsExactly("Việc");
+        assertThat(tasksIn(project).get(0).get("description")).isEqualTo("");
+    }
+
     @Test
     void mailToInboxAddress_toAsSingleStringWithDisplayName_caseInsensitive() throws Exception {
         RegisteredUser user = registerUser(uniqueEmail());

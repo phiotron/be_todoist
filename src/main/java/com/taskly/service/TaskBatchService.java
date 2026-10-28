@@ -11,6 +11,7 @@ import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.BatchAction;
 import com.taskly.entity.Project;
 import com.taskly.entity.Task;
+import com.taskly.security.AccessPolicy;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,12 +52,14 @@ public class TaskBatchService {
     private final Clock clock;
     private final ActivityService activityService; // M10
     private final ProductivityEvents productivityEvents; // M10
+    private final AccessPolicy accessPolicy; // PERM
 
     public TaskBatchService(TaskService taskService, TaskCompletionService taskCompletionService,
                             TaskMoveService taskMoveService, SubtaskTreeService subtaskTreeService,
                             UsageLimits usageLimits, UserService userService, ProjectService projectService,
                             TaskLabelService taskLabelService, Clock clock, ActivityService activityService,
-                            ProductivityEvents productivityEvents) {
+                            ProductivityEvents productivityEvents, AccessPolicy accessPolicy) {
+        this.accessPolicy = accessPolicy;
         this.activityService = activityService;
         this.productivityEvents = productivityEvents;
         this.projectService = projectService;
@@ -87,10 +90,16 @@ public class TaskBatchService {
             projectService.requireReadable(userId, projectId, ErrorMessage.TASK_NOT_FOUND);
         }
         // 409 project-archived / section-archived — KỂ CẢ DELETE (spec I15): mỗi (dự án, section) kiểm MỘT lần
+        // PERM: CLOSE / REOPEN chỉ đòi đã tham gia (Member / Guest dự án nhóm được); action khác → 403 team-admin-only
+        boolean completion = request.action() == BatchAction.CLOSE || request.action() == BatchAction.REOPEN;
         Set<List<UUID>> checked = new HashSet<>();
         for (Task task : tasks) {
             if (checked.add(java.util.Arrays.asList(task.getProjectId(), task.getSectionId()))) {
-                taskService.requireWritable(userId, task.getId());
+                if (completion) {
+                    taskService.requireCompletable(userId, task.getId());
+                } else {
+                    taskService.requireWritable(userId, task.getId());
+                }
             }
         }
         if ((request.action() == BatchAction.SCHEDULE || request.action() == BatchAction.MOVE)
@@ -126,7 +135,15 @@ public class TaskBatchService {
             throw ApiException.badRequest(ErrorMessage.RESCHEDULE_DATE_PAST);
         }
         Set<UUID> affected = new LinkedHashSet<>();
-        for (Task task : taskService.findOverdueLocked(userId)) {
+        List<Task> overdue = taskService.findOverdueLocked(userId);
+        // PERM: task quá hạn của dự án nhóm mà user chỉ là Member / Guest → BỎ QUA (không 403 cả lô — quyết định tạm)
+        Map<UUID, AccessPolicy.ProjectAccessInfo> access = accessPolicy.projectAccess(userId,
+                overdue.stream().map(Task::getProjectId).collect(Collectors.toSet()));
+        for (Task task : overdue) {
+            AccessPolicy.ProjectAccessInfo info = access.get(task.getProjectId());
+            if (info == null || !info.canEdit()) {
+                continue;
+            }
             reschedule(userId, task, request.date());
             affected.add(task.getId());
         }

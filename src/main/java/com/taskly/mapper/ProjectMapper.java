@@ -1,5 +1,6 @@
 package com.taskly.mapper;
 
+import com.taskly.dto.project.ProjectCapabilities;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.entity.Project;
 
@@ -9,9 +10,9 @@ public final class ProjectMapper {
     }
 
     /** M8a: thông tin chia sẻ của dự án theo góc nhìn người gọi. */
-    public record Sharing(long memberCount, boolean joined, boolean canManage) {
+    public record Sharing(long memberCount, boolean joined, boolean canManage, ProjectCapabilities capabilities) {
         /** Dự án cá nhân chưa chia sẻ, người gọi là chủ. */
-        public static final Sharing PRIVATE_OWNER = new Sharing(1, true, true);
+        public static final Sharing PRIVATE_OWNER = new Sharing(1, true, true, ProjectCapabilities.ALL);
     }
 
     /** Bản M1 (không có thông tin chia sẻ) — coi như dự án cá nhân của chính người gọi. */
@@ -28,6 +29,7 @@ public final class ProjectMapper {
                 project.getParentId(), project.isInbox(), favorite, project.getArchivedAt(), project.getSortOrder(),
                 project.getViewStyle(), activeTaskCount, descendantProjectCount, descendantActiveTaskCount,
                 project.getCreatedAt(), project.getUpdatedAt(), project.getWorkspace().getId(), project.getFolderId(),
-                project.getAccess(), sharing.memberCount(), sharing.joined(), sharing.canManage());
+                project.getAccess(), sharing.memberCount(), sharing.joined(), sharing.canManage(),
+                sharing.capabilities());
     }
 }

@@ -50,5 +50,9 @@ public record ProjectResponse(
         boolean joined,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "Người gọi được lưu trữ / xoá / đổi cha / chuyển vào team / đổi quyền truy cập")
-        boolean canManage) {
+        boolean canManage,
+        // ---- PERM (28/10): dự án nhóm — Member / Guest chỉ hoàn thành
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Quyền của người gọi trong dự án (app ẩn nút theo đây)")
+        ProjectCapabilities capabilities) {
 }

@@ -119,6 +119,11 @@ class TeamWorkspaceApiTest extends M8aApiTestBase {
         addToTeam(admin, team, maker, "MEMBER");
         addToTeam(admin, team, other, "MEMBER");
 
+        // PERM (28/10): chỉ Admin tạo dự án nhóm → "maker" là Admin (Member tạo → 403 team-admin-only)
+        authPost(maker.accessToken(), "/api/v1/projects", "{\"name\": \"X\", \"workspaceId\": \"" + team + "\"}")
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("team-admin-only"));
+        authPatch(admin.accessToken(), "/api/v1/workspaces/" + team + "/members/" + maker.id(), "{\"role\": \"ADMIN\"}")
+                .andExpect(status().isOk());
         UUID project = createTeamProject(maker, team, "Dự án nhóm", null);
         UUID task = createTask(maker, project, "Việc nhóm");
         authGet(maker.accessToken(), "/api/v1/projects/" + project)
@@ -146,7 +151,9 @@ class TeamWorkspaceApiTest extends M8aApiTestBase {
         authPost(other.accessToken(), "/api/v1/projects/" + project + "/join")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.joined").value(true))
                 .andExpect(jsonPath("$.memberCount").value(2));
-        createTask(other, project, "Đã tham gia");
+        authPost(other.accessToken(), "/api/v1/tasks/" + task + "/close").andExpect(status().isOk()); // PERM: chỉ tick
+        authPost(other.accessToken(), "/api/v1/tasks",
+                "{\"content\": \"Đã tham gia\", \"projectId\": \"" + project + "\"}").andExpect(status().isForbidden());
         authGet(other.accessToken(), "/api/v1/projects").andExpect(jsonPath("$[*].id").value(hasItem(project.toString())));
         authPost(other.accessToken(), "/api/v1/projects/" + project + "/join").andExpect(status().isOk()); // idempotent
     }
@@ -159,7 +166,8 @@ class TeamWorkspaceApiTest extends M8aApiTestBase {
         addToTeam(admin, team, member, "MEMBER");
         UUID open = createTeamProject(admin, team, "Mở", "TEAM");
         UUID hidden = createTeamProject(admin, team, "Kín", "RESTRICTED");
-        UUID mine = createTeamProject(member, team, "Của member", "TEAM");
+        UUID mine = createTeamProject(admin, team, "Của member", "TEAM"); // PERM: chỉ Admin tạo dự án nhóm
+        authPost(member.accessToken(), "/api/v1/projects/" + mine + "/join").andExpect(status().isOk());
         createTask(admin, open, "Một");
 
         authGet(member.accessToken(), "/api/v1/workspaces/" + team + "/projects")
@@ -188,9 +196,10 @@ class TeamWorkspaceApiTest extends M8aApiTestBase {
         authPost(member.accessToken(), "/api/v1/projects/" + project + "/join").andExpect(status().isNotFound());
         authPost(otherAdmin.accessToken(), "/api/v1/projects/" + project + "/archive").andExpect(status().isNotFound());
 
-        addToProject(creator, project, member); // được mời → thấy + sửa
+        addToProject(creator, project, member); // được mời → thấy + (PERM) chỉ đánh dấu hoàn thành
         authGet(member.accessToken(), "/api/v1/projects/" + project).andExpect(status().isOk());
-        createTask(member, project, "Của member");
+        UUID task = createTask(creator, project, "Của creator");
+        authPost(member.accessToken(), "/api/v1/tasks/" + task + "/close").andExpect(status().isOk());
     }
 
     @Test
@@ -209,7 +218,10 @@ class TeamWorkspaceApiTest extends M8aApiTestBase {
         authGet(guest.accessToken(), "/api/v1/workspaces/" + team + "/members").andExpect(status().isForbidden());
         authPost(guest.accessToken(), "/api/v1/projects", "{\"name\": \"X\", \"workspaceId\": \"" + team + "\"}")
                 .andExpect(status().isForbidden());
-        createTask(guest, visible, "Guest sửa task được");
+        UUID task = createTask(admin, visible, "Việc"); // PERM: Guest chỉ đánh dấu hoàn thành, không tạo / sửa
+        authPost(guest.accessToken(), "/api/v1/tasks/" + task + "/close").andExpect(status().isOk());
+        authPost(guest.accessToken(), "/api/v1/tasks", "{\"content\": \"Guest\", \"projectId\": \"" + visible + "\"}")
+                .andExpect(status().isForbidden());
         authPost(guest.accessToken(), "/api/v1/projects/" + visible + "/invitations",
                 "{\"email\": \"" + uniqueEmail() + "\"}").andExpect(status().isForbidden());
         authGet(guest.accessToken(), "/api/v1/projects")

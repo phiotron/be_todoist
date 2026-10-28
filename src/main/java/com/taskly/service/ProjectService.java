@@ -6,6 +6,7 @@ import com.taskly.common.error.ErrorMessage;
 import com.taskly.dto.common.Created;
 import com.taskly.dto.project.CreateProjectRequest;
 import com.taskly.dto.project.MoveProjectRequest;
+import com.taskly.dto.project.ProjectCapabilities;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.dto.project.UpdateProjectRequest;
 import com.taskly.entity.ActivityEventType;
@@ -184,7 +185,7 @@ public class ProjectService {
             }
             return personal;
         }
-        accessPolicy.requireWorkspaceMember(userId, request.workspaceId());
+        accessPolicy.requireTeamEditor(userId, request.workspaceId()); // PERM: chỉ Admin tạo dự án nhóm
         Workspace team = workspaceService.requireWorkspace(request.workspaceId());
         if (!team.isTeam()) {
             throw ApiException.notFound(ErrorMessage.WORKSPACE_NOT_FOUND);
@@ -370,7 +371,7 @@ public class ProjectService {
         if (project.getWorkspace().isTeam()) {
             throw ApiException.badRequest(ErrorMessage.MOVE_TO_WORKSPACE_INVALID);
         }
-        accessPolicy.requireWorkspaceMember(userId, request.workspaceId());
+        accessPolicy.requireTeamEditor(userId, request.workspaceId()); // PERM: chỉ Admin của team đích
         Workspace target = workspaceService.requireWorkspace(request.workspaceId());
         if (!target.isTeam()) {
             throw ApiException.badRequest(ErrorMessage.MOVE_TO_WORKSPACE_INVALID);
@@ -424,6 +425,18 @@ public class ProjectService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ApiException.notFound(notFoundDetail));
         accessPolicy.checkProjectWrite(userId, project, notFoundDetail); // M8a: 404 / xem trước → 403
+        requireNotArchived(project);
+        return project;
+    }
+
+    /**
+     * PERM: như requireWritable nhưng chỉ đòi ĐÃ THAM GIA (đánh dấu hoàn thành / mở lại / Undo) — Member / Guest của dự
+     * án nhóm được; dự án lưu trữ → 409 project-archived.
+     */
+    public Project requireCompletable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound(notFoundDetail));
+        accessPolicy.checkTaskComplete(userId, project, notFoundDetail);
         requireNotArchived(project);
         return project;
     }
@@ -687,7 +700,7 @@ public class ProjectService {
             }
             long count = members.getOrDefault(project.getId(), 0L) + (project.getWorkspace().isTeam() ? 0 : 1);
             result.put(project.getId(), new ProjectMapper.Sharing(count, info.owner() || info.joined(),
-                    info.canManage()));
+                    info.canManage(), ProjectCapabilities.of(info.canEdit(), info.canComplete()))); // PERM
         }
         return result;
     }

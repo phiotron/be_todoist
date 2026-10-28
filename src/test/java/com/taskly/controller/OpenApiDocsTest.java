@@ -141,7 +141,9 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         "sortOrder", "viewStyle", "activeTaskCount", "descendantProjectCount",
                         "descendantActiveTaskCount", "createdAt", "updatedAt",
                         // M8a
-                        "workspaceId", "folderId", "access", "memberCount", "joined", "canManage")))
+                        "workspaceId", "folderId", "access", "memberCount", "joined", "canManage",
+                        // PERM
+                        "capabilities")))
                 .andExpect(jsonPath("$.components.schemas.SectionResponse.required").value(containsInAnyOrder(
                         "id", "projectId", "name", "description", "sortOrder", "archivedAt", "activeTaskCount",
                         "createdAt", "updatedAt")))

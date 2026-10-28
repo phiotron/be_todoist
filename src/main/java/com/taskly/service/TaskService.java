@@ -325,6 +325,18 @@ public class TaskService {
     }
 
     /**
+     * PERM: như requireWritable nhưng cho đánh dấu hoàn thành / mở lại / Undo — Member / Guest đã tham gia dự án nhóm
+     * được (AccessPolicy.checkTaskComplete); 409 project-archived / section-archived như cũ.
+     */
+    public Task requireCompletable(UUID userId, UUID taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
+        projectService.requireCompletable(userId, task.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
+        requireSectionNotArchived(task);
+        return task;
+    }
+
+    /**
      * Khoá dự án chứa task (P) rồi ĐỌC LẠI sau khoá — cổng chung của reopen / undo, duplicate, reorder task: task có thể
      * vừa bị xoá (404) / chuyển sang dự án khác (409 version-conflict), dự án vừa lưu trữ (409 project-archived), section
      * vừa lưu trữ (409 section-archived). Trả entity đã đọc lại (managed). Flush trước refresh để không mất thay đổi chưa

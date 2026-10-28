@@ -242,7 +242,8 @@ public class InvitationService {
      * không phải Guest của team (403).
      */
     public AccessPolicy.ProjectAccessInfo requireCanInvite(UUID userId, Project project, ErrorMessage notFound) {
-        AccessPolicy.ProjectAccessInfo info = accessPolicy.checkProjectWrite(userId, project, notFound);
+        // PERM: mời người KHÔNG phải chỉnh nội dung → Member đã tham gia dự án nhóm vẫn mời được (quyết định tạm)
+        AccessPolicy.ProjectAccessInfo info = accessPolicy.checkProjectParticipant(userId, project, notFound);
         if (info.isTeam() && info.workspaceRole() == WorkspaceRole.GUEST) {
             throw ApiException.forbidden(ErrorMessage.GUEST_NOT_ALLOWED);
         }
