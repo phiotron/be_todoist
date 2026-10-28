@@ -31,11 +31,14 @@ public class ReorderService {
     private final LabelService labelService;
     private final FilterService filterService;
     private final TeamService teamService;
+    private final DayOrderService dayOrderService;
 
     public ReorderService(ProjectService projectService, SectionService sectionService, TaskService taskService,
                           SortOrderService sortOrderService, UsageLimits usageLimits,
-                          LabelService labelService, FilterService filterService, TeamService teamService) {
+                          LabelService labelService, FilterService filterService, TeamService teamService,
+                          DayOrderService dayOrderService) {
         this.teamService = teamService;
+        this.dayOrderService = dayOrderService;
         this.usageLimits = usageLimits;
         this.projectService = projectService;
         this.sectionService = sectionService;
@@ -54,6 +57,7 @@ public class ReorderService {
             case LABEL -> labelService.reorder(userId, request.id(), afterId);
             case FILTER -> filterService.reorder(userId, request.id(), afterId);
             case FOLDER -> teamService.reorderFolder(userId, request.id(), afterId);
+            case TASK_DAY -> dayOrderService.reorder(userId, request.id(), afterId); // DND: thứ tự trong ngày
         };
         return new ReorderResponse(request.type(), request.id(), sortOrder);
     }

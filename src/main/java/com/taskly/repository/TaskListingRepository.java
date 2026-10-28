@@ -9,6 +9,7 @@ import com.taskly.repository.listing.KeysetPager;
 import com.taskly.repository.listing.SortKey;
 import com.taskly.repository.listing.SubtreeOrder;
 import com.taskly.service.display.DisplayOptions;
+import com.taskly.service.display.DisplayRules;
 import com.taskly.service.display.ViewKind;
 import com.taskly.service.filterquery.FilterNode;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -129,6 +131,29 @@ public class TaskListingRepository {
                 yield " AND t.project_id = :scopeProjectId AND t.parent_id IS NULL AND t.completed_at IS NULL";
             }
         };
+    }
+
+    /**
+     * DND (V21): id các task MỞ có due_day = {@code day} trong phạm vi đọc (dự án chưa lưu trữ), đúng thứ tự Today /
+     * Upcoming đang hiện với sort = date tăng dần (day_order → giờ → ưu tiên → dự án → sort_order → id).
+     */
+    public List<UUID> dayOrderIds(ReadScope readScope, LocalDate day) {
+        MapSqlParameterSource params = readScope.params().addValue("day", day);
+        String orderBy = DisplaySql.keys(ViewKind.UPCOMING, DisplayRules.defaults(ViewKind.UPCOMING)).stream()
+                .map(key -> key.expression() + (key.descending() ? " DESC" : ""))
+                .collect(Collectors.joining(", "));
+        return jdbc.queryForList("SELECT t.id " + FROM
+                + " AND p.archived_at IS NULL AND t.completed_at IS NULL AND t.due_day = :day ORDER BY " + orderBy,
+                params, UUID.class);
+    }
+
+    /** DND: ghi day_order (+ ngày áp dụng) bằng native UPDATE — KHÔNG tăng version, không đổi updated_at. */
+    public void writeDayOrders(Map<UUID, Long> orders, LocalDate day) {
+        MapSqlParameterSource[] batch = orders.entrySet().stream()
+                .map(entry -> new MapSqlParameterSource("id", entry.getKey())
+                        .addValue("dayOrder", entry.getValue()).addValue("day", day))
+                .toArray(MapSqlParameterSource[]::new);
+        jdbc.batchUpdate("UPDATE tasks SET day_order = :dayOrder, day_order_day = :day WHERE id = :id", batch);
     }
 
     /** Mọi con cháu (kể cả đã xong) của các gốc — SubtreeOrder.arrange xếp lại thứ tự hiển thị. */

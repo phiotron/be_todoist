@@ -66,6 +66,7 @@ public enum ErrorMessage {
     REORDER_ID_REQUIRED("error.reorder-id-required"),
     AFTER_ID_NOT_IN_CONTAINER("error.after-id-not-in-container"),
     REORDER_AFTER_ID_REQUIRED("error.reorder-after-id-required"),
+    DAY_ORDER_REQUIRES_DUE("error.day-order-requires-due"),
     BATCH_ACTION_REQUIRED("error.batch-action-required"),
     BATCH_IDS_SIZE("error.batch-ids-size"),
     BATCH_IDS_DUPLICATE("error.batch-ids-duplicate"),

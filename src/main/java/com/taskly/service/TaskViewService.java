@@ -13,6 +13,7 @@ import com.taskly.repository.TaskViewRepository.Key;
 import com.taskly.repository.TaskViewRepository.KeyType;
 import com.taskly.repository.TaskViewRepository.KeyedTaskView;
 import com.taskly.repository.TaskViewRepository.Keyset;
+import com.taskly.repository.listing.DisplaySql;
 import com.taskly.security.AccessPolicy;
 import com.taskly.security.ReadScope;
 import java.time.Clock;
@@ -46,6 +47,9 @@ public class TaskViewService {
     private static final int UPCOMING_MAX_SPAN_DAYS = 30;  // to − from ≤ 30 (cửa sổ ≤ 31 ngày)
     private static final int UPCOMING_MAX_YEARS = 2;       // tầm xem tối đa 2 năm
     private static final Key DUE = new Key(DUE_KEY, KeyType.LOCAL_TIMESTAMP);
+    /** DND (V21): ngày rồi thứ tự trong ngày (Today / Upcoming); cả hai không null ở hai view này. */
+    private static final Key DUE_DAY = new Key("t.due_day", KeyType.DATE);
+    private static final Key DAY_ORDER = new Key(DisplaySql.DAY_ORDER_KEY, KeyType.LONG);
     private static final Key PRIORITY = new Key("t.priority", KeyType.INT);
     private static final Key PROJECT_ORDER = new Key("p.sort_order", KeyType.LONG);
     private static final Key TASK_ORDER = new Key("t.sort_order", KeyType.LONG);
@@ -128,14 +132,15 @@ public class TaskViewService {
             // Khối Quá hạn (due_day < hôm nay) rồi khối Hôm nay: due_sort tăng dần đã tự xếp đúng thứ tự đó (mọi task
             // Quá hạn có due_sort < 00:00 hôm nay), nên không cần khoá khối riêng. Task có giờ đã qua TRONG hôm nay ở
             // khối Hôm nay (isOverdue chỉ để tô đỏ).
+            // DND (V21): thứ tự trong ngày đứng sau NGÀY, trước GIỜ (chưa xếp → cuối ngày, theo khoá cũ)
             case today -> new Keyset(OPEN_IN_ACTIVE_PROJECT + " and t.due_day <= cast(:today as date)",
-                    List.of(DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);
+                    List.of(DUE_DAY, DAY_ORDER, DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);
             case upcoming -> {
                 UpcomingWindow window = upcomingWindow(from, to, request.context().today());
                 params.addValue("fromDay", window.first()).addValue("toDay", window.last());
                 yield new Keyset(OPEN_IN_ACTIVE_PROJECT
                         + " and t.due_day between cast(:fromDay as date) and cast(:toDay as date)",
-                        List.of(DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);
+                        List.of(DUE_DAY, DAY_ORDER, DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);
             }
             case overdue -> new Keyset(OPEN_IN_ACTIVE_PROJECT + " and " + OVERDUE_BLOCK,
                     List.of(DUE, PRIORITY, PROJECT_ORDER, TASK_ORDER), false);

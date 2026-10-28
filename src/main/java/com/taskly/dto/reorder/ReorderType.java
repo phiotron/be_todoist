@@ -7,5 +7,7 @@ public enum ReorderType {
     TASK,
     LABEL,
     FILTER,
-    FOLDER
+    FOLDER,
+    /** DND: thứ tự trong NGÀY (Today / Upcoming, sort = date); vùng chứa = task mở cùng due_day. */
+    TASK_DAY
 }
