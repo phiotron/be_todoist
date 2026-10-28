@@ -26,6 +26,10 @@ public final class SettingsMapper {
                 user.getSwipeRight(),
                 user.getNavTabs(),
                 user.isRemindersEnabled(),
-                user.getAutoReminderMinutes());
+                user.getAutoReminderMinutes(),
+                user.getAddButtonPlacement(),
+                user.isSyncHomeView(),
+                user.isNavMenuShowTaskCount(),
+                user.getNavMenuItems());
     }
 }
