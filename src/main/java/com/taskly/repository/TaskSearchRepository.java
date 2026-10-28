@@ -2,6 +2,7 @@ package com.taskly.repository;
 
 import com.taskly.common.web.CursorCodec;
 import com.taskly.dto.search.SearchQuery;
+import com.taskly.security.ReadScope;
 import com.taskly.repository.listing.KeyKind;
 import com.taskly.repository.listing.KeysetPager;
 import com.taskly.repository.listing.SortKey;
@@ -28,6 +29,7 @@ public class TaskSearchRepository {
             FROM tasks t
             JOIN projects p ON p.id = t.project_id
             WHERE t.workspace_id IN (:workspaceIds)
+              AND t.project_id IN (:projectIds)
               AND p.archived_at IS NULL
             """;
 
@@ -60,9 +62,9 @@ public class TaskSearchRepository {
                 new SortKey("t.id", KeyKind.ID, false));
     }
 
-    public List<KeysetPager.KeyedId> search(List<UUID> workspaceIds, SearchQuery query, boolean completed,
+    public List<KeysetPager.KeyedId> search(ReadScope scope, SearchQuery query, boolean completed,
                                             CursorCodec.Cursor after, int limit) {
-        MapSqlParameterSource params = new MapSqlParameterSource("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params() // M8a: :workspaceIds + :projectIds
                 .addValue("simText", query.similarityText());
         StringBuilder where = new StringBuilder(SCOPE)
                 .append(completed ? " AND t.completed_at IS NOT NULL" : " AND t.completed_at IS NULL");

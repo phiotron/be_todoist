@@ -111,11 +111,11 @@ public class CalendarFeedService {
         List<Task> tasks;
         if (feed.getProjectId() == null) {
             name = "Taskly";
-            tasks = calendarTasks.findScheduled(accessPolicy.readableWorkspaceIds(userId), from, to,
+            tasks = calendarTasks.findScheduled(accessPolicy.listScope(userId), from, to,
                     properties.maxTasks());
         } else {
             Project project = projectRepository.findById(feed.getProjectId()).orElseThrow(CalendarFeedService::notFound);
-            if (!accessPolicy.canRead(userId, project.getWorkspace().getId())) {
+            if (!accessPolicy.projectAccess(userId, project).canRead()) { // M8a: quyền theo dự án
                 throw notFound();
             }
             name = "Taskly: " + project.getName();

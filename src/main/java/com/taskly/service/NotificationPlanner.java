@@ -9,6 +9,7 @@ import com.taskly.repository.NotificationPrefsRepository.DigestUser;
 import com.taskly.repository.ReminderOccurrenceQuery;
 import com.taskly.repository.ReminderOccurrenceRow;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -85,7 +86,7 @@ public class NotificationPlanner {
         LocalDateTime nowLocal = LocalDateTime.ofInstant(now, ZoneId.of(user.getTimeZone())).truncatedTo(ChronoUnit.MINUTES);
         Locale locale = Locale.forLanguageTag(user.getLocale());
         List<ReminderOccurrenceRow> due = occurrences
-                .find(userId, accessPolicy.readableWorkspaceIds(userId),
+                .find(userId, accessPolicy.listScope(userId),
                         nowLocal.minusMinutes(REMINDER_LOOKBACK_MINUTES), ReminderWindow.MAX_LIMIT)
                 .stream().filter(row -> !row.fireAt().isAfter(nowLocal)).toList();
         int queued = 0;
@@ -127,7 +128,7 @@ public class NotificationPlanner {
         ZonedDateTime local = now.atZone(zone);
         LocalDate today = local.toLocalDate();
         int hour = local.getHour();
-        List<UUID> workspaces = accessPolicy.readableWorkspaceIds(user.id());
+        ReadScope workspaces = accessPolicy.listScope(user.id()); // M8a: phạm vi dự án đã tham gia
         Locale locale = Locale.forLanguageTag(user.locale());
         int queued = 0;
         if (user.morning() && hour >= MORNING_FROM && hour < MORNING_UNTIL) {

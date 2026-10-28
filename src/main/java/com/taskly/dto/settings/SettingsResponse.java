@@ -89,5 +89,8 @@ public record SettingsResponse(
         boolean pinReminders,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
                 description = "Id cài đặt của thiết bị nhận urgent reminder; null = chưa chọn")
-        String urgentDeviceId) {
+        String urgentDeviceId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "M8a: lời mời email tới tài khoản này được chấp nhận ngay (Auto accept invites)")
+        boolean autoAcceptInvites) {
 }

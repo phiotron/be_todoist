@@ -15,6 +15,7 @@ import com.taskly.mapper.CommentMapper;
 import com.taskly.repository.NotificationRepository;
 import com.taskly.repository.NotificationRepository.NotificationRow;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
@@ -25,7 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Hộp thông báo + cài đặt Project / Workspace notifications (M8b). Phạm vi đọc = AccessPolicy.readableWorkspaceIds
+ * Hộp thông báo + cài đặt Project / Workspace notifications (M8b). Phạm vi đọc = AccessPolicy.viewScope (M8a)
  * (mất quyền xem dự án → thông báo của nó ẩn). Nguồn thông báo lượt này: @mention trong comment (CommentService).
  */
 @Service
@@ -65,11 +66,11 @@ public class NotificationService {
             afterCreatedAt = after.instant(0);
             afterId = after.uuid(1);
         }
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        ReadScope scope = accessPolicy.viewScope(userId); // M8a: dự án đọc được
+        if (scope.isEmpty()) {
             return new Page<>(List.of(), null);
         }
-        List<NotificationRow> rows = repository.page(userId, workspaceIds, unreadOnly, afterCreatedAt, afterId,
+        List<NotificationRow> rows = repository.page(userId, scope, unreadOnly, afterCreatedAt, afterId,
                 pageSize + 1);
         return Page.fromLookahead(rows, pageSize,
                         row -> CursorCodec.encode(kind, List.of(row.createdAt().toString(), row.id().toString())))
@@ -78,14 +79,14 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public UnreadCountResponse unreadCount(UUID userId) {
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        return new UnreadCountResponse(workspaceIds.isEmpty() ? 0 : repository.countUnread(userId, workspaceIds));
+        ReadScope scope = accessPolicy.viewScope(userId);
+        return new UnreadCountResponse(scope.isEmpty() ? 0 : repository.countUnread(userId, scope));
     }
 
     /** Của người khác / không còn xem được → 404. Đã đọc → giữ nguyên (204). */
     public void markRead(UUID userId, UUID notificationId) {
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty() || !repository.isVisible(notificationId, userId, workspaceIds)) {
+        ReadScope scope = accessPolicy.viewScope(userId);
+        if (scope.isEmpty() || !repository.isVisible(notificationId, userId, scope)) {
             throw ApiException.notFound(ErrorMessage.NOTIFICATION_NOT_FOUND);
         }
         repository.markRead(notificationId, userId, clock.instant());

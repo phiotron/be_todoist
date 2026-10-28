@@ -1,8 +1,8 @@
 package com.taskly.repository;
 
 import com.taskly.entity.ReminderKind;
+import com.taskly.security.ReadScope;
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -27,6 +27,7 @@ public class ReminderOccurrenceQuery {
                 JOIN projects p ON p.id = t.project_id
                 LEFT JOIN sections s ON s.id = t.section_id
                 WHERE t.workspace_id IN (:workspaceIds)
+                  AND t.project_id IN (:projectIds)
                   AND t.completed_at IS NULL
                   AND p.archived_at IS NULL
                   AND (s.id IS NULL OR s.archived_at IS NULL)
@@ -70,13 +71,12 @@ public class ReminderOccurrenceQuery {
         this.jdbc = jdbc;
     }
 
-    public List<ReminderOccurrenceRow> find(UUID userId, Collection<UUID> workspaceIds, LocalDateTime now, int limit) {
-        if (workspaceIds.isEmpty()) {
+    public List<ReminderOccurrenceRow> find(UUID userId, ReadScope scope, LocalDateTime now, int limit) {
+        if (scope.isEmpty()) {
             return List.of(); // "IN ()" không hợp lệ trong SQL
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        MapSqlParameterSource params = scope.params() // M8a: dự án đã tham gia
                 .addValue("userId", userId)
-                .addValue("workspaceIds", workspaceIds)
                 .addValue("now", now)
                 .addValue("limit", limit);
         return jdbc.query(SQL, params, (rs, rowNum) -> new ReminderOccurrenceRow(

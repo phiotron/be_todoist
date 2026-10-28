@@ -1,5 +1,6 @@
 package com.taskly.dto.project;
 
+import com.taskly.entity.ProjectAccess;
 import com.taskly.entity.ProjectColor;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -29,7 +30,17 @@ public record CreateProjectRequest(
 
         @Schema(type = "string", format = "uuid", nullable = true,
                 description = "Vắng = cuối vùng chứa; null = đầu; có giá trị = ngay sau dự án đó")
-        Optional<UUID> afterId) {
+        Optional<UUID> afterId,
+
+        @Schema(type = "string", format = "uuid",
+                description = "M8a: workspace đích (vắng = workspace cá nhân); workspace nhóm cần vai trò Admin / Member")
+        UUID workspaceId,
+
+        @Schema(description = "M8a: chỉ dự án nhóm — TEAM (mặc định) | RESTRICTED")
+        ProjectAccess access,
+
+        @Schema(type = "string", format = "uuid", description = "M8a: folder của workspace nhóm")
+        UUID folderId) {
 
     /** Cắt khoảng trắng hai đầu TRƯỚC khi validate ("   " → "" → lỗi @Size). */
     public CreateProjectRequest {

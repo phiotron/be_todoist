@@ -190,6 +190,9 @@ public class User extends BaseEntity {
     /** null = chưa chọn thiết bị nhận urgent reminder. */
     @Column(name = "urgent_device_id", length = 64)
     private String urgentDeviceId;
+    /** M8a: lời mời email tới tài khoản này được chấp nhận ngay khi gửi (mặc định tắt — plan M8a, chờ duyệt). */
+    @Column(name = "auto_accept_invites", nullable = false)
+    private boolean autoAcceptInvites;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -597,6 +600,14 @@ public class User extends BaseEntity {
 
     public void changeKarmaEnabled(boolean karmaEnabled) {
         this.karmaEnabled = karmaEnabled;
+    }
+
+    public boolean isAutoAcceptInvites() {
+        return autoAcceptInvites;
+    }
+
+    public void changeAutoAcceptInvites(boolean autoAcceptInvites) {
+        this.autoAcceptInvites = autoAcceptInvites;
     }
 
     private void applyDefaultSettings() {

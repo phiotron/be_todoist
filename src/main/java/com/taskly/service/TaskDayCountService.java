@@ -34,7 +34,7 @@ public class TaskDayCountService {
             throw ApiException.badRequest(ErrorMessage.DAY_COUNTS_RANGE_INVALID);
         }
         Map<LocalDate, Integer> found = repository.countOpenByDueDay(
-                accessPolicy.readableWorkspaceIds(userId), from, to);
+                accessPolicy.listScope(userId), from, to);
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
             counts.put(day.toString(), found.getOrDefault(day, 0));

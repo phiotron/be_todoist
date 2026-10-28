@@ -17,6 +17,7 @@ import com.taskly.repository.AttachmentRepository.AttachmentRow;
 import com.taskly.repository.CommentRepository;
 import com.taskly.repository.CommentRepository.CommentRow;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.time.Clock;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,8 +61,8 @@ public class CommentService {
         this.clock = clock;
     }
 
-    /** Đích của comment: đúng một trong taskId / projectId; workspaceId để kiểm @mention. */
-    private record Target(UUID taskId, UUID projectId, UUID workspaceId) {
+    /** Đích của comment: đúng một trong taskId / projectId; projectId của dự án chứa đích để kiểm @mention (M8a). */
+    private record Target(UUID taskId, UUID projectId, UUID containerProjectId) {
     }
 
     // ---- đọc
@@ -81,13 +82,13 @@ public class CommentService {
     @Transactional(readOnly = true)
     public List<CommentAuthor> mentionableForTask(UUID userId, UUID taskId) {
         Task task = taskService.requireReadable(userId, taskId);
-        return mentionable(task.getWorkspaceId());
+        return mentionable(task.getProjectId());
     }
 
     @Transactional(readOnly = true)
     public List<CommentAuthor> mentionableForProject(UUID userId, UUID projectId) {
         Project project = projectService.requireReadable(userId, projectId);
-        return mentionable(project.getWorkspace().getId());
+        return mentionable(project.getId());
     }
 
     /** Comment đọc được (AttachmentService dùng để kiểm quyền tải file). Không thấy → 404 comment-not-found. */
@@ -107,7 +108,7 @@ public class CommentService {
             return replay.get();
         }
         Task task = taskService.requireWritable(userId, taskId); // 404 / 409 project-archived | section-archived
-        return create(userId, new Target(taskId, null, task.getWorkspaceId()), request);
+        return create(userId, new Target(taskId, null, task.getProjectId()), request);
     }
 
     public Created<CommentResponse> createForProject(UUID userId, UUID projectId, CreateCommentRequest request) {
@@ -116,7 +117,7 @@ public class CommentService {
             return replay.get();
         }
         Project project = projectService.requireWritable(userId, projectId); // 404 / 409 project-archived
-        return create(userId, new Target(null, projectId, project.getWorkspace().getId()), request);
+        return create(userId, new Target(null, projectId, project.getId()), request);
     }
 
     /** Thứ tự: 404 (không thấy) → 403 (không phải tác giả) → 409 (dự án / section lưu trữ). */
@@ -145,8 +146,8 @@ public class CommentService {
     // ---- tìm kiếm (search/objects)
 
     @Transactional(readOnly = true)
-    public List<CommentSearchItem> search(List<UUID> workspaceIds, SearchQuery query, int max) {
-        return workspaceIds.isEmpty() ? List.of() : commentRepository.search(workspaceIds, query, max);
+    public List<CommentSearchItem> search(ReadScope scope, SearchQuery query, int max) {
+        return scope.isEmpty() ? List.of() : commentRepository.search(scope, query, max);
     }
 
     // ---- nội bộ
@@ -158,7 +159,9 @@ public class CommentService {
         }
         Set<UUID> mentions = mentionIds(request);
         for (UUID mentioned : mentions) {
-            if (!accessPolicy.canRead(mentioned, target.workspaceId())) {
+            // M8a: chỉ người ĐỌC ĐƯỢC dự án chứa comment mới được mention (không phải mọi thành viên workspace)
+            if (!accessPolicy.projectAccess(mentioned, target.containerProjectId()).map(info -> info.canRead())
+                    .orElse(false)) {
                 throw ApiException.badRequest(ErrorMessage.MENTION_INVALID);
             }
         }
@@ -240,9 +243,10 @@ public class CommentService {
         }
     }
 
-    private List<CommentAuthor> mentionable(UUID workspaceId) {
-        return commentRepository.workspaceMembers(workspaceId).stream()
-                .filter(member -> accessPolicy.canRead(member.id(), workspaceId))
+    private List<CommentAuthor> mentionable(UUID projectId) {
+        return commentRepository.projectCandidates(projectId).stream()
+                .filter(member -> accessPolicy.projectAccess(member.id(), projectId)
+                        .map(info -> info.canRead()).orElse(false))
                 .map(member -> CommentMapper.author(member.id(), member.name(), member.avatarAt()))
                 .toList();
     }

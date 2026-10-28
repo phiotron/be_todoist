@@ -4,6 +4,7 @@ import com.taskly.dto.backup.BackupResponse;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,10 +18,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class BackupRepository {
 
-    /** Ảnh chụp dữ liệu của user (workspace user là thành viên + label của user); bỏ updated_at để chỉ so nội dung. */
+    /** Ảnh chụp dữ liệu của user (M8a: các dự án user đã tham gia — ReadScope.projectIds — + label của user); bỏ updated_at để chỉ so nội dung. */
     private static final String SNAPSHOT_SQL = """
-            with ws as (select workspace_id from workspace_members where user_id = ?),
-                 p as (select * from projects where workspace_id in (select workspace_id from ws)),
+            with p as (select * from projects where id = any(?)),
                  s as (select * from sections where project_id in (select id from p)),
                  t as (select * from tasks where project_id in (select id from p)),
                  l as (select * from labels where user_id = ?),
@@ -63,9 +63,14 @@ public class BackupRepository {
         return Boolean.TRUE.equals(due);
     }
 
-    public Snapshot snapshot(UUID userId) {
-        return jdbc.queryForObject(SNAPSHOT_SQL, (rs, row) -> new Snapshot(rs.getString("content"),
-                rs.getInt("project_count"), rs.getInt("task_count")), userId, userId);
+    public Snapshot snapshot(UUID userId, Collection<UUID> projectIds) {
+        List<Snapshot> rows = jdbc.query(con -> {
+            var ps = con.prepareStatement(SNAPSHOT_SQL);
+            ps.setArray(1, con.createArrayOf("uuid", projectIds.toArray()));
+            ps.setObject(2, userId);
+            return ps;
+        }, (rs, row) -> new Snapshot(rs.getString("content"), rs.getInt("project_count"), rs.getInt("task_count")));
+        return rows.get(0);
     }
 
     public Optional<String> lastHash(UUID userId) {

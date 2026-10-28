@@ -57,6 +57,24 @@ public class Project extends BaseEntity {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    // ---- M8a Team & chia sẻ
+    /** Folder của workspace nhóm (null = không folder; dự án cá nhân luôn null). */
+    @Column(name = "folder_id")
+    private UUID folderId;
+
+    /** Chỉ dự án nhóm: TEAM (mọi Admin / Member thấy, tự tham gia) | RESTRICTED (chỉ người được mời); cá nhân null. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "access", length = 10)
+    private ProjectAccess access;
+
+    /** Người tạo (Member chỉ quản lý dự án nhóm mình tạo); null với dự án trước M8a / người đã xoá tài khoản. */
+    @Column(name = "created_by")
+    private UUID createdBy;
+
+    /** Link mời dự án (lưu nguyên; null = tắt). */
+    @Column(name = "invite_link_token", length = 64)
+    private String inviteLinkToken;
+
     protected Project() {
         // cho JPA
     }
@@ -149,5 +167,50 @@ public class Project extends BaseEntity {
 
     public Instant getArchivedAt() {
         return archivedAt;
+    }
+
+    // ---- M8a
+
+    public UUID getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(UUID folderId) {
+        this.folderId = folderId;
+    }
+
+    public ProjectAccess getAccess() {
+        return access;
+    }
+
+    public void setAccess(ProjectAccess access) {
+        this.access = access;
+    }
+
+    public UUID getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(UUID createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public String getInviteLinkToken() {
+        return inviteLinkToken;
+    }
+
+    public void setInviteLinkToken(String inviteLinkToken) {
+        this.inviteLinkToken = inviteLinkToken;
+    }
+
+    /** Chuyển dự án gốc vào workspace nhóm (chỉ chiều vào — plan M8a F8): thành dự án gốc cuối vùng chứa đích. */
+    public void moveToWorkspace(Workspace target, long newSortOrder, ProjectAccess newAccess, UUID newFolderId,
+                                UUID mover) {
+        this.workspace = target;
+        this.parentId = null;
+        this.sortOrder = newSortOrder;
+        this.access = newAccess;
+        this.folderId = newFolderId;
+        this.createdBy = mover;
     }
 }

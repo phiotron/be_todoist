@@ -9,10 +9,16 @@ import com.taskly.dto.project.MoveProjectRequest;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.dto.project.UpdateProjectRequest;
 import com.taskly.entity.ActivityEventType;
+import com.taskly.dto.sharing.MoveToWorkspaceRequest;
 import com.taskly.entity.FavoriteTargetType;
 import com.taskly.entity.LimitKind;
 import com.taskly.entity.Project;
+import com.taskly.entity.ProjectAccess;
 import com.taskly.entity.ProjectColor;
+import com.taskly.entity.ProjectMember;
+import com.taskly.repository.FolderRepository;
+import com.taskly.repository.ProjectMemberRepository;
+import com.taskly.security.ReadScope;
 import com.taskly.entity.ViewStyle;
 import com.taskly.entity.Workspace;
 import com.taskly.mapper.ProjectMapper;
@@ -62,13 +68,23 @@ public class ProjectService {
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final ActivityService activityService; // M10
+    private final ProjectMemberRepository projectMemberRepository;
+    private final FolderRepository folderRepository;
+    private final MembershipService membership;
+    private final UserService userService;
 
     public ProjectService(ProjectRepository projectRepository, WorkspaceService workspaceService,
                           AccessPolicy accessPolicy, FavoriteService favoriteService,
                           SortOrderService sortOrderService, ProjectTreeService projectTreeService,
                           UsageLimits usageLimits, ApplicationEventPublisher events, Clock clock,
-                          ActivityService activityService) {
+                          ActivityService activityService,
+                          ProjectMemberRepository projectMemberRepository, FolderRepository folderRepository,
+                          MembershipService membership, UserService userService) {
         this.activityService = activityService;
+        this.projectMemberRepository = projectMemberRepository;
+        this.folderRepository = folderRepository;
+        this.membership = membership;
+        this.userService = userService;
         this.projectRepository = projectRepository;
         this.workspaceService = workspaceService;
         this.accessPolicy = accessPolicy;
@@ -90,13 +106,13 @@ public class ProjectService {
     /** Toàn bộ (không phân trang): Inbox trước rồi theo cây (cha trước con, anh em theo sort_order) — quyết định Q11. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> list(UUID userId, boolean archived) {
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        ReadScope scope = accessPolicy.listScope(userId); // M8a: dự án ĐÃ THAM GIA (gồm dự án được chia sẻ)
+        if (scope.isEmpty()) {
             return List.of();
         }
         List<Project> projects = archived
-                ? projectRepository.findArchivedIn(workspaceIds)
-                : projectRepository.findActiveIn(workspaceIds);
+                ? projectRepository.findArchivedAmong(scope.projectIds())
+                : projectRepository.findActiveAmong(scope.projectIds());
         return toResponses(userId, inTreeOrder(projects));
     }
 
@@ -111,15 +127,15 @@ public class ProjectService {
         if (projectIds.isEmpty()) {
             return List.of();
         }
-        Set<UUID> readable = new HashSet<>(accessPolicy.readableWorkspaceIds(userId));
+        Set<UUID> readable = new HashSet<>(accessPolicy.listScope(userId).projectIds());
         Map<UUID, Project> byId = projectRepository.findAllById(projectIds).stream()
-                .filter(p -> readable.contains(p.getWorkspace().getId()))
+                .filter(p -> readable.contains(p.getId()))
                 .collect(Collectors.toMap(Project::getId, Function.identity()));
         return toResponses(userId, projectIds.stream().filter(byId::containsKey).map(byId::get).toList());
     }
 
     public Created<ProjectResponse> create(UUID userId, CreateProjectRequest request) {
-        Workspace workspace = workspaceService.personalWorkspace(userId);
+        Workspace workspace = targetWorkspace(userId, request); // M8a: workspace nhóm khi có workspaceId
         if (request.id() != null) { // `id` client-sinh đã có → replay / 409 id-conflict (spec 12.11), TRƯỚC mọi kiểm khác
             Optional<Project> existing = projectRepository.findById(request.id());
             if (existing.isPresent()) {
@@ -142,9 +158,53 @@ public class ProjectService {
                 request.color() == null ? ProjectColor.charcoal : request.color(),
                 false, ViewStyle.LIST, sortOrder);
         project.assignId(request.id()); // null → id do server sinh
+        project.setCreatedBy(userId);
+        if (workspace.isTeam()) { // M8a: dự án nhóm có access + folder; người tạo tự là thành viên dự án
+            project.setAccess(request.access() == null ? ProjectAccess.TEAM : request.access());
+            project.setFolderId(request.folderId());
+        }
         projectRepository.save(project);
+        if (workspace.isTeam()) {
+            projectRepository.flush(); // hàng project phải có trước khi chèn project_members (FK)
+            projectMemberRepository.save(new ProjectMember(project.getId(), userId));
+        }
         activityService.project(userId, project, ActivityEventType.ADDED); // M10
         return Created.fresh(toResponse(userId, project));
+    }
+
+    /**
+     * M8a: workspace đích của POST projects. Vắng / workspace cá nhân của mình → cá nhân (access, folderId phải vắng →
+     * 400). Workspace nhóm: người ngoài 404, Guest 403; không có dự án con (parentId → 400); folder phải thuộc team (400).
+     */
+    private Workspace targetWorkspace(UUID userId, CreateProjectRequest request) {
+        Workspace personal = workspaceService.personalWorkspace(userId);
+        if (request.workspaceId() == null || request.workspaceId().equals(personal.getId())) {
+            if (request.access() != null || request.folderId() != null) {
+                throw ApiException.badRequest(ErrorMessage.TEAM_ONLY_SETTING);
+            }
+            return personal;
+        }
+        accessPolicy.requireWorkspaceMember(userId, request.workspaceId());
+        Workspace team = workspaceService.requireWorkspace(request.workspaceId());
+        if (!team.isTeam()) {
+            throw ApiException.notFound(ErrorMessage.WORKSPACE_NOT_FOUND);
+        }
+        if (request.parentId() != null) {
+            throw ApiException.badRequest(ErrorMessage.TEAM_NO_SUBPROJECTS);
+        }
+        if (request.folderId() != null) {
+            requireFolderIn(team.getId(), request.folderId());
+        }
+        return team;
+    }
+
+    private void requireFolderIn(UUID workspaceId, UUID folderId) {
+        boolean valid = folderRepository.findById(folderId)
+                .map(folder -> folder.getWorkspaceId().equals(workspaceId))
+                .orElse(false);
+        if (!valid) {
+            throw ApiException.badRequest(ErrorMessage.FOLDER_INVALID);
+        }
     }
 
     public ProjectResponse update(UUID userId, UUID projectId, UpdateProjectRequest request) {
@@ -159,6 +219,22 @@ public class ProjectService {
         }
         if (request.description() != null) {
             project.setDescription(request.description());
+        }
+        if (request.folderId() != null || request.access() != null) { // M8a: chỉ dự án nhóm + người quản lý
+            if (!project.getWorkspace().isTeam()) {
+                throw ApiException.badRequest(ErrorMessage.TEAM_ONLY_SETTING);
+            }
+            accessPolicy.checkProjectManage(userId, project);
+            if (request.folderId() != null) {
+                UUID folderId = request.folderId().orElse(null);
+                if (folderId != null) {
+                    requireFolderIn(project.getWorkspace().getId(), folderId);
+                }
+                project.setFolderId(folderId);
+            }
+            if (request.access() != null) {
+                project.setAccess(request.access());
+            }
         }
         if (!tracked.equals(ActivityService.trackedFields(project))) {
             activityService.project(userId, project, ActivityEventType.UPDATED); // M10
@@ -186,13 +262,16 @@ public class ProjectService {
     public ProjectResponse move(UUID userId, UUID projectId, MoveProjectRequest request) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        accessPolicy.checkProjectManage(userId, project); // M8a: chỉ người quản lý (chủ / Admin / người tạo)
         requireNotArchived(project);
         UUID workspaceId = project.getWorkspace().getId();
         usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): hai move ngược chiều không tạo vòng lặp
         refresh(project); // đã chờ khoá: archive(cha) có thể vừa commit và lưu trữ cả dự án này → đọc lại, kiểm lại cờ
         requireNotArchived(project);
         UUID parentId = request.parentId().orElse(null); // parentId bắt buộc có khoá; null = gốc
+        if (parentId != null && project.getWorkspace().isTeam()) {
+            throw ApiException.badRequest(ErrorMessage.TEAM_NO_SUBPROJECTS); // M8a: team không có dự án con
+        }
         if (parentId != null) {
             requireParent(userId, workspaceId, parentId);
         }
@@ -213,7 +292,7 @@ public class ProjectService {
     public ProjectResponse archive(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        accessPolicy.checkProjectManage(userId, project); // M8a: chỉ người quản lý (chủ / Admin / người tạo)
         usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước: tuần tự hoá với create / move / unarchive
         refresh(project); // bản nạp trước khoá có thể cũ: archive khác vừa commit → không ghi đè archived_at
         if (!project.isArchived()) {
@@ -234,7 +313,7 @@ public class ProjectService {
     public ProjectResponse unarchive(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        accessPolicy.checkProjectManage(userId, project); // M8a: chỉ người quản lý (chủ / Admin / người tạo)
         UUID workspaceId = project.getWorkspace().getId();
         usageLimits.lockWorkspace(workspaceId); // chống đua (spec 8.2 #9): khoá TRƯỚC khi đếm
         refresh(project); // đọc lại sau khoá: unarchive khác song song đã khôi phục / detach xong → không kiểm trên bản cũ
@@ -266,7 +345,7 @@ public class ProjectService {
     public void delete(UUID userId, UUID projectId) {
         Project project = requireReadable(userId, projectId);
         rejectInbox(project);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        accessPolicy.checkProjectManage(userId, project); // M8a: chỉ người quản lý (chủ / Admin / người tạo)
         usageLimits.lockWorkspace(project.getWorkspace().getId()); // W trước, rồi hàng dự án id TĂNG DẦN: DB cascade xoá
         refresh(project);                                          // theo thứ tự tuỳ ý → khoá trước để không deadlock
         List<UUID> ids = withDescendants(project);                 // với archive / task move
@@ -276,6 +355,50 @@ public class ProjectService {
         activityService.project(userId, project, ActivityEventType.DELETED); // M10 (ghi trước khi xoá: còn tên)
         projectRepository.delete(project);
         projectRepository.flush();
+    }
+
+    /**
+     * M8a F8: chuyển dự án cá nhân VÀO workspace nhóm (không có chiều ngược). Chỉ chủ dự án; đích là team mình là Admin /
+     * Member (người ngoài 404, Guest 403); dự án gốc không có dự án con (400); Inbox 403; lưu trữ 409; vượt giới hạn dự
+     * án của team → 422. Task đổi workspace_id theo; người chuyển + cộng tác viên thành thành viên dự án (người ngoài team
+     * thành GUEST). Khoá: hai workspace theo id TĂNG DẦN rồi hàng dự án.
+     */
+    public ProjectResponse moveToWorkspace(UUID userId, UUID projectId, MoveToWorkspaceRequest request) {
+        Project project = requireReadable(userId, projectId);
+        rejectInbox(project);
+        accessPolicy.checkProjectManage(userId, project);
+        if (project.getWorkspace().isTeam()) {
+            throw ApiException.badRequest(ErrorMessage.MOVE_TO_WORKSPACE_INVALID);
+        }
+        accessPolicy.requireWorkspaceMember(userId, request.workspaceId());
+        Workspace target = workspaceService.requireWorkspace(request.workspaceId());
+        if (!target.isTeam()) {
+            throw ApiException.badRequest(ErrorMessage.MOVE_TO_WORKSPACE_INVALID);
+        }
+        if (request.folderId() != null) {
+            requireFolderIn(target.getId(), request.folderId());
+        }
+        UUID sourceId = project.getWorkspace().getId();
+        java.util.stream.Stream.of(sourceId, target.getId()).sorted().forEach(usageLimits::lockWorkspace);
+        refresh(project);
+        requireNotArchived(project);
+        if (project.getParentId() != null || !projectTreeService.descendants(tree(sourceId), projectId).isEmpty()) {
+            throw ApiException.badRequest(ErrorMessage.PROJECT_HAS_SUBPROJECTS);
+        }
+        usageLimits.check(LimitKind.ACTIVE_PROJECTS, projectRepository.countActive(target.getId()), 1);
+        usageLimits.check(LimitKind.PROJECTS, projectRepository.countAll(target.getId()), 1);
+        long sortOrder = placeForInsert(List.of(project), container(target.getId(), null), null);
+        List<UUID> collaborators = projectMemberRepository.findAllByProjectIdOrderByCreatedAtAsc(projectId).stream()
+                .map(ProjectMember::getUserId).toList();
+        project.moveToWorkspace(target, sortOrder,
+                request.access() == null ? ProjectAccess.TEAM : request.access(), request.folderId(), userId);
+        projectRepository.flush();
+        projectRepository.moveTasksToWorkspace(projectId, target.getId(), clock.instant());
+        membership.addToProject(project, userService.requireUser(userId), false);
+        collaborators.forEach(id -> membership.addToWorkspace(target, userService.requireUser(id),
+                com.taskly.entity.WorkspaceRole.GUEST));
+        activityService.project(userId, project, ActivityEventType.UPDATED); // M10: đổi workspace / quyền truy cập
+        return toResponse(userId, project);
     }
 
     // ---- Tra cứu cho service khác ----
@@ -288,7 +411,7 @@ public class ProjectService {
     public Project requireReadable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> ApiException.notFound(notFoundDetail));
-        accessPolicy.checkRead(userId, project.getWorkspace().getId(), notFoundDetail);
+        accessPolicy.checkProjectRead(userId, project, notFoundDetail); // M8a: quyền theo dự án
         return project;
     }
 
@@ -298,16 +421,18 @@ public class ProjectService {
 
     /** Như requireReadable + dự án lưu trữ là chỉ đọc → 409 project-archived (spec 5.7). */
     public Project requireWritable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
-        Project project = requireReadable(userId, projectId, notFoundDetail);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), notFoundDetail);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound(notFoundDetail));
+        accessPolicy.checkProjectWrite(userId, project, notFoundDetail); // M8a: 404 / xem trước → 403
         requireNotArchived(project);
         return project;
     }
 
     /** Dự án đích khi tạo / chuyển task (BR-08): không thấy → 404; của mình nhưng đang lưu trữ → 422 target-archived. */
     public Project requireTarget(UUID userId, UUID projectId) {
-        Project project = requireReadable(userId, projectId);
-        accessPolicy.checkWrite(userId, project.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.PROJECT_NOT_FOUND));
+        accessPolicy.checkProjectWrite(userId, project, ErrorMessage.PROJECT_NOT_FOUND); // M8a: xem trước → 403
         if (project.isArchived()) {
             throw targetArchived();
         }
@@ -533,12 +658,37 @@ public class ProjectService {
                     descendants.stream().mapToLong(d -> workspaceCounts.getOrDefault(d, 0L)).sum())));
         });
         counts.putAll(countOpen(ids.stream().filter(id -> !stats.containsKey(id)).toList())); // Inbox không nằm trong cây
+        Map<UUID, ProjectMapper.Sharing> sharing = sharing(userId, projects);
         return projects.stream()
                 .map(p -> {
                     DescendantStats descendants = stats.getOrDefault(p.getId(), DescendantStats.NONE);
                     return ProjectMapper.toResponse(p, favorites.contains(p.getId()), counts.getOrDefault(p.getId(), 0L),
-                            descendants.projects(), descendants.activeTasks());
+                            descendants.projects(), descendants.activeTasks(),
+                            sharing.getOrDefault(p.getId(), ProjectMapper.Sharing.PRIVATE_OWNER));
                 })
                 .toList();
+    }
+
+    /**
+     * M8a: memberCount / joined / canManage theo góc nhìn userId — 2 câu cho cả danh sách. Dự án cá nhân: chủ không có
+     * hàng project_members nên memberCount = 1 + số cộng tác viên.
+     */
+    private Map<UUID, ProjectMapper.Sharing> sharing(UUID userId, List<Project> projects) {
+        List<UUID> ids = projects.stream().map(Project::getId).toList();
+        Map<UUID, AccessPolicy.ProjectAccessInfo> access = accessPolicy.projectAccess(userId, ids);
+        Map<UUID, Long> members = projectMemberRepository.countByProjectIds(ids).stream()
+                .collect(Collectors.toMap(ProjectMemberRepository.MemberCount::getProjectId,
+                        ProjectMemberRepository.MemberCount::getMemberCount));
+        Map<UUID, ProjectMapper.Sharing> result = new HashMap<>();
+        for (Project project : projects) {
+            AccessPolicy.ProjectAccessInfo info = access.get(project.getId());
+            if (info == null) {
+                continue;
+            }
+            long count = members.getOrDefault(project.getId(), 0L) + (project.getWorkspace().isTeam() ? 0 : 1);
+            result.put(project.getId(), new ProjectMapper.Sharing(count, info.owner() || info.joined(),
+                    info.canManage()));
+        }
+        return result;
     }
 }

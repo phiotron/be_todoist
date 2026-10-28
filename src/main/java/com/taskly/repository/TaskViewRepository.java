@@ -1,6 +1,7 @@
 package com.taskly.repository;
 
 import com.taskly.common.web.CursorCodec;
+import com.taskly.security.ReadScope;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -44,7 +45,8 @@ public class TaskViewRepository {
             """;
 
     /**
-     * Nguồn + điều kiện chung. Cần tham số :workspaceIds (không rỗng). Lọc theo t.workspace_id (cột phi chuẩn của task,
+     * Nguồn + điều kiện chung. Cần tham số :workspaceIds + :projectIds (M8a, ReadScope.bind; không rỗng).
+     * Lọc theo t.workspace_id (cột phi chuẩn của task,
      * có chỉ mục) — KHÔNG còn p.workspace_id (spec 10, 12.3). Nối thêm điều kiện bằng " and ...".
      */
     public static final String FROM_WHERE = """
@@ -52,6 +54,7 @@ public class TaskViewRepository {
             join projects p on p.id = t.project_id
             left join tasks pt on pt.id = t.parent_id
             where t.workspace_id in (:workspaceIds)
+              and t.project_id in (:projectIds)
             """;
 
     /** Câu SELECT gốc = "select " + COLUMNS + FROM_WHERE; nối thêm " and ...". */
@@ -121,23 +124,21 @@ public class TaskViewRepository {
         this.jdbc = jdbc;
     }
 
-    public Optional<TaskView> findOne(List<UUID> workspaceIds, UUID taskId) {
-        if (workspaceIds.isEmpty()) {
+    public Optional<TaskView> findOne(ReadScope scope, UUID taskId) {
+        if (scope.isEmpty()) {
             return Optional.empty();
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params()
                 .addValue("taskId", taskId);
         return jdbc.query(BASE_SELECT + " and t.id = :taskId", params, ROW_MAPPER).stream().findFirst();
     }
 
     /** Các task theo id (trong phạm vi quyền). Thứ tự KHÔNG đảm bảo — caller tự sắp. */
-    public List<TaskView> findByIds(List<UUID> workspaceIds, Collection<UUID> ids) {
-        if (ids.isEmpty() || workspaceIds.isEmpty()) {
+    public List<TaskView> findByIds(ReadScope scope, Collection<UUID> ids) {
+        if (ids.isEmpty() || scope.isEmpty()) {
             return List.of();
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params()
                 .addValue("ids", ids);
         return jdbc.query(BASE_SELECT + " and t.id in (:ids)", params, ROW_MAPPER);
     }
@@ -186,8 +187,8 @@ public class TaskViewRepository {
     }
 
     /** Toàn bộ con cháu (kể cả đã xong) của các task gốc, mọi cấp. */
-    public List<TaskView> findSubtrees(List<UUID> workspaceIds, Collection<UUID> rootIds) {
-        if (rootIds.isEmpty() || workspaceIds.isEmpty()) {
+    public List<TaskView> findSubtrees(ReadScope scope, Collection<UUID> rootIds) {
+        if (rootIds.isEmpty() || scope.isEmpty()) {
             return List.of();
         }
         String sql = """
@@ -197,8 +198,7 @@ public class TaskViewRepository {
                     select c.id from tasks c join tree on c.parent_id = tree.id
                 )
                 """ + BASE_SELECT + " and t.id in (select id from tree)";
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params()
                 .addValue("rootIds", rootIds);
         return jdbc.query(sql, params, ROW_MAPPER);
     }

@@ -85,7 +85,7 @@ public class SyncService {
 
     private void collectChanges(UUID userId, long since, Set<String> keys, Map<String, List<Object>> changes,
                                 List<SyncDeletedItem> deleted) {
-        List<ChangeRow> rows = changeRepository.changedSince(accessPolicy.readableWorkspaceIds(userId), userId, since);
+        List<ChangeRow> rows = changeRepository.changedSince(accessPolicy.listScope(userId), userId, since);
         Map<String, List<UUID>> liveIds = new HashMap<>();
         for (ChangeRow row : rows) {
             SyncEntitySource source = sourcesByType.get(row.entityType());

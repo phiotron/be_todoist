@@ -16,6 +16,7 @@ import com.taskly.repository.TaskRepository;
 import com.taskly.repository.TaskView;
 import com.taskly.repository.TaskViewRepository;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.Clock;
@@ -450,9 +451,9 @@ public class TaskService {
     /** Mọi task trong khối Quá hạn (due_day < hôm nay, chưa xong, không tính dự án lưu trữ) của user — Reschedule (spec 12.5). */
     public List<Task> findOverdue(UUID userId) {
         LocalDate today = TaskDueRules.today(clock.instant(), userService.timeZoneOf(userId));
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        return workspaceIds.isEmpty() ? List.of()
-                : taskRepository.findOverdue(today, today.atStartOfDay(), workspaceIds);
+        ReadScope scope = accessPolicy.listScope(userId); // M8a: dự án đã tham gia
+        return scope.isEmpty() ? List.of()
+                : taskRepository.findOverdue(today, today.atStartOfDay(), scope.workspaceIds(), scope.projectIds());
     }
 
     /**
@@ -504,7 +505,7 @@ public class TaskService {
     /** Flush rồi đọc lại bằng SQL → response luôn phản ánh version/updated_at đã ghi. */
     public TaskResponse toResponse(UUID userId, UUID taskId) {
         taskRepository.flush();
-        TaskView view = taskViewRepository.findOne(accessPolicy.readableWorkspaceIds(userId), taskId)
+        TaskView view = taskViewRepository.findOne(accessPolicy.viewScope(userId), taskId)
                 .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
         return TaskMapper.toResponse(view, TaskDueRules.localNow(clock.instant(), userService.timeZoneOf(userId)));
     }
@@ -517,7 +518,9 @@ public class TaskService {
      * id-conflict (cùng một câu trả lời, không lộ gì thêm).
      */
     private Created<TaskResponse> replayOrConflict(UUID userId, Task existing, CreateTaskRequest request) {
-        if (!accessPolicy.canRead(userId, existing.getWorkspaceId()) || !sameContent(userId, existing, request)) {
+        boolean readable = accessPolicy.projectAccess(userId, existing.getProjectId())
+                .map(AccessPolicy.ProjectAccessInfo::canRead).orElse(false); // M8a: quyền theo dự án
+        if (!readable || !sameContent(userId, existing, request)) {
             throw ApiException.conflict(ErrorMessage.ID_CONFLICT).withCode(ProblemCodes.ID_CONFLICT);
         }
         return Created.replay(toResponse(userId, existing.getId()));

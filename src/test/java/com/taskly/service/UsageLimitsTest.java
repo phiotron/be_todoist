@@ -27,6 +27,17 @@ class UsageLimitsTest {
     }
 
     @Test
+    void projectMembersDefaultsTo5_andIsOverridableLikeTheOthers() {
+        assertThat(limits.max(LimitKind.PROJECT_MEMBERS)).isEqualTo(5);
+        assertThatCode(() -> limits.check(LimitKind.PROJECT_MEMBERS, 4, 1)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> limits.check(LimitKind.PROJECT_MEMBERS, 5, 1))
+                .isInstanceOfSatisfying(ApiException.class, ex -> assertThat(ex.getBody().getProperties())
+                        .containsEntry("limit", "PROJECT_MEMBERS").containsEntry("max", 5));
+        limits.overrideMax(LimitKind.PROJECT_MEMBERS, 2);
+        assertThat(limits.max(LimitKind.PROJECT_MEMBERS)).isEqualTo(2);
+    }
+
+    @Test
     void check_allowsUpToMax_thenThrows422WithCodeLimitAndMax() {
         assertThatCode(() -> limits.check(LimitKind.PROJECT_SECTIONS, 19, 1)).doesNotThrowAnyException();
         assertThatThrownBy(() -> limits.check(LimitKind.PROJECT_SECTIONS, 20, 1))

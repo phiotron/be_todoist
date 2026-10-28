@@ -142,6 +142,8 @@ taskly:
     # M8b (spec 2.1): file đính kèm comment ≤ 100 MB, ảnh đại diện ≤ 4 MB — vượt → 400.
     comment-file-bytes: 104857600
     avatar-bytes: 4194304
+    # M8a: người / dự án cá nhân (chủ + cộng tác viên + lời mời email còn hiệu lực).
+    project-members: 5
   # M11: job backup hằng ngày (BackupJob) kiểm "tới nửa đêm theo múi giờ tài khoản" mỗi khoảng này.
   backups:
     check-interval: PT15M
@@ -159,6 +161,10 @@ taskly:
     download-link-ttl: 5m
     # File tải lên mà chưa gắn comment quá thời gian này thì bị dọn.
     unattached-ttl: 24h
+  # M8a: lời mời email hết hạn sau 7 ngày (ADR 0003); link = link-base + token (app mở deep link hoặc dán mã).
+  invitations:
+    ttl-days: 7
+    link-base: taskly://join/
 
 # requestId (RequestIdFilter, MDC) in trên mọi dòng log. Log không được chứa nội dung task, mật khẩu, token.
 logging:

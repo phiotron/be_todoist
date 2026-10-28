@@ -14,6 +14,7 @@ import com.taskly.repository.listing.KeysetPager.KeyedId;
 import com.taskly.repository.listing.SortKey;
 import com.taskly.repository.listing.SubtreeOrder;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import com.taskly.service.display.DisplayOptions;
 import com.taskly.service.display.DisplayParams;
 import com.taskly.service.display.DisplayQuery;
@@ -211,12 +212,14 @@ public class TaskListingService {
         } else {
             scope = new Scope(null, null, null, from, to);
         }
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        // M8a: một dự án → phạm vi xem (gồm xem trước dự án Team); label / filter / lịch chung → dự án đã tham gia
+        ReadScope readScope = scope.kind() == ViewKind.PROJECT
+                ? accessPolicy.viewScope(userId) : accessPolicy.listScope(userId);
+        if (readScope.isEmpty()) {
             return new Page<>(List.of(), null);
         }
         Clock local = clock.withZone(zone);
-        Context context = new Context(userId, workspaceIds, today, LocalDateTime.now(local), zone.getId());
+        Context context = new Context(userId, readScope, today, LocalDateTime.now(local), zone.getId());
         String kind = "calendar:" + scope.kind();
         CursorCodec.Cursor after = CursorCodec.hasCursor(cursor)
                 ? CursorCodec.decode(kind, cursor, TaskListingRepository.CALENDAR_KEYS.size()) : null;
@@ -236,13 +239,15 @@ public class TaskListingService {
     }
 
     private Page<TaskResponse> run(UUID userId, Scope scope, DisplayOptions options, String cursor, int pageSize) {
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        // M8a: một dự án → phạm vi xem (gồm xem trước dự án Team); label / filter / view → dự án đã tham gia
+        ReadScope readScope = scope.kind() == ViewKind.PROJECT
+                ? accessPolicy.viewScope(userId) : accessPolicy.listScope(userId);
+        if (readScope.isEmpty()) {
             return new Page<>(List.of(), null);
         }
         ZoneId zone = userService.timeZoneOf(userId);
         Clock local = clock.withZone(zone);
-        Context context = new Context(userId, workspaceIds, LocalDate.now(local), LocalDateTime.now(local),
+        Context context = new Context(userId, readScope, LocalDate.now(local), LocalDateTime.now(local),
                 zone.getId());
         List<SortKey> keys = repository.keys(scope, options);
         String kind = cursorKind(scope, options);

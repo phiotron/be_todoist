@@ -126,6 +126,10 @@ public class SettingsService {
         if (request.urgentDeviceId() != null) {
             user.changeUrgentDeviceId(request.urgentDeviceId().orElse(null));
         }
+        // M8a: Auto accept invites (null = giữ).
+        if (request.autoAcceptInvites() != null) {
+            user.changeAutoAcceptInvites(request.autoAcceptInvites());
+        }
         return SettingsMapper.toResponse(user);
     }
 

@@ -17,6 +17,7 @@ import com.taskly.repository.TaskSearchRepository;
 import com.taskly.repository.listing.KeysetPager.KeyedId;
 import com.taskly.repository.listing.SortKey;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -66,11 +67,11 @@ public class SearchService {
             return SearchObjectsResponse.empty();
         }
         SearchQuery query = parsed.get();
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        List<UUID> projectIds = workspaceIds.isEmpty() ? List.of()
-                : objectSearchRepository.projectIds(workspaceIds, query, MAX_OBJECTS);
-        List<SectionSearchItem> sections = workspaceIds.isEmpty() ? List.of()
-                : objectSearchRepository.sections(workspaceIds, query, MAX_OBJECTS);
+        ReadScope scope = accessPolicy.listScope(userId); // M8a: dự án đã tham gia
+        List<UUID> projectIds = scope.isEmpty() ? List.of()
+                : objectSearchRepository.projectIds(scope, query, MAX_OBJECTS);
+        List<SectionSearchItem> sections = scope.isEmpty() ? List.of()
+                : objectSearchRepository.sections(scope, query, MAX_OBJECTS);
         List<UUID> labelIds = objectSearchRepository.labelIds(userId, query, MAX_OBJECTS);
         List<UUID> filterIds = objectSearchRepository.filterIds(userId, query, MAX_OBJECTS);
         return new SearchObjectsResponse(
@@ -78,7 +79,7 @@ public class SearchService {
                 sections,
                 inOrder(labelIds, labelIds.isEmpty() ? List.of() : labelService.list(userId), LabelResponse::id),
                 inOrder(filterIds, filterIds.isEmpty() ? List.of() : filterService.list(userId), FilterResponse::id),
-                commentService.search(workspaceIds, query, MAX_OBJECTS));
+                commentService.search(scope, query, MAX_OBJECTS));
     }
 
     /** Giữ thứ tự của ids; DTO dựng bởi service chủ sở hữu (danh sách đầy đủ của user, bị chặn bởi giới hạn). */
@@ -97,11 +98,11 @@ public class SearchService {
         String kind = cursorKind(query, completed);
         List<SortKey> keys = taskSearchRepository.keys(query, completed);
         CursorCodec.Cursor after = CursorCodec.hasCursor(cursor) ? CursorCodec.decode(kind, cursor, keys.size()) : null;
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        ReadScope scope = accessPolicy.listScope(userId); // M8a: dự án đã tham gia
+        if (scope.isEmpty()) {
             return new Page<>(List.of(), null);
         }
-        List<KeyedId> rows = taskSearchRepository.search(workspaceIds, query, completed, after, pageSize + 1);
+        List<KeyedId> rows = taskSearchRepository.search(scope, query, completed, after, pageSize + 1);
         Page<KeyedId> page = Page.fromLookahead(rows, pageSize, row -> CursorCodec.encode(kind, row.keys()));
         List<TaskResponse> items = taskViewService.getResponsesInOrder(userId,
                 page.items().stream().map(KeyedId::id).toList());

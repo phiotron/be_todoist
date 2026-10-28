@@ -3,6 +3,7 @@ package com.taskly.service;
 import com.taskly.dto.backup.BackupResponse;
 import com.taskly.entity.LimitKind;
 import com.taskly.repository.BackupRepository;
+import com.taskly.security.AccessPolicy;
 import com.taskly.security.OpaqueTokens;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -30,10 +31,12 @@ public class BackupService {
 
     private final BackupRepository backupRepository;
     private final UsageLimits usageLimits;
+    private final AccessPolicy accessPolicy;
     private final TransactionTemplate transactionTemplate;
 
     public BackupService(BackupRepository backupRepository, UsageLimits usageLimits,
-                         PlatformTransactionManager transactionManager) {
+                         PlatformTransactionManager transactionManager, AccessPolicy accessPolicy) {
+        this.accessPolicy = accessPolicy;
         this.backupRepository = backupRepository;
         this.usageLimits = usageLimits;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -84,7 +87,7 @@ public class BackupService {
             if (!backupRepository.isDue(userId, now)) {
                 return false;
             }
-            BackupRepository.Snapshot snapshot = backupRepository.snapshot(userId);
+            BackupRepository.Snapshot snapshot = backupRepository.snapshot(userId, accessPolicy.listScope(userId).projectIds()); // M8a: dự án đã tham gia
             byte[] bytes = snapshot.content().getBytes(StandardCharsets.UTF_8);
             String hash = OpaqueTokens.sha256Hex(snapshot.content());
             boolean changed = !Objects.equals(hash, backupRepository.lastHash(userId).orElse(null));

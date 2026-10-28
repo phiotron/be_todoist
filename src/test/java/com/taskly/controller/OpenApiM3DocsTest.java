@@ -60,7 +60,8 @@ class OpenApiM3DocsTest extends IntegrationTestBase {
                                 "dailyGoal", "weeklyGoal", "daysOff", "vacationMode", "goalCelebrations",
                                 "karmaEnabled",
                                 // M12
-                                "snoozeMinutes", "pinReminders", "urgentDeviceId")))
+                                "snoozeMinutes", "pinReminders", "urgentDeviceId",
+                                "autoAcceptInvites")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.addButtonPlacement.enum")
                         .value(containsInAnyOrder("LEFT", "CENTER", "RIGHT")))
                 .andExpect(jsonPath("$.components.schemas.SettingsResponse.properties.theme.enum")

@@ -46,7 +46,29 @@ public class WorkspaceService {
      */
     @Transactional
     public int deleteOwnedWorkspaces(UUID ownerId) {
+        transferSharedTeams(ownerId);
         return workspaceRepository.deleteAllByOwnerId(ownerId);
+    }
+
+    /**
+     * M8a (plan câu hỏi 8): workspace nhóm user sở hữu mà còn người khác → chuyển owner_id cho Admin khác (không có thì
+     * người vào sớm nhất, nâng lên Admin) để không xoá dữ liệu của cả nhóm; workspace nhóm chỉ có mình thì xoá cùng.
+     */
+    private void transferSharedTeams(UUID ownerId) {
+        // UPDATE trực tiếp, không nạp entity: workspace cũ không được nằm lại trong persistence context khi user bị xoá.
+        for (UUID teamId : workspaceRepository.findTeamIdsByOwnerId(ownerId)) {
+            workspaceMemberRepository.findHeir(teamId, ownerId).ifPresent(heir -> {
+                workspaceMemberRepository.promoteToAdmin(teamId, heir);
+                workspaceRepository.transferOwner(teamId, heir);
+            });
+        }
+    }
+
+    /** M8a: workspace theo id (caller đã kiểm quyền qua AccessPolicy); không có → 404. */
+    @Transactional(readOnly = true)
+    public Workspace requireWorkspace(UUID workspaceId) {
+        return workspaceRepository.findById(workspaceId)
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.WORKSPACE_NOT_FOUND));
     }
 
     /** Workspace cá nhân của user (Mức 1: dự án mới luôn tạo ở đây). Không có → phiên không hợp lệ (401). */

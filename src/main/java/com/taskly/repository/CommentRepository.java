@@ -2,6 +2,7 @@ package com.taskly.repository;
 
 import com.taskly.dto.search.CommentSearchItem;
 import com.taskly.dto.search.SearchQuery;
+import com.taskly.security.ReadScope;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -131,26 +132,29 @@ public class CommentRepository {
     }
 
     /**
-     * Thành viên workspace của dự án (Mức 1: thành viên workspace xem được mọi dự án). CommentService lọc thêm qua
-     * AccessPolicy.canRead — M8a đổi nguồn danh sách (project_members) ở đây.
+     * Ứng viên được @mention của một dự án: thành viên workspace chứa dự án + người đã tham gia dự án (cộng tác viên
+     * dự án cá nhân không thuộc workspace). M8a: CommentService lọc tiếp bằng AccessPolicy.projectAccess (đọc được
+     * dự án) — danh sách này CHỈ là tập ứng viên, không phải quyền.
      */
-    public List<MemberRow> workspaceMembers(UUID workspaceId) {
+    public List<MemberRow> projectCandidates(UUID projectId) {
         return jdbc.query("""
-                select u.id, u.display_name, u.avatar_updated_at from workspace_members m
-                join users u on u.id = m.user_id where m.workspace_id = :workspaceId
+                select u.id, u.display_name, u.avatar_updated_at from users u
+                where u.id in (select m.user_id from workspace_members m join projects p on p.workspace_id = m.workspace_id
+                                where p.id = :projectId)
+                   or u.id in (select pm.user_id from project_members pm where pm.project_id = :projectId)
                 order by lower(u.display_name), u.id
-                """, new MapSqlParameterSource("workspaceId", workspaceId), (rs, n) -> new MemberRow(
+                """, new MapSqlParameterSource("projectId", projectId), (rs, n) -> new MemberRow(
                 rs.getObject("id", UUID.class), rs.getString("display_name"), instant(rs, "avatar_updated_at")));
     }
 
     // ---- tìm kiếm (search/objects, spec 12.6 "M8 + comments")
 
     /**
-     * Comment khớp mọi từ của query (không phân biệt hoa thường / dấu), trong các workspace đọc được, loại dự án lưu
-     * trữ. Comment task lấy dự án qua task; comment dự án lấy thẳng. Mới trước.
+     * Comment khớp mọi từ của query (không phân biệt hoa thường / dấu), trong các DỰ ÁN đọc được (M8a: ReadScope), loại
+     * dự án lưu trữ. Comment task lấy dự án qua task; comment dự án lấy thẳng. Mới trước.
      */
-    public List<CommentSearchItem> search(List<UUID> workspaceIds, SearchQuery query, int max) {
-        MapSqlParameterSource params = new MapSqlParameterSource("workspaceIds", workspaceIds).addValue("max", max);
+    public List<CommentSearchItem> search(ReadScope scope, SearchQuery query, int max) {
+        MapSqlParameterSource params = scope.params().addValue("max", max);
         StringBuilder terms = new StringBuilder();
         List<String> patterns = query.likePatterns();
         for (int i = 0; i < patterns.size(); i++) {
@@ -163,7 +167,7 @@ public class CommentRepository {
                 from comments c
                 left join tasks t on t.id = c.task_id
                 join projects p on p.id = coalesce(t.project_id, c.project_id)
-                where p.workspace_id in (:workspaceIds) and p.archived_at is null
+                where p.workspace_id in (:workspaceIds) and p.id in (:projectIds) and p.archived_at is null
                 """ + terms + " order by c.created_at desc, c.id desc limit :max";
         return jdbc.query(sql, params, (rs, n) -> new CommentSearchItem(rs.getObject("id", UUID.class),
                 rs.getObject("task_id", UUID.class), rs.getObject("project_id", UUID.class),

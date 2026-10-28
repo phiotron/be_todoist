@@ -185,6 +185,7 @@ public class TemplateService {
                 : ProjectDuplicateService.truncate(templateName, ProjectDuplicateService.MAX_NAME);
         Project project = new Project(workspace, null, name, "",
                 request.color() != null ? request.color() : templateColor, false, ViewStyle.LIST, sortOrder);
+        project.setCreatedBy(userId); // M8a: người tạo (dự án cá nhân — chủ workspace luôn quản lý được)
         projectRepository.save(project);
         contentWriter.append(project, content, userId);
         projectRepository.flush();

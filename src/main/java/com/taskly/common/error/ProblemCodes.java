@@ -80,6 +80,15 @@ public final class ProblemCodes {
     public static final String OAUTH_INVALID_CLIENT = "oauth-invalid-client";
     public static final String OAUTH_INVALID_SCOPE = "oauth-invalid-scope";
     public static final String OAUTH_UNSUPPORTED_GRANT_TYPE = "oauth-unsupported-grant-type";
+    // ---- M8a (contract mục 2: invitation-expired; còn lại plan M8a)
+    /** 410: lời mời email hết hạn / đã dùng / đã từ chối. */
+    public static final String INVITATION_EXPIRED = "invitation-expired";
+    /** 409: mời / thêm người đã là thành viên. */
+    public static final String ALREADY_MEMBER = "already-member";
+    /** 409: thao tác làm workspace nhóm không còn Admin nào. */
+    public static final String LAST_ADMIN = "last-admin";
+    /** 409: người cuối cùng rời dự án Restricted (dự án sẽ mồ côi). */
+    public static final String LAST_PROJECT_MEMBER = "last-project-member";
 
     private ProblemCodes() {
     }

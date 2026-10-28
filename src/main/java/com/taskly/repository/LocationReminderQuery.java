@@ -2,7 +2,7 @@ package com.taskly.repository;
 
 import com.taskly.dto.location.LocationReminderResponse;
 import com.taskly.entity.LocationTrigger;
-import java.util.Collection;
+import com.taskly.security.ReadScope;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -28,6 +28,7 @@ public class LocationReminderQuery {
             WHERE r.user_id = :userId
               AND r.type = 'LOCATION'
               AND t.workspace_id IN (:workspaceIds)
+              AND t.project_id IN (:projectIds)
               AND t.completed_at IS NULL
               AND p.archived_at IS NULL
               AND (s.id IS NULL OR s.archived_at IS NULL)
@@ -41,13 +42,13 @@ public class LocationReminderQuery {
         this.jdbc = jdbc;
     }
 
-    public List<LocationReminderResponse> find(UUID userId, Collection<UUID> workspaceIds, int limit) {
-        if (workspaceIds.isEmpty()) {
+    /** M8a: phạm vi = dự án đã tham gia (ReadScope); nhắc vị trí chỉ của chính userId. */
+    public List<LocationReminderResponse> find(UUID userId, ReadScope scope, int limit) {
+        if (scope.isEmpty()) {
             return List.of(); // "IN ()" không hợp lệ trong SQL
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        MapSqlParameterSource params = scope.params()
                 .addValue("userId", userId)
-                .addValue("workspaceIds", workspaceIds)
                 .addValue("limit", limit);
         return jdbc.query(SQL, params, (rs, rowNum) -> new LocationReminderResponse(
                 rs.getObject("reminder_id", UUID.class),

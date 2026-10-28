@@ -202,7 +202,32 @@ public enum ErrorMessage {
     // ---- M12 - địa điểm, nhắc theo vị trí, urgent reminder
     LOCATION_NOT_FOUND("error.location-not-found"),
     REMINDER_LOCATION_FIELDS("error.reminder-location-fields"),
-    REMINDER_URGENT_LOCATION("error.reminder-urgent-location");
+    REMINDER_URGENT_LOCATION("error.reminder-urgent-location"),
+    // ---- M8a Team & chia sẻ
+    WORKSPACE_NOT_FOUND("error.workspace-not-found"),
+    WORKSPACE_NAME_SIZE("error.workspace-name-size"),
+    WORKSPACE_ADMIN_REQUIRED("error.workspace-admin-required"),
+    PERSONAL_WORKSPACE_LOCKED("error.personal-workspace-locked"),
+    GUEST_NOT_ALLOWED("error.guest-not-allowed"),
+    NOT_PROJECT_OWNER("error.not-project-owner"),
+    PROJECT_JOIN_REQUIRED("error.project-join-required"),
+    OWNER_CANNOT_LEAVE("error.owner-cannot-leave"),
+    LAST_ADMIN("error.last-admin"),
+    LAST_PROJECT_MEMBER("error.last-project-member"),
+    ALREADY_MEMBER("error.already-member"),
+    MEMBER_NOT_FOUND("error.member-not-found"),
+    INVITATION_NOT_FOUND("error.invitation-not-found"),
+    INVITATION_EXPIRED("error.invitation-expired"),
+    INVITATION_EMAIL_MISMATCH("error.invitation-email-mismatch"),
+    INVITATION_ROLE_INVALID("error.invitation-role-invalid"),
+    INVITE_SELF("error.invite-self"),
+    FOLDER_NOT_FOUND("error.folder-not-found"),
+    FOLDER_NAME_SIZE("error.folder-name-size"),
+    FOLDER_INVALID("error.folder-invalid"),
+    TEAM_NO_SUBPROJECTS("error.team-no-subprojects"),
+    TEAM_ONLY_SETTING("error.team-only-setting"),
+    PROJECT_HAS_SUBPROJECTS("error.project-has-subprojects"),
+    MOVE_TO_WORKSPACE_INVALID("error.move-to-workspace-invalid");
 
     private final String key;
 

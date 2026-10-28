@@ -1,10 +1,9 @@
 package com.taskly.repository;
 
+import com.taskly.security.ReadScope;
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -21,6 +20,7 @@ public class TaskDayCountRepository {
             from tasks t
             join projects p on p.id = t.project_id
             where t.workspace_id in (:workspaceIds)
+              and t.project_id in (:projectIds)
               and t.completed_at is null
               and p.archived_at is null
               and t.due_day between :from and :to
@@ -33,14 +33,13 @@ public class TaskDayCountRepository {
         this.jdbc = jdbc;
     }
 
-    /** Chỉ những ngày có ít nhất một task; workspaceIds rỗng → rỗng. */
-    public Map<LocalDate, Integer> countOpenByDueDay(List<UUID> workspaceIds, LocalDate from, LocalDate to) {
+    /** Chỉ những ngày có ít nhất một task; phạm vi rỗng → rỗng. M8a: phạm vi = dự án đã tham gia (ReadScope). */
+    public Map<LocalDate, Integer> countOpenByDueDay(ReadScope scope, LocalDate from, LocalDate to) {
         Map<LocalDate, Integer> counts = new HashMap<>();
-        if (workspaceIds.isEmpty()) {
+        if (scope.isEmpty()) {
             return counts;
         }
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", workspaceIds)
+        MapSqlParameterSource params = scope.params()
                 .addValue("from", from)
                 .addValue("to", to);
         jdbc.query(SQL, params, rs -> {

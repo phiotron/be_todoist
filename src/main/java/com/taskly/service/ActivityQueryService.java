@@ -9,6 +9,7 @@ import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.ActivityObjectType;
 import com.taskly.repository.ActivityLogRepository;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -62,11 +63,13 @@ public class ActivityQueryService {
         if (filter.taskId() != null) {
             taskService.requireReadable(userId, filter.taskId());
         }
-        List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-        if (workspaceIds.isEmpty()) {
+        // M8a: một dự án → phạm vi xem (gồm xem trước dự án Team); nguồn chung → dự án đã tham gia
+        ReadScope scope = filter.projectId() != null || filter.taskId() != null
+                ? accessPolicy.viewScope(userId) : accessPolicy.listScope(userId);
+        if (scope.isEmpty()) {
             return new Page<>(List.of(), null);
         }
-        List<ActivityResponse> rows = repository.page(new ActivityLogRepository.Query(workspaceIds,
+        List<ActivityResponse> rows = repository.page(new ActivityLogRepository.Query(userId, scope,
                 filter.projectId(), filter.taskId(), objectType, eventType, filter.initiatorId(), afterCreatedAt,
                 afterId, limit));
         return Page.fromLookahead(rows, limit, last ->

@@ -47,4 +47,8 @@ public class WorkspaceMember extends BaseEntity {
     public WorkspaceRole getRole() {
         return role;
     }
+
+    public void changeRole(WorkspaceRole newRole) {
+        this.role = newRole;
+    }
 }

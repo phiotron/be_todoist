@@ -3,6 +3,7 @@ package com.taskly.repository;
 import com.taskly.entity.NotificationEvent;
 import com.taskly.entity.NotificationScope;
 import com.taskly.entity.NotificationType;
+import com.taskly.security.ReadScope;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -17,7 +18,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Bảng notifications + notification_settings (M8b, V12). Mọi đọc lọc theo dự án nằm trong :workspaceIds (phạm vi từ
- * AccessPolicy.readableWorkspaceIds): mất quyền xem dự án → thông báo của nó không hiện, không đếm.
+ * AccessPolicy.viewScope, M8a: theo DỰ ÁN): mất quyền xem dự án → thông báo của nó không hiện, không đếm.
  */
 @Repository
 public class NotificationRepository {
@@ -35,7 +36,7 @@ public class NotificationRepository {
             join projects p on p.id = coalesce(t.project_id, n.project_id)
             left join users a on a.id = n.actor_id
             left join comments c on c.id = n.comment_id
-            where n.user_id = :userId and p.workspace_id in (:workspaceIds)
+            where n.user_id = :userId and p.workspace_id in (:workspaceIds) and p.id in (:projectIds)
             """;
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -58,10 +59,9 @@ public class NotificationRepository {
      * Một trang, mới trước; keyset (created_at, id) giảm dần. afterCreatedAt / afterId null = trang đầu. limit = cỡ
      * trang + 1 (lookahead).
      */
-    public List<NotificationRow> page(UUID userId, List<UUID> workspaceIds, boolean unreadOnly,
+    public List<NotificationRow> page(UUID userId, ReadScope scope, boolean unreadOnly,
                                       Instant afterCreatedAt, UUID afterId, int limit) {
-        MapSqlParameterSource params = new MapSqlParameterSource().addValue("userId", userId)
-                .addValue("workspaceIds", workspaceIds).addValue("limit", limit);
+        MapSqlParameterSource params = scope.params().addValue("userId", userId).addValue("limit", limit);
         StringBuilder sql = new StringBuilder("""
                 select n.id, n.type, n.actor_id, a.display_name as actor_name, a.avatar_updated_at as actor_avatar_at,
                        n.task_id, t.content as task_content, p.id as project_id, p.name as project_name,
@@ -85,18 +85,16 @@ public class NotificationRepository {
                 CommentRepository.instant(rs, "read_at"), CommentRepository.instant(rs, "created_at")));
     }
 
-    public long countUnread(UUID userId, List<UUID> workspaceIds) {
+    public long countUnread(UUID userId, ReadScope scope) {
         Long count = jdbc.queryForObject("select count(*) " + FROM + " and n.read_at is null",
-                new MapSqlParameterSource().addValue("userId", userId).addValue("workspaceIds", workspaceIds),
-                Long.class);
+                scope.params().addValue("userId", userId), Long.class);
         return count == null ? 0 : count;
     }
 
     /** Thông báo có thuộc user và còn xem được không (đánh dấu đã đọc: không thì 404). */
-    public boolean isVisible(UUID id, UUID userId, List<UUID> workspaceIds) {
+    public boolean isVisible(UUID id, UUID userId, ReadScope scope) {
         Long count = jdbc.queryForObject("select count(*) " + FROM + " and n.id = :id",
-                new MapSqlParameterSource().addValue("userId", userId).addValue("workspaceIds", workspaceIds)
-                        .addValue("id", id), Long.class);
+                scope.params().addValue("userId", userId).addValue("id", id), Long.class);
         return count != null && count > 0;
     }
 

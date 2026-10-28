@@ -149,5 +149,7 @@ public record UpdateSettingsRequest(
         @Schema(nullable = true, maxLength = 64,
                 description = "Id cài đặt của thiết bị nhận urgent reminder; vắng = giữ nguyên, null = bỏ chọn")
         Optional<@Pattern(regexp = "[A-Za-z0-9-]{8,64}", message = "{validation.urgent-device-id.invalid}")
-                String> urgentDeviceId) {
+                String> urgentDeviceId,
+        @Schema(description = "M8a Auto accept invites; vắng hoặc null = giữ nguyên")
+        Boolean autoAcceptInvites) {
 }

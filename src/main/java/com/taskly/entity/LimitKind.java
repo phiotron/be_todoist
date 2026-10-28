@@ -19,5 +19,7 @@ public enum LimitKind {
     /** M11: số bản backup hằng ngày giữ lại (21, taskly.limits.backups) — vượt thì xoá bản cũ nhất, không trả 422. */
     BACKUPS,
     /** M12: địa điểm đã lưu cho nhắc theo vị trí, theo tài khoản (≤ 100 [CXM]). */
-    LOCATIONS
+    LOCATIONS,
+    /** M8a: số người của MỘT dự án cá nhân (chủ + thành viên + lời mời email còn hiệu lực) ≤ 5. */
+    PROJECT_MEMBERS
 }

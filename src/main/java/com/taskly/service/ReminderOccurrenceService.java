@@ -35,7 +35,7 @@ public class ReminderOccurrenceService {
     public List<ReminderOccurrence> upcoming(UUID userId, Integer requestedLimit) {
         int limit = ReminderWindow.limit(requestedLimit);
         ReminderWindow window = ReminderWindow.at(clock.instant(), userService.timeZoneOf(userId));
-        return reminderOccurrenceQuery.find(userId, accessPolicy.readableWorkspaceIds(userId), window.now(), limit)
+        return reminderOccurrenceQuery.find(userId, accessPolicy.listScope(userId), window.now(), limit)
                 .stream()
                 .map(ReminderOccurrenceMapper::toResponse)
                 .toList();

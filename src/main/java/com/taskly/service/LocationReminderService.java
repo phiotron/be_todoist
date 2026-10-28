@@ -28,6 +28,6 @@ public class LocationReminderService {
     }
 
     public List<LocationReminderResponse> list(UUID userId) {
-        return locationReminderQuery.find(userId, accessPolicy.readableWorkspaceIds(userId), MAX_GEOFENCES);
+        return locationReminderQuery.find(userId, accessPolicy.listScope(userId), MAX_GEOFENCES);
     }
 }

@@ -5,6 +5,7 @@ import com.taskly.entity.Section;
 import com.taskly.mapper.SectionMapper;
 import com.taskly.repository.SectionRepository;
 import com.taskly.security.AccessPolicy;
+import com.taskly.security.ReadScope;
 import com.taskly.service.FilterService;
 import com.taskly.service.LabelService;
 import com.taskly.service.ProjectService;
@@ -47,8 +48,8 @@ public class CoreSyncSources {
                                        JdbcTemplate jdbcTemplate) {
         Function<List<UUID>, List<?>> responses = ids -> sectionResponses(sectionRepository, ids);
         return new Source("SECTION", "sections",
-                (userId, ids) -> responses.apply(readableSectionIds(jdbcTemplate, accessPolicy.readableWorkspaceIds(userId), ids)),
-                userId -> responses.apply(readableSectionIds(jdbcTemplate, accessPolicy.readableWorkspaceIds(userId), null)));
+                (userId, ids) -> responses.apply(readableSectionIds(jdbcTemplate, accessPolicy.listScope(userId), ids)),
+                userId -> responses.apply(readableSectionIds(jdbcTemplate, accessPolicy.listScope(userId), null)));
     }
 
     @Bean
@@ -56,14 +57,15 @@ public class CoreSyncSources {
         return new Source("TASK", "tasks",
                 (userId, ids) -> chunked(ids, chunk -> taskViewService.getResponsesInOrder(userId, chunk)),
                 userId -> {
-                    List<UUID> workspaceIds = accessPolicy.readableWorkspaceIds(userId);
-                    if (workspaceIds.isEmpty()) {
+                    ReadScope scope = accessPolicy.listScope(userId); // M8a: theo dự án đã tham gia
+                    if (scope.isEmpty()) {
                         return List.of();
                     }
                     List<UUID> ids = jdbcTemplate.query(con -> {
                         var ps = con.prepareStatement("select id from tasks where workspace_id = any(?) "
-                                + "and completed_at is null order by project_id, sort_order, id");
-                        ps.setArray(1, con.createArrayOf("uuid", workspaceIds.toArray()));
+                                + "and project_id = any(?) and completed_at is null order by project_id, sort_order, id");
+                        ps.setArray(1, con.createArrayOf("uuid", scope.workspaceIds().toArray()));
+                        ps.setArray(2, con.createArrayOf("uuid", scope.projectIds().toArray()));
                         return ps;
                     }, (rs, i) -> rs.getObject(1, UUID.class));
                     return chunked(ids, chunk -> taskViewService.getResponsesInOrder(userId, chunk));
@@ -118,18 +120,19 @@ public class CoreSyncSources {
         return out;
     }
 
-    /** Section thuộc dự án trong workspace đọc được; ids null = tất cả (full sync), theo dự án rồi sort_order. */
-    private static List<UUID> readableSectionIds(JdbcTemplate jdbcTemplate, List<UUID> workspaceIds, List<UUID> ids) {
-        if (workspaceIds.isEmpty() || (ids != null && ids.isEmpty())) {
+    /** Section của dự án đọc được (M8a: ReadScope); ids null = tất cả (full sync), theo dự án rồi sort_order. */
+    private static List<UUID> readableSectionIds(JdbcTemplate jdbcTemplate, ReadScope scope, List<UUID> ids) {
+        if (scope.isEmpty() || (ids != null && ids.isEmpty())) {
             return List.of();
         }
         return jdbcTemplate.query(con -> {
             var ps = con.prepareStatement("select s.id from sections s join projects p on p.id = s.project_id "
-                    + "where p.workspace_id = any(?)" + (ids == null ? "" : " and s.id = any(?)")
+                    + "where p.workspace_id = any(?) and p.id = any(?)" + (ids == null ? "" : " and s.id = any(?)")
                     + " order by s.project_id, s.sort_order, s.id");
-            ps.setArray(1, con.createArrayOf("uuid", workspaceIds.toArray()));
+            ps.setArray(1, con.createArrayOf("uuid", scope.workspaceIds().toArray()));
+            ps.setArray(2, con.createArrayOf("uuid", scope.projectIds().toArray()));
             if (ids != null) {
-                ps.setArray(2, con.createArrayOf("uuid", ids.toArray()));
+                ps.setArray(3, con.createArrayOf("uuid", ids.toArray()));
             }
             return ps;
         }, (rs, i) -> rs.getObject(1, UUID.class));

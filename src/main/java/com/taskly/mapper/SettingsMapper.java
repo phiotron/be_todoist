@@ -44,6 +44,7 @@ public final class SettingsMapper {
                 user.isKarmaEnabled(),
                 user.getSnoozeMinutes(),
                 user.isPinReminders(),
-                user.getUrgentDeviceId());
+                user.getUrgentDeviceId(),
+                user.isAutoAcceptInvites());
     }
 }

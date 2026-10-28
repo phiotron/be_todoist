@@ -154,7 +154,7 @@ public class CalendarSyncService {
                 : pull(client, token, calendarId, connection.getLastSyncedAt(), linked, userId, zone, minutes);
 
         LocalDate today = LocalDate.now(clock.withZone(zone));
-        List<Task> eligible = calendarTasks.findScheduled(accessPolicy.readableWorkspaceIds(userId),
+        List<Task> eligible = calendarTasks.findScheduled(accessPolicy.listScope(userId),
                 today.minusDays(properties.windowPastDays()), today.plusDays(properties.windowFutureDays()),
                 properties.maxTasks());
         int created = 0;

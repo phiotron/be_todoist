@@ -3,6 +3,7 @@ package com.taskly.repository;
 import com.taskly.dto.activity.ActivityResponse;
 import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.ActivityObjectType;
+import com.taskly.security.ReadScope;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Repository;
 public class ActivityLogRepository {
 
     /** Điều kiện lọc của GET activity (null = không lọc). after = khoá con trỏ (createdAt, id) của dòng cuối trang trước. */
-    public record Query(List<UUID> workspaceIds, UUID projectId, UUID taskId, ActivityObjectType objectType,
+    public record Query(UUID userId, ReadScope scope, UUID projectId, UUID taskId, ActivityObjectType objectType,
                         ActivityEventType eventType, UUID initiatorId, Instant afterCreatedAt, UUID afterId,
                         int limit) {
     }
@@ -74,9 +75,14 @@ public class ActivityLogRepository {
     /** Mới nhất trước (created_at, id giảm dần); lấy limit + 1 dòng để biết còn trang sau. */
     public List<ActivityResponse> page(Query query) {
         StringBuilder sql = new StringBuilder("select ").append(COLUMNS)
-                .append(" from activity_log where workspace_id in (:workspaceIds)");
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("workspaceIds", query.workspaceIds())
+                .append(" from activity_log where workspace_id in (:workspaceIds)")
+                // M8a: chỉ hoạt động của DỰ ÁN đọc được. Dòng của dự án đã bị xoá (không còn hàng projects để kiểm
+                // quyền) chỉ hiện cho thành viên workspace chứa nó.
+                .append(" and (project_id in (:projectIds) or (not exists (select 1 from projects pr")
+                .append(" where pr.id = activity_log.project_id) and workspace_id in (select wm.workspace_id")
+                .append(" from workspace_members wm where wm.user_id = :userId)))");
+        MapSqlParameterSource params = query.scope().params()
+                .addValue("userId", query.userId())
                 .addValue("limit", query.limit() + 1);
         if (query.projectId() != null) {
             sql.append(" and project_id = :projectId");

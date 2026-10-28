@@ -6,6 +6,8 @@ import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.project.ProjectResponse;
 import com.taskly.entity.LimitKind;
 import com.taskly.entity.Project;
+import com.taskly.entity.ProjectMember;
+import com.taskly.repository.ProjectMemberRepository;
 import com.taskly.repository.ProjectRepository;
 import com.taskly.security.AccessPolicy;
 import com.taskly.service.content.ProjectContent;
@@ -34,6 +36,7 @@ public class ProjectDuplicateService {
 
     private final ProjectService projectService;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final AccessPolicy accessPolicy;
     private final SortOrderService sortOrderService;
     private final UsageLimits usageLimits;
@@ -44,7 +47,9 @@ public class ProjectDuplicateService {
     public ProjectDuplicateService(ProjectService projectService, ProjectRepository projectRepository,
                                    AccessPolicy accessPolicy, SortOrderService sortOrderService,
                                    UsageLimits usageLimits, ProjectContentReader contentReader,
-                                   ProjectContentWriter contentWriter, MessageSource messageSource) {
+                                   ProjectContentWriter contentWriter, MessageSource messageSource,
+                                   ProjectMemberRepository projectMemberRepository) {
+        this.projectMemberRepository = projectMemberRepository;
         this.projectService = projectService;
         this.projectRepository = projectRepository;
         this.accessPolicy = accessPolicy;
@@ -60,7 +65,11 @@ public class ProjectDuplicateService {
         if (source.isInbox()) {
             throw ApiException.forbidden(ErrorMessage.INBOX_PROTECTED);
         }
-        accessPolicy.checkWrite(userId, source.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        if (source.getWorkspace().isTeam()) { // M8a: bản sao nằm trong workspace nhóm → phải là Admin / Member (Guest 403)
+            accessPolicy.requireWorkspaceMember(userId, source.getWorkspace().getId());
+        } else {
+            accessPolicy.checkWrite(userId, source.getWorkspace().getId(), ErrorMessage.PROJECT_NOT_FOUND);
+        }
         if (source.isArchived()) {
             throw ApiException.conflict(ErrorMessage.PROJECT_ARCHIVED).withCode(ProblemCodes.PROJECT_ARCHIVED);
         }
@@ -88,7 +97,16 @@ public class ProjectDuplicateService {
 
         Project copy = new Project(source.getWorkspace(), source.getParentId(), copyName(source.getName(), locale),
                 source.getDescription(), source.getColor(), false, source.getViewStyle(), placement.sortOrder());
+        copy.setCreatedBy(userId);
+        if (source.getWorkspace().isTeam()) { // M8a: dự án nhóm có access + folder; người nhân bản tự là thành viên
+            copy.setAccess(source.getAccess());
+            copy.setFolderId(source.getFolderId());
+        }
         projectRepository.save(copy);
+        if (source.getWorkspace().isTeam()) {
+            projectRepository.flush(); // hàng project phải có trước khi chèn project_members (FK)
+            projectMemberRepository.save(new ProjectMember(copy.getId(), userId));
+        }
         contentWriter.append(copy, content, userId);
         projectRepository.flush();
         return projectService.get(userId, copy.getId());

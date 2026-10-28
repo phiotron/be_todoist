@@ -71,6 +71,15 @@ public class UsageLimits {
         configured.put(LimitKind.FILTERS, filters);
         configured.put(LimitKind.REMINDERS, reminders);
         configured.put(LimitKind.LOCATIONS, DEFAULT_LOCATIONS);
+        configured.put(LimitKind.PROJECT_MEMBERS, DEFAULT_PROJECT_MEMBERS);
+    }
+
+    /** M8a: mặc định khi tạo bằng constructor (unit test); Spring ghi đè bằng taskly.limits.project-members. */
+    static final int DEFAULT_PROJECT_MEMBERS = 5;
+
+    @Value("${taskly.limits.project-members:5}")
+    public void setProjectMembersLimit(int projectMembers) {
+        configured.put(LimitKind.PROJECT_MEMBERS, projectMembers);
     }
 
     /** M12 — mặc định của taskly.limits.locations (setLocationsLimit ghi đè theo cấu hình). */
