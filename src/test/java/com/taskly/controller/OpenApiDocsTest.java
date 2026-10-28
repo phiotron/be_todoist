@@ -297,4 +297,16 @@ class OpenApiDocsTest extends IntegrationTestBase {
                 .andExpect(jsonPath("$.components.schemas.BatchTasksRequest.properties.action.enum",
                         hasItems("ADD_LABELS", "REMOVE_LABELS")));
     }
+
+    /** Cột số việc của màn Bộ lọc &amp; Nhãn (FL). */
+    @Test
+    void apiDocs_labelAndFilterCountsMatchContractForTypeGeneration() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(jsonPath("$.paths['/api/v1/labels/counts'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/filters/counts'].get").exists())
+                .andExpect(jsonPath("$.components.schemas.LabelTaskCountResponse.required")
+                        .value(containsInAnyOrder("labelId", "taskCount")))
+                .andExpect(jsonPath("$.components.schemas.FilterTaskCountResponse.required")
+                        .value(containsInAnyOrder("filterId", "taskCount")));
+    }
 }
