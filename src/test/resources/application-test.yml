@@ -5,6 +5,15 @@ app:
   # Job nền (dọn Idempotency-Key) tắt trong test; test gọi thẳng method của service với Clock cố định.
   jobs:
     enabled: false
+  # M13a: giới hạn nhỏ để EmailInboundApiTest chạm tới được (chỉ webhook email đọc các khoá này).
+  rate-limit:
+    email-inbound:
+      per-ip:
+        max-requests: 5
+        window-seconds: 60
+      per-address:
+        max-requests: 3
+        window-seconds: 3600
 
 taskly:
   limits:
@@ -17,3 +26,7 @@ taskly:
   totp:
     # base64 của chuỗi ASCII "test-only-totp-key-not-for-prod!" (32 byte) — khoá GIẢ chỉ cho test.
     encryption-key: dGVzdC1vbmx5LXRvdHAta2V5LW5vdC1mb3ItcHJvZCE=
+  # M13a: tên miền + bí mật webhook GIẢ (EmailInboundApiTest ký bằng đúng chuỗi này) — không phải bí mật thật.
+  email-inbox:
+    domain: in.taskly.test
+    webhook-secret: test-only-email-webhook-secret-not-real

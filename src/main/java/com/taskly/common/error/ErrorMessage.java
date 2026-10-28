@@ -137,7 +137,10 @@ public enum ErrorMessage {
     // ---- M11 template & dữ liệu
     TEMPLATE_NOT_FOUND("error.template-not-found"),
     TEMPLATE_NAME_SIZE("error.template-name-size"),
-    SECTION_MOVE_PROJECT_REQUIRED("error.section-move-project-required");
+    SECTION_MOVE_PROJECT_REQUIRED("error.section-move-project-required"),
+    // M13a - email → task (webhook inbound)
+    EMAIL_SIGNATURE_INVALID("error.email.signature-invalid"),
+    EMAIL_PAYLOAD_INVALID("error.email.payload-invalid");
 
     private final String key;
 
