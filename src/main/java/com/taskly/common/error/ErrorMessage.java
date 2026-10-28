@@ -133,7 +133,11 @@ public enum ErrorMessage {
     SYNC_ID_REQUIRED("error.sync-id-required"),
     SYNC_TOKEN_INVALID("error.sync-token-invalid"),
     SYNC_RESOURCE_TYPE("error.sync-resource-type"),
-    SYNC_CONFLICT("error.sync-conflict");
+    SYNC_CONFLICT("error.sync-conflict"),
+    // ---- M11 template & dữ liệu
+    TEMPLATE_NOT_FOUND("error.template-not-found"),
+    TEMPLATE_NAME_SIZE("error.template-name-size"),
+    SECTION_MOVE_PROJECT_REQUIRED("error.section-move-project-required");
 
     private final String key;
 

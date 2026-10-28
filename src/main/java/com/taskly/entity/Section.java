@@ -50,6 +50,15 @@ public class Section extends BaseEntity {
         this.sortOrder = sortOrder;
     }
 
+    /**
+     * M11 Move section: sang dự án khác (cùng workspace) tại vị trí mới. Task của section đi theo nhờ FK ghép
+     * (project_id, section_id) ON UPDATE CASCADE (V15).
+     */
+    public void moveTo(UUID newProjectId, long newSortOrder) {
+        this.projectId = newProjectId;
+        this.sortOrder = newSortOrder;
+    }
+
     /** Lặp lại không ghi đè thời điểm lưu trữ đầu tiên. */
     public void archive(Instant now) {
         if (archivedAt == null) {

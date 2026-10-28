@@ -19,6 +19,8 @@ class UsageLimitsConfigTest extends IntegrationTestBase {
         assertThat(usageLimits.max(LimitKind.LABELS)).isEqualTo(500);
         assertThat(usageLimits.max(LimitKind.FILTERS)).isEqualTo(150);
         assertThat(usageLimits.max(LimitKind.REMINDERS)).isEqualTo(700);
+        assertThat(usageLimits.max(LimitKind.TEMPLATES)).isEqualTo(100); // M11
+        assertThat(usageLimits.max(LimitKind.BACKUPS)).isEqualTo(21); // M11
     }
 
     @Test

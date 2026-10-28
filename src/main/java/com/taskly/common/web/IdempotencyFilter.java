@@ -48,7 +48,13 @@ public class IdempotencyFilter extends OncePerRequestFilter {
             "/api/v1/filters",
             "/api/v1/tasks/{taskId}/reminders",
             // M6c: close task lặp KHÔNG tự idempotent (gửi lặp nhảy thêm một kỳ) → nhận Idempotency-Key (tuỳ chọn)
-            "/api/v1/tasks/{taskId}/close").stream().map(PathPatternParser.defaultInstance::parse).toList();
+            "/api/v1/tasks/{taskId}/close",
+            // M11: nhân bản dự án / section, Save as template, Apply a template
+            "/api/v1/projects/{projectId}/duplicate",
+            "/api/v1/projects/{projectId}/sections/{sectionId}/duplicate",
+            "/api/v1/templates",
+            "/api/v1/templates/{templateId}/apply",
+            "/api/v1/templates/library/{key}/apply").stream().map(PathPatternParser.defaultInstance::parse).toList();
 
     /** Đường dẫn (requestURI) có nằm trong danh sách POST được bảo vệ không — test đơn vị gọi trực tiếp. */
     public static boolean covers(String requestUri) {
