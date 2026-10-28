@@ -52,6 +52,11 @@ public final class ProblemCodes {
     // ---- M2 (spec 12.10)
     public static final String FILTER_SYNTAX = "filter-syntax";
     public static final String LABEL_NAME_TAKEN = "label-name-taken";
+    // ---- M6c (contract 8.1)
+    /** 400: recurrenceRule ngoài tập con RRULE rút gọn. */
+    public static final String RECURRENCE_INVALID = "recurrence-invalid";
+    /** 400: có recurrenceRule mà task không có due. */
+    public static final String RECURRENCE_REQUIRES_DUE = "recurrence-requires-due";
 
     private ProblemCodes() {
     }

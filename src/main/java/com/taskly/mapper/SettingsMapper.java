@@ -33,6 +33,7 @@ public final class SettingsMapper {
                 user.getNavMenuItems(),
                 user.getQuickAddChips(),
                 user.isQuickAddShowActionLabels(),
-                user.isQuickAddShowDescription());
+                user.isQuickAddShowDescription(),
+                user.isResetSubtasks());
     }
 }

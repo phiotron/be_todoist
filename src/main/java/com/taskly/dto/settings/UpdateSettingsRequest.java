@@ -110,5 +110,7 @@ public record UpdateSettingsRequest(
         Boolean quickAddShowActionLabels,
 
         @Schema(description = "M6b: Quick Add hiện ô mô tả (\"Show description\")")
-        Boolean quickAddShowDescription) {
+        Boolean quickAddShowDescription,
+        @Schema(description = "M6c: Reset sub-tasks; vắng hoặc null = giữ nguyên")
+        Boolean resetSubtasks) {
 }

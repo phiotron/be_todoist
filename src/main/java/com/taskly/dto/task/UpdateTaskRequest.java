@@ -43,7 +43,19 @@ public record UpdateTaskRequest(
 
         Optional<LocalDate> deadlineDate,
 
-        @Schema(description = "M2: vắng / null = giữ; [] = bỏ hết; mảng = thay toàn bộ") List<UUID> labelIds) {
+        @Schema(description = "M2: vắng / null = giữ; [] = bỏ hết; mảng = thay toàn bộ") List<UUID> labelIds,
+
+        @Schema(description = "M6c: vắng = giữ (nhưng đổi due / lặp mà vắng thì xoá), null = xoá; ≤ 150 ký tự")
+        Optional<@Size(max = 150, message = "{validation.due-string.size}") String> dueString,
+
+        @Schema(description = "M6c: RRULE rút gọn; vắng = giữ, null = bỏ lặp (contract 8.1)")
+        Optional<String> recurrenceRule,
+
+        @Schema(description = "M6c: every! (vắng = giữ)")
+        Boolean recurrenceFromCompletion,
+
+        @Schema(description = "M6c: múi giờ cố định (IANA) của due có giờ; vắng = giữ, null = floating")
+        Optional<String> dueTimezone) {
 
     public UpdateTaskRequest {
         content = content == null ? null : content.strip();
@@ -54,5 +66,12 @@ public record UpdateTaskRequest(
     @Schema(hidden = true)
     public boolean touchesDue() {
         return dueDate != null || dueDatetime != null;
+    }
+
+    /** M6c: true khi request đổi quy tắc lặp (rule hoặc every!). */
+    @JsonIgnore
+    @Schema(hidden = true)
+    public boolean touchesRecurrence() {
+        return recurrenceRule != null || recurrenceFromCompletion != null;
     }
 }

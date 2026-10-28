@@ -108,6 +108,10 @@ public class SettingsService {
         if (request.quickAddShowDescription() != null) {
             user.changeQuickAddShowDescription(request.quickAddShowDescription());
         }
+        // M6c
+        if (request.resetSubtasks() != null) {
+            user.changeResetSubtasks(request.resetSubtasks());
+        }
         return SettingsMapper.toResponse(user);
     }
 

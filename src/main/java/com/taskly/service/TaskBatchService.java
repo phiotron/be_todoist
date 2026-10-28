@@ -140,8 +140,10 @@ public class TaskBatchService {
         UUID batchId = UUID.randomUUID();
         Map<UUID, SubtaskTreeService.Tree> trees = treesByProject(tasks); // dựng MỘT lần cho mỗi dự án nguồn
         Map<UUID, UUID> projectOf = tasks.stream().collect(Collectors.toMap(Task::getId, Task::getProjectId));
+        // M6c: task lặp trong lô nhảy kỳ (reset sub-tasks theo cài đặt) thay vì hoàn thành
         rootsWithSubtrees(tasks, trees).keySet().forEach(root ->
-                affected.addAll(taskCompletionService.closeWithin(trees.get(projectOf.get(root)), root, now, batchId)));
+                affected.addAll(taskCompletionService.closeOrAdvanceWithin(userId, trees.get(projectOf.get(root)), root,
+                        now, batchId, false, null)));
         return affected;
     }
 

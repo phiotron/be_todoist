@@ -56,6 +56,8 @@ public class User extends BaseEntity {
     public static final List<String> DEFAULT_QUICK_ADD_CHIPS = QuickAddChipRules.DEFAULT;
     public static final boolean DEFAULT_QUICK_ADD_SHOW_ACTION_LABELS = true;
     public static final boolean DEFAULT_QUICK_ADD_SHOW_DESCRIPTION = true;
+    /** M6c: Todoist mặc định tắt "Reset sub-tasks". */
+    public static final boolean DEFAULT_RESET_SUBTASKS = false;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -149,6 +151,9 @@ public class User extends BaseEntity {
 
     @Column(name = "quick_add_show_description", nullable = false)
     private boolean quickAddShowDescription = DEFAULT_QUICK_ADD_SHOW_DESCRIPTION;
+    /** M6c: "Reset sub-tasks" — tự mở lại task con khi hoàn thành task lặp (mặc định tắt). */
+    @Column(name = "reset_subtasks", nullable = false)
+    private boolean resetSubtasks = DEFAULT_RESET_SUBTASKS;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -385,6 +390,15 @@ public class User extends BaseEntity {
         this.quickAddChips = String.join(NAV_TABS_SEPARATOR, DEFAULT_QUICK_ADD_CHIPS);
         this.quickAddShowActionLabels = DEFAULT_QUICK_ADD_SHOW_ACTION_LABELS;
         this.quickAddShowDescription = DEFAULT_QUICK_ADD_SHOW_DESCRIPTION;
+        this.resetSubtasks = DEFAULT_RESET_SUBTASKS; // M6c
+    }
+
+    public boolean isResetSubtasks() {
+        return resetSubtasks;
+    }
+
+    public void changeResetSubtasks(boolean resetSubtasks) {
+        this.resetSubtasks = resetSubtasks;
     }
 
     public boolean isRemindersEnabled() {

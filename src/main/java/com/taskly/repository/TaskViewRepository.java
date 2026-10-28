@@ -34,6 +34,7 @@ public class TaskViewRepository {
             t.id, t.project_id, t.section_id, t.parent_id, t.content, t.description, t.priority,
             t.due_date, t.due_datetime, t.duration_minutes, t.deadline_date, t.due_string, t.completed_at,
             t.sort_order, t.version, t.created_at, t.updated_at, p.name as project_name, pt.content as parent_content,
+            t.recurrence_rule, t.recurrence_from_completion, t.due_timezone,
             (select count(*) from tasks c where c.parent_id = t.id) as subtask_count,
             (select count(*) from tasks c where c.parent_id = t.id and c.completed_at is not null)
                     as completed_subtask_count,
@@ -224,7 +225,10 @@ public class TaskViewRepository {
                 instant(rs, "updated_at"),
                 rs.getString("project_name"),
                 rs.getString("parent_content"),
-                labelIds(rs));
+                labelIds(rs),
+                rs.getString("recurrence_rule"),
+                rs.getBoolean("recurrence_from_completion"),
+                rs.getString("due_timezone"));
     }
 
     static List<UUID> labelIds(ResultSet rs) throws SQLException {

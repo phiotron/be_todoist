@@ -67,5 +67,8 @@ public record SettingsResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show action labels\"")
         boolean quickAddShowActionLabels,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6b: \"Show description\"")
-        boolean quickAddShowDescription) {
+        boolean quickAddShowDescription,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "M6c: tự mở lại task con (≤ 30 con trực tiếp) khi hoàn thành task lặp")
+        boolean resetSubtasks) {
 }

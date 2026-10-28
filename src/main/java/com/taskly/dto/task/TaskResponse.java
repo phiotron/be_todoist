@@ -42,5 +42,14 @@ public record TaskResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String projectName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String parentContent,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M2: label của task, theo thứ tự label")
-        List<UUID> labelIds) {
+        List<UUID> labelIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "M6c: RRULE rút gọn dạng chuẩn (contract 8.1); null = không lặp")
+        String recurrenceRule,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M6c: every! (kỳ kế tính từ ngày hoàn thành)")
+        boolean recurrenceFromCompletion,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "M6c: múi giờ cố định (IANA) của due có giờ; null = floating")
+        String dueTimezone,
+        @JsonProperty("isRecurring") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isRecurring) {
 }

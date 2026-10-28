@@ -117,7 +117,11 @@ public enum ErrorMessage {
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
     PASSWORD_NOT_SET("error.password.not-set"),
     // M6b - Quick Add / Date sheet
-    DAY_COUNTS_RANGE_INVALID("error.day-counts-range-invalid");
+    DAY_COUNTS_RANGE_INVALID("error.day-counts-range-invalid"),
+    // M6c - viec lap
+    RECURRENCE_INVALID("error.recurrence-invalid"),
+    RECURRENCE_REQUIRES_DUE("error.recurrence-requires-due"),
+    DUE_TIMEZONE_INVALID("error.due-timezone-invalid");
 
     private final String key;
 

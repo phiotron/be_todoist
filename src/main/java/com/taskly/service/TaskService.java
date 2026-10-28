@@ -108,6 +108,12 @@ public class TaskService {
         LocalDateTime dueDatetime = TaskDueRules.normalize(request.dueDatetime());
         TaskDueRules.checkSingleDue(request.dueDate(), dueDatetime);
         TaskDueRules.checkDuration(dueDatetime, request.durationMinutes());
+        // M6c: rule (400 recurrence-invalid / recurrence-requires-due), múi giờ cố định — cùng loại kiểm đầu vào thuần
+        boolean fromCompletion = Boolean.TRUE.equals(request.recurrenceFromCompletion());
+        String recurrenceRule = TaskRecurrenceRules.normalize(request.recurrenceRule(), fromCompletion,
+                TaskDueRules.dueDay(request.dueDate(), dueDatetime));
+        String dueTimezone = request.dueTimezone() == null ? null
+                : TaskRecurrenceRules.checkDueTimezone(request.dueTimezone(), dueDatetime, userService.timeZoneOf(userId));
         // labelIds: bỏ trùng, kiểm số lượng (400) và quyền (404) TRƯỚC khi ghi gì; replay (dòng 1) không đến đây
         List<UUID> labelIds = taskLabelService.validate(userId, request.labelIds());
 
@@ -178,6 +184,9 @@ public class TaskService {
                 request.priority() == null ? Task.DEFAULT_PRIORITY : request.priority(),
                 request.dueDate(), dueDatetime, request.durationMinutes(), request.deadlineDate(), sortOrder);
         task.assignId(request.id()); // null → BaseEntity tự sinh ở @PrePersist
+        task.setDueString(request.dueString());
+        task.setRecurrence(recurrenceRule, fromCompletion);
+        task.setDueTimezone(dueTimezone);
         taskRepository.save(task);
         taskRepository.flush(); // task phải nằm trong DB trước khi chèn task_labels (FK)
         taskLabelService.attach(task.getId(), labelIds);
@@ -213,7 +222,41 @@ public class TaskService {
         } else {
             duration = dueDatetime == null ? null : task.getDurationMinutes(); // mất giờ → tự xoá duration (spec 5.2)
         }
+        // M6c: kiểm rule / múi giờ TRƯỚC khi ghi due (400 → transaction rollback, không đổi gì)
+        boolean fromCompletion = request.recurrenceFromCompletion() != null
+                ? request.recurrenceFromCompletion() : task.isRecurrenceFromCompletion();
+        String recurrenceRule = request.recurrenceRule() != null
+                ? request.recurrenceRule().orElse(null) : task.getRecurrenceRule();
+        LocalDate dueDay = TaskDueRules.dueDay(dueDate, dueDatetime);
+        if (request.recurrenceRule() == null && dueDay == null) {
+            recurrenceRule = null; // bỏ due mà không gửi rule → tự bỏ lặp (như Todoist "No date"; plan M6c QT 7)
+        } else if (request.touchesRecurrence() && recurrenceRule != null) {
+            recurrenceRule = TaskRecurrenceRules.normalize(recurrenceRule, fromCompletion, dueDay);
+        }
+        String dueTimezone = request.dueTimezone() != null ? request.dueTimezone().orElse(null) : task.getDueTimezone();
+        if (request.dueTimezone() != null) {
+            dueTimezone = TaskRecurrenceRules.checkDueTimezone(dueTimezone, dueDatetime, userService.timeZoneOf(userId));
+        } else if (dueDatetime == null) {
+            dueTimezone = null; // mất giờ → tự về floating (CHECK ck_tasks_due_timezone)
+        }
+        // Xoá trước / đặt sau khi ghi due: applyDue có thể phát event (M4) gây flush giữa chừng → không vi phạm CHECK
+        if (recurrenceRule == null) {
+            task.setRecurrence(null, false);
+        }
+        if (dueTimezone == null) {
+            task.setDueTimezone(null);
+        }
         applyDue(task, dueDate, dueDatetime, duration);
+        task.setRecurrence(recurrenceRule, fromCompletion);
+        task.setDueTimezone(dueTimezone);
+        if (request.dueString() != null) {
+            task.setDueString(request.dueString().orElse(null));
+        } else if (request.touchesDue() || request.touchesRecurrence()) {
+            task.setDueString(null); // chuỗi gõ cũ không còn mô tả đúng due / lặp mới
+        }
+        if (request.touchesRecurrence()) {
+            task.clearRecurrenceUndo();
+        }
         if (request.deadlineDate() != null) {
             task.setDeadlineDate(request.deadlineDate().orElse(null));
         }
@@ -364,6 +407,15 @@ public class TaskService {
         TaskDueRules.checkSingleDue(dueDate, dueDatetime);
         TaskDueRules.checkDuration(dueDatetime, durationMinutes);
         boolean hadTime = task.getDueDatetime() != null;
+        if (!Objects.equals(task.getDueDate(), dueDate) || !Objects.equals(task.getDueDatetime(), dueDatetime)) {
+            task.clearRecurrenceUndo(); // M6c: due đổi tay → Undo của lần hoàn thành task lặp trước hết hiệu lực
+        }
+        if (dueDatetime == null) {
+            task.setDueTimezone(null); // M6c: mất giờ → về floating (CHECK ck_tasks_due_timezone)
+        }
+        if (dueDate == null && dueDatetime == null) {
+            task.setRecurrence(null, false); // M6c: bỏ due → bỏ lặp (CHECK ck_tasks_recurrence_needs_due)
+        }
         task.setDue(dueDate, dueDatetime);
         task.setDurationMinutes(durationMinutes);
         if (hadTime && dueDatetime == null) {
@@ -479,7 +531,14 @@ public class TaskService {
                 && Objects.equals(request.dueDate(), task.getDueDate())
                 && Objects.equals(TaskDueRules.normalize(request.dueDatetime()), task.getDueDatetime())
                 && Objects.equals(request.durationMinutes(), task.getDurationMinutes())
-                && Objects.equals(request.deadlineDate(), task.getDeadlineDate());
+                && Objects.equals(request.deadlineDate(), task.getDeadlineDate())
+                && Objects.equals(request.dueString(), task.getDueString())
+                && Objects.equals(request.dueTimezone(), task.getDueTimezone())
+                && Boolean.TRUE.equals(request.recurrenceFromCompletion()) == task.isRecurrenceFromCompletion()
+                && Objects.equals(TaskRecurrenceRules.normalizeQuietly(request.recurrenceRule(),
+                        Boolean.TRUE.equals(request.recurrenceFromCompletion()),
+                        TaskDueRules.dueDay(request.dueDate(), TaskDueRules.normalize(request.dueDatetime()))),
+                task.getRecurrenceRule());
     }
 
     private void requireSectionNotArchived(Task task) {
