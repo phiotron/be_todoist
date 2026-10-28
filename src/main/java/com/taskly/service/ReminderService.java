@@ -33,14 +33,16 @@ public class ReminderService {
     private final UserService userService;
     private final UsageLimits usageLimits;
     private final Clock clock;
+    private final LocationService locationService;
 
     public ReminderService(ReminderRepository reminderRepository, TaskService taskService, UserService userService,
-                           UsageLimits usageLimits, Clock clock) {
+                           UsageLimits usageLimits, Clock clock, LocationService locationService) {
         this.reminderRepository = reminderRepository;
         this.taskService = taskService;
         this.userService = userService;
         this.usageLimits = usageLimits;
         this.clock = clock;
+        this.locationService = locationService;
     }
 
     /** Đọc được cả khi task đã xong / dự án lưu trữ. Theo thứ tự tạo. */
@@ -64,6 +66,7 @@ public class ReminderService {
         Reminder reminder = switch (request.type()) {
             case ABSOLUTE -> absolute(userId, task, request);
             case RELATIVE -> relative(userId, task, request);
+            case LOCATION -> location(userId, task, request);
         };
         // Chống đua (spec 8.2 #9): SELECT … FOR UPDATE hàng users của người tạo TRƯỚC khi đếm + insert. Hai POST song
         // song ở max − 1 thì request sau chờ request trước commit rồi đếm lại → đúng một thành công.
@@ -100,21 +103,46 @@ public class ReminderService {
         if (request.at() == null || request.minuteOffset() != null) {
             throw ApiException.badRequest(ErrorMessage.REMINDER_FIELDS_MISMATCH);
         }
+        requireNoLocationFields(request);
         LocalDateTime at = ReminderWindow.toMinute(request.at());
         ReminderWindow window = ReminderWindow.at(clock.instant(), userService.timeZoneOf(userId));
         if (window.hasPassed(at)) {
             throw ApiException.badRequest(ErrorMessage.REMINDER_AT_PAST);
         }
-        return Reminder.absolute(task.getId(), userId, at);
+        return Reminder.absolute(task.getId(), userId, at, request.urgentOrFalse());
     }
 
     private Reminder relative(UUID userId, Task task, CreateReminderRequest request) {
         if (request.minuteOffset() == null || request.at() != null) {
             throw ApiException.badRequest(ErrorMessage.REMINDER_FIELDS_MISMATCH);
         }
+        requireNoLocationFields(request);
         if (task.getDueDatetime() == null) {
             throw ApiException.badRequest(ErrorMessage.REMINDER_NEEDS_DUE_TIME);
         }
-        return Reminder.relative(task.getId(), userId, request.minuteOffset());
+        return Reminder.relative(task.getId(), userId, request.minuteOffset(), request.urgentOrFalse());
+    }
+
+    /**
+     * M12 — nhắc theo vị trí: cần locationId + trigger, không at / minuteOffset (400); không urgent (400); địa điểm phải
+     * của chính user (404 error.location-not-found). Không cần due (nhắc không theo giờ).
+     */
+    private Reminder location(UUID userId, Task task, CreateReminderRequest request) {
+        if (request.locationId() == null || request.trigger() == null
+                || request.at() != null || request.minuteOffset() != null) {
+            throw ApiException.badRequest(ErrorMessage.REMINDER_LOCATION_FIELDS);
+        }
+        if (request.urgentOrFalse()) {
+            throw ApiException.badRequest(ErrorMessage.REMINDER_URGENT_LOCATION);
+        }
+        locationService.requireOwned(userId, request.locationId());
+        return Reminder.location(task.getId(), userId, request.locationId(), request.trigger());
+    }
+
+    /** M12: nhắc theo giờ không được kèm locationId / trigger. */
+    private static void requireNoLocationFields(CreateReminderRequest request) {
+        if (request.locationId() != null || request.trigger() != null) {
+            throw ApiException.badRequest(ErrorMessage.REMINDER_LOCATION_FIELDS);
+        }
     }
 }

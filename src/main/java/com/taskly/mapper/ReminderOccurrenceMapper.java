@@ -11,6 +11,6 @@ public final class ReminderOccurrenceMapper {
 
     public static ReminderOccurrence toResponse(ReminderOccurrenceRow row) {
         return new ReminderOccurrence(ReminderWindow.key(row.taskId(), row.reminderId()), row.taskId(),
-                row.reminderId(), row.kind(), row.fireAt(), row.content());
+                row.reminderId(), row.kind(), row.fireAt(), row.content(), row.urgent());
     }
 }

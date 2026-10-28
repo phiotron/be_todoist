@@ -115,7 +115,11 @@ public enum ErrorMessage {
     GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
     GOOGLE_NOT_LINKED("error.google.not-linked"),
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
-    PASSWORD_NOT_SET("error.password.not-set");
+    PASSWORD_NOT_SET("error.password.not-set"),
+    // ---- M12 - địa điểm, nhắc theo vị trí, urgent reminder
+    LOCATION_NOT_FOUND("error.location-not-found"),
+    REMINDER_LOCATION_FIELDS("error.reminder-location-fields"),
+    REMINDER_URGENT_LOCATION("error.reminder-urgent-location");
 
     private final String key;
 

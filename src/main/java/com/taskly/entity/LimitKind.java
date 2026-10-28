@@ -13,5 +13,7 @@ public enum LimitKind {
     PROJECT_SECTIONS_TOTAL,
     LABELS,
     FILTERS,
-    REMINDERS
+    REMINDERS,
+    /** M12: địa điểm đã lưu cho nhắc theo vị trí, theo tài khoản (≤ 100 [CXM]). */
+    LOCATIONS
 }

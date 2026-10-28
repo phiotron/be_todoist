@@ -10,6 +10,7 @@ public final class ReminderMapper {
 
     public static ReminderResponse toResponse(Reminder reminder) {
         return new ReminderResponse(reminder.getId(), reminder.getTaskId(), reminder.getType(), reminder.getAt(),
-                reminder.getMinuteOffset(), reminder.getCreatedAt());
+                reminder.getMinuteOffset(), reminder.getCreatedAt(), reminder.getLocationId(),
+                reminder.getLocationTrigger(), reminder.isUrgent());
     }
 }

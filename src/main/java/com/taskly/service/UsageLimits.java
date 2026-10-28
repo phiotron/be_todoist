@@ -56,7 +56,11 @@ public class UsageLimits {
         configured.put(LimitKind.LABELS, labels);
         configured.put(LimitKind.FILTERS, filters);
         configured.put(LimitKind.REMINDERS, reminders);
+        configured.put(LimitKind.LOCATIONS, DEFAULT_LOCATIONS);
     }
+
+    /** M12 — mặc định của taskly.limits.locations (setLocationsLimit ghi đè theo cấu hình). */
+    private static final int DEFAULT_LOCATIONS = 100;
 
     public int max(LimitKind kind) {
         Integer override = overrides.get(kind);
@@ -99,6 +103,15 @@ public class UsageLimits {
 
     public int maxLabelsPerTask() {
         return maxLabelsPerTask;
+    }
+
+    /**
+     * M12: giới hạn địa điểm (LimitKind.LOCATIONS). Tiêm qua setter (không thêm tham số constructor) để gộp với các mốc
+     * khác ít xung đột; unit test tạo bằng constructor thì max(LOCATIONS) lấy mặc định 100.
+     */
+    @Value("${taskly.limits.locations:100}")
+    public void setLocationsLimit(int locations) {
+        configured.put(LimitKind.LOCATIONS, locations);
     }
 
     @Autowired

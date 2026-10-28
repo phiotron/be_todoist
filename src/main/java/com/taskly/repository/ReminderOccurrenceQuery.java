@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
  * RELATIVE = due_datetime − minute_offset; ABSOLUTE = at. Mọi giá trị là giờ floating, so với :now (bây giờ theo
  * múi giờ tài khoản). Phạm vi: task chưa xong trong workspace đọc được, dự án / section chưa lưu trữ; nhắc riêng chỉ
  * của chính user. Bỏ trùng cùng (task, fireAt): nhắc riêng trước auto, rồi nhắc tạo sớm hơn, rồi id.
+ * M12: nhắc LOCATION không theo giờ → không có ở đây (xem LocationReminderQuery); cột urgent đi kèm (AUTO = false).
  */
 @Repository
 public class ReminderOccurrenceQuery {
@@ -36,7 +37,7 @@ public class ReminderOccurrenceQuery {
             occurrences AS (
                 SELECT sc.id AS task_id, CAST(NULL AS uuid) AS reminder_id, 'AUTO' AS kind,
                        sc.due_datetime - make_interval(mins => a.minutes) AS fire_at,
-                       sc.content, 1 AS rank, CAST(NULL AS timestamptz) AS created_at
+                       sc.content, 1 AS rank, CAST(NULL AS timestamptz) AS created_at, FALSE AS urgent
                 FROM scope sc
                 CROSS JOIN auto_setting a
                 WHERE a.minutes IS NOT NULL AND sc.due_datetime IS NOT NULL
@@ -44,19 +45,20 @@ public class ReminderOccurrenceQuery {
                 SELECT sc.id, r.id, r.type,
                        CASE WHEN r.type = 'ABSOLUTE' THEN r.at
                             ELSE sc.due_datetime - make_interval(mins => r.minute_offset) END,
-                       sc.content, 0, r.created_at
+                       sc.content, 0, r.created_at, r.urgent
                 FROM reminders r
                 JOIN scope sc ON sc.id = r.task_id
                 WHERE r.user_id = :userId
+                  AND r.type IN ('ABSOLUTE', 'RELATIVE')
                   AND (r.type = 'ABSOLUTE' OR sc.due_datetime IS NOT NULL)
             ),
             deduped AS (
-                SELECT DISTINCT ON (task_id, fire_at) task_id, reminder_id, kind, fire_at, content
+                SELECT DISTINCT ON (task_id, fire_at) task_id, reminder_id, kind, fire_at, content, urgent
                 FROM occurrences
                 WHERE fire_at >= :now
                 ORDER BY task_id, fire_at, rank, created_at, reminder_id
             )
-            SELECT task_id, reminder_id, kind, fire_at, content
+            SELECT task_id, reminder_id, kind, fire_at, content, urgent
             FROM deduped
             ORDER BY fire_at, task_id
             LIMIT :limit
@@ -82,6 +84,7 @@ public class ReminderOccurrenceQuery {
                 rs.getObject("reminder_id", UUID.class),
                 ReminderKind.valueOf(rs.getString("kind")),
                 rs.getObject("fire_at", LocalDateTime.class),
-                rs.getString("content")));
+                rs.getString("content"),
+                rs.getBoolean("urgent")));
     }
 }

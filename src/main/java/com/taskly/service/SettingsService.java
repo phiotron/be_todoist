@@ -96,6 +96,16 @@ public class SettingsService {
         if (request.autoReminderMinutes() != null) {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
+        // M12: snoozeMinutes / pinReminders null = giữ; urgentDeviceId vắng = giữ, null = bỏ chọn thiết bị.
+        if (request.snoozeMinutes() != null) {
+            user.changeSnoozeMinutes(request.snoozeMinutes());
+        }
+        if (request.pinReminders() != null) {
+            user.changePinReminders(request.pinReminders());
+        }
+        if (request.urgentDeviceId() != null) {
+            user.changeUrgentDeviceId(request.urgentDeviceId().orElse(null));
+        }
         return SettingsMapper.toResponse(user);
     }
 
