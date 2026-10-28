@@ -227,7 +227,9 @@ public enum ErrorMessage {
     TEAM_NO_SUBPROJECTS("error.team-no-subprojects"),
     TEAM_ONLY_SETTING("error.team-only-setting"),
     PROJECT_HAS_SUBPROJECTS("error.project-has-subprojects"),
-    MOVE_TO_WORKSPACE_INVALID("error.move-to-workspace-invalid");
+    MOVE_TO_WORKSPACE_INVALID("error.move-to-workspace-invalid"),
+    // ---- PERM (28/10): dự án nhóm chỉ Admin sửa
+    TEAM_ADMIN_ONLY("error.team-admin-only");
 
     private final String key;
 

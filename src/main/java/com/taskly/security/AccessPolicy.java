@@ -2,6 +2,7 @@ package com.taskly.security;
 
 import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
+import com.taskly.common.error.ProblemCodes;
 import com.taskly.entity.Project;
 import com.taskly.entity.ProjectAccess;
 import com.taskly.entity.WorkspaceRole;
@@ -33,6 +34,12 @@ import org.springframework.stereotype.Component;
  *       (kể cả Admin). Quản lý: Admin, hoặc người tạo (Member) đã tham gia.</li>
  * </ul>
  * Phạm vi danh sách = {@link #listScope} (dự án đã tham gia); phạm vi xem một dự án / một task = {@link #viewScope}.
+ *
+ * <p><b>PERM — quy tắc người dùng chốt 28/10 (KHÁC Todoist)</b>: trong dự án của workspace TEAM (Team / Restricted),
+ * chỉ Admin được sửa / quản lý; Member và Guest đã tham gia chỉ xem + đánh dấu hoàn thành / mở lại / Undo
+ * ({@link #checkTaskComplete}). Mọi ghi khác đi qua {@link #checkProjectWrite} → 403 code team-admin-only. Dự án cá
+ * nhân (kể cả được chia sẻ) giữ nguyên M8a. Tạo / nhân bản / chuyển dự án vào team: {@link #requireTeamEditor}.
+ * Quyết định tạm: comment / reaction cũng bị chặn ("chỉ được tick"); mời người + Join / Leave vẫn được.
  */
 @Component
 public class AccessPolicy {
@@ -63,6 +70,19 @@ public class AccessPolicy {
 
         public boolean isTeam() {
             return workspaceType == WorkspaceType.TEAM;
+        }
+
+        /** PERM: đánh dấu hoàn thành / mở lại / Undo — mọi người ĐÃ tham gia dự án (kể cả Member / Guest của nhóm). */
+        public boolean canComplete() {
+            return canWrite();
+        }
+
+        /**
+         * PERM: mọi ghi KHÁC hoàn thành (task, section, dự án, comment, nhắc, sắp xếp...). Dự án nhóm: chỉ Admin đã tham
+         * gia; dự án cá nhân (kể cả được chia sẻ): như canWrite.
+         */
+        public boolean canEdit() {
+            return canWrite() && (!isTeam() || workspaceRole == WorkspaceRole.ADMIN);
         }
     }
 
@@ -201,7 +221,7 @@ public class AccessPolicy {
             manage = false;
         } else if (joined) {
             role = ProjectRole.MEMBER;
-            manage = workspaceRole == WorkspaceRole.ADMIN || (workspaceRole == WorkspaceRole.MEMBER && creator);
+            manage = workspaceRole == WorkspaceRole.ADMIN; // PERM: Member là người tạo cũng KHÔNG còn quản lý (chỉ Admin)
         } else if (access == ProjectAccess.TEAM && workspaceRole != WorkspaceRole.GUEST) {
             role = ProjectRole.PREVIEW;
             manage = workspaceRole == WorkspaceRole.ADMIN;
@@ -221,13 +241,47 @@ public class AccessPolicy {
         return info;
     }
 
-    /** Không thấy → 404; xem trước (chưa tham gia dự án Team) → 403. */
+    /**
+     * Mọi ghi trừ hoàn thành / mở lại: không thấy → 404; xem trước (chưa tham gia dự án Team) → 403 join-required;
+     * PERM: Member / Guest của dự án NHÓM → 403 code team-admin-only.
+     */
     public ProjectAccessInfo checkProjectWrite(UUID userId, Project project, ErrorMessage notFoundDetail) {
+        ProjectAccessInfo info = checkProjectParticipant(userId, project, notFoundDetail);
+        if (!info.canEdit()) {
+            throw teamAdminOnly();
+        }
+        return info;
+    }
+
+    /** PERM: đánh dấu hoàn thành / mở lại / Undo task — mọi người đã tham gia (404 / 403 join-required). */
+    public ProjectAccessInfo checkTaskComplete(UUID userId, Project project, ErrorMessage notFoundDetail) {
+        return checkProjectParticipant(userId, project, notFoundDetail);
+    }
+
+    /**
+     * Đã tham gia dự án (không xét vai trò nhóm): không thấy → 404; xem trước → 403 join-required. Dùng cho hoàn thành
+     * task và các việc về NGƯỜI của dự án (mời / quản lý lời mời) — không phải chỉnh nội dung.
+     */
+    public ProjectAccessInfo checkProjectParticipant(UUID userId, Project project, ErrorMessage notFoundDetail) {
         ProjectAccessInfo info = checkProjectRead(userId, project, notFoundDetail);
         if (!info.canWrite()) {
             throw ApiException.forbidden(ErrorMessage.PROJECT_JOIN_REQUIRED);
         }
         return info;
+    }
+
+    /**
+     * PERM: tạo / nhân bản / chuyển dự án VÀO workspace nhóm — chỉ Admin. Người ngoài → 404; Member / Guest → 403
+     * team-admin-only (dự án tạo ra họ cũng không sửa được).
+     */
+    public void requireTeamEditor(UUID userId, UUID workspaceId) {
+        if (requireWorkspaceRole(userId, workspaceId) != WorkspaceRole.ADMIN) {
+            throw teamAdminOnly();
+        }
+    }
+
+    public static ApiException teamAdminOnly() {
+        return ApiException.forbidden(ErrorMessage.TEAM_ADMIN_ONLY).withCode(ProblemCodes.TEAM_ADMIN_ONLY);
     }
 
     /** Lưu trữ / khôi phục / xoá / đổi cha / chuyển vào team / quyền truy cập: không thấy → 404; thiếu quyền → 403. */

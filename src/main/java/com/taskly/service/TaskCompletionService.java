@@ -81,7 +81,7 @@ public class TaskCompletionService {
 
     private List<UUID> closeAt(UUID userId, UUID taskId, Instant now, UUID batchId, boolean forever,
                                Boolean resetSubtasks) {
-        Task task = taskService.requireWritable(userId, taskId);
+        Task task = taskService.requireCompletable(userId, taskId); // PERM: Member / Guest dự án nhóm được hoàn thành
         if (task.getCompletedAt() != null) {
             return List.of();
         }
@@ -174,7 +174,7 @@ public class TaskCompletionService {
      * → khoá dự án rồi kiểm giới hạn 300 (TaskService.checkActiveTaskLimit) TRƯỚC khi ghi.
      */
     public List<UUID> reopenIds(UUID userId, UUID taskId, boolean undo) {
-        Task task = taskService.requireWritable(userId, taskId);
+        Task task = taskService.requireCompletable(userId, taskId); // PERM: Member / Guest dự án nhóm được mở lại / Undo
         if (task.getCompletedAt() == null && !(undo && task.getRecurrenceUndoBatchId() != null)) {
             return List.of();
         }

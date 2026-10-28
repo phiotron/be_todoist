@@ -76,11 +76,12 @@ class RoleMatrixApiTest extends M8aApiTestBase {
                 // ---- cấp dự án (dự án mới cho từng ô)
                 new Row("GET project", "GET", f -> "/api/v1/projects/" + f.project(), f -> null,
                         expect(200, 200, 200, 200, 200, 404)),
+                // PERM (28/10): Member / Guest đã tham gia dự án nhóm chỉ hoàn thành; mọi ghi khác 403 team-admin-only
                 new Row("PATCH project name", "PATCH", f -> "/api/v1/projects/" + f.project(),
-                        f -> "{\"name\": \"Đổi tên\"}", expect(200, 403, 200, 403, 200, 404)),
+                        f -> "{\"name\": \"Đổi tên\"}", expect(200, 403, 403, 403, 403, 404)),
                 new Row("POST task", "POST", f -> "/api/v1/tasks",
                         f -> "{\"content\": \"Mới\", \"projectId\": \"" + f.project() + "\"}",
-                        expect(201, 403, 201, 403, 201, 404)),
+                        expect(201, 403, 403, 403, 403, 404)),
                 new Row("GET project tasks", "GET", f -> "/api/v1/tasks?projectId=" + f.project(), f -> null,
                         expect(200, 200, 200, 200, 200, 404)),
                 new Row("GET task", "GET", f -> "/api/v1/tasks/" + f.task(), f -> null,
@@ -88,9 +89,9 @@ class RoleMatrixApiTest extends M8aApiTestBase {
                 new Row("POST task close", "POST", f -> "/api/v1/tasks/" + f.task() + "/close", f -> null,
                         expect(200, 403, 200, 403, 200, 404)),
                 new Row("DELETE task", "DELETE", f -> "/api/v1/tasks/" + f.task(), f -> null,
-                        expect(204, 403, 204, 403, 204, 404)),
+                        expect(204, 403, 403, 403, 403, 404)),
                 new Row("POST section", "POST", f -> "/api/v1/projects/" + f.project() + "/sections",
-                        f -> "{\"name\": \"Phần\"}", expect(201, 403, 201, 403, 201, 404)),
+                        f -> "{\"name\": \"Phần\"}", expect(201, 403, 403, 403, 403, 404)),
                 new Row("GET members", "GET", f -> "/api/v1/projects/" + f.project() + "/members", f -> null,
                         expect(200, 200, 200, 200, 200, 404)),
                 new Row("POST project invitation", "POST", f -> "/api/v1/projects/" + f.project() + "/invitations",
@@ -132,7 +133,7 @@ class RoleMatrixApiTest extends M8aApiTestBase {
                         expect(200, 200, 403, 403, 403, 404)),
                 new Row("POST project in team", "POST", f -> "/api/v1/projects",
                         f -> "{\"name\": \"Mới\", \"workspaceId\": \"" + f.teamId() + "\"}",
-                        expect(201, 201, 201, 201, 403, 404)));
+                        expect(201, 201, 403, 403, 403, 404))); // PERM: chỉ Admin tạo dự án nhóm
 
         List<String> failures = new ArrayList<>();
         int cells = 0;
