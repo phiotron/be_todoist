@@ -115,7 +115,11 @@ public enum ErrorMessage {
     GOOGLE_PASSWORD_REQUIRED_BEFORE_UNLINK("error.google.password-required-before-unlink"),
     GOOGLE_NOT_LINKED("error.google.not-linked"),
     GOOGLE_UNAVAILABLE("error.google.unavailable"),
-    PASSWORD_NOT_SET("error.password.not-set");
+    PASSWORD_NOT_SET("error.password.not-set"),
+    // M6c - viec lap
+    RECURRENCE_INVALID("error.recurrence-invalid"),
+    RECURRENCE_REQUIRES_DUE("error.recurrence-requires-due"),
+    DUE_TIMEZONE_INVALID("error.due-timezone-invalid");
 
     private final String key;
 

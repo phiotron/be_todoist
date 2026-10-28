@@ -82,6 +82,27 @@ public class Task extends BaseEntity {
     @Column(name = "completion_batch_id")
     private UUID completionBatchId;
 
+    /** M6c: `every!` = true (kỳ kế tính từ ngày hoàn thành). */
+    @Column(name = "recurrence_from_completion", nullable = false)
+    private boolean recurrenceFromCompletion;
+
+    /** M6c: múi giờ cố định của due có giờ (IANA); null = floating (CHECK ck_tasks_due_timezone). */
+    @Column(name = "due_timezone", length = 64)
+    private String dueTimezone;
+
+    /** M6c: ảnh chụp Undo của lần hoàn thành task lặp gần nhất (xem recordRecurrenceUndo / recordResetUndo). */
+    @Column(name = "recurrence_undo_batch_id")
+    private UUID recurrenceUndoBatchId;
+
+    @Column(name = "recurrence_undo_due_date")
+    private LocalDate recurrenceUndoDueDate;
+
+    @Column(name = "recurrence_undo_due_datetime")
+    private LocalDateTime recurrenceUndoDueDatetime;
+
+    @Column(name = "recurrence_undo_completed_at")
+    private Instant recurrenceUndoCompletedAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -120,7 +141,84 @@ public class Task extends BaseEntity {
                 source.durationMinutes, source.deadlineDate, sortOrder);
         copy.dueString = source.dueString;
         copy.recurrenceRule = source.recurrenceRule;
+        copy.recurrenceFromCompletion = source.recurrenceFromCompletion;
+        copy.dueTimezone = source.dueTimezone;
         return copy;
+    }
+
+    /** M6c: chuỗi người dùng gõ (Quick Add), lưu nguyên văn; null = không có. */
+    public void setDueString(String dueString) {
+        this.dueString = dueString;
+    }
+
+    /** M6c: rule đã chuẩn hoá (RecurrenceRule.format) hoặc null = bỏ lặp. Caller lo "rule cần due". */
+    public void setRecurrence(String recurrenceRule, boolean fromCompletion) {
+        this.recurrenceRule = recurrenceRule;
+        this.recurrenceFromCompletion = recurrenceRule != null && fromCompletion;
+    }
+
+    /** M6c: chỉ hợp lệ khi có dueDatetime (CHECK ck_tasks_due_timezone). */
+    public void setDueTimezone(String dueTimezone) {
+        this.dueTimezone = dueTimezone;
+    }
+
+    public boolean isRecurring() {
+        return recurrenceRule != null;
+    }
+
+    /**
+     * Hoàn thành MỘT LẦN task lặp (spec 5.3): KHÔNG đặt completed_at, dời due sang kỳ kế (giữ duration, deadline,
+     * due_timezone); ghi ảnh chụp Undo = due cũ + batchId của lần gọi.
+     */
+    public void advanceRecurrence(LocalDate nextDate, LocalDateTime nextDatetime, UUID batchId) {
+        this.recurrenceUndoBatchId = batchId;
+        this.recurrenceUndoDueDate = dueDate;
+        this.recurrenceUndoDueDatetime = dueDatetime;
+        this.recurrenceUndoCompletedAt = null;
+        this.dueDate = nextDate;
+        this.dueDatetime = nextDatetime;
+    }
+
+    /** Con bị "reset sub-tasks": nhớ completed_at cũ cho Undo rồi mở lại. */
+    public void resetForRecurrence(UUID batchId) {
+        this.recurrenceUndoBatchId = batchId;
+        this.recurrenceUndoCompletedAt = completedAt;
+        this.recurrenceUndoDueDate = null;
+        this.recurrenceUndoDueDatetime = null;
+        reopen();
+    }
+
+    /** Undo hoàn thành task lặp: due cũ quay lại. Không có ảnh chụp → false (không đổi gì). */
+    public boolean undoRecurrence() {
+        if (recurrenceUndoBatchId == null || (recurrenceUndoDueDate == null && recurrenceUndoDueDatetime == null)) {
+            return false;
+        }
+        this.dueDate = recurrenceUndoDueDate;
+        this.dueDatetime = recurrenceUndoDueDatetime;
+        clearRecurrenceUndo();
+        return true;
+    }
+
+    /** Undo "reset sub-tasks": con còn đang mở → hoàn thành lại với completed_at cũ (không batch: "xong từ trước"). */
+    public boolean undoReset(UUID batchId) {
+        if (batchId == null || !batchId.equals(recurrenceUndoBatchId) || recurrenceUndoCompletedAt == null) {
+            return false;
+        }
+        boolean changed = completedAt == null;
+        if (changed) {
+            completedAt = recurrenceUndoCompletedAt;
+            completionBatchId = null;
+        }
+        clearRecurrenceUndo();
+        return changed;
+    }
+
+    /** PATCH đổi due / lặp, hoặc lần hoàn thành sau: ảnh chụp cũ hết hiệu lực. */
+    public void clearRecurrenceUndo() {
+        this.recurrenceUndoBatchId = null;
+        this.recurrenceUndoDueDate = null;
+        this.recurrenceUndoDueDatetime = null;
+        this.recurrenceUndoCompletedAt = null;
     }
 
     public void setContent(String content) {
@@ -165,6 +263,7 @@ public class Task extends BaseEntity {
         if (completedAt == null) {
             completedAt = now;
             completionBatchId = batchId;
+            clearRecurrenceUndo(); // M6c: Undo của lần nhảy kỳ trước không còn đúng khi task đã hoàn thành thật
         }
     }
 
@@ -244,5 +343,17 @@ public class Task extends BaseEntity {
 
     public long getVersion() {
         return version;
+    }
+
+    public boolean isRecurrenceFromCompletion() {
+        return recurrenceFromCompletion;
+    }
+
+    public String getDueTimezone() {
+        return dueTimezone;
+    }
+
+    public UUID getRecurrenceUndoBatchId() {
+        return recurrenceUndoBatchId;
     }
 }

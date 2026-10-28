@@ -1,6 +1,7 @@
 package com.taskly.controller;
 
 import com.taskly.config.OpenApiConfig;
+import com.taskly.dto.task.CloseTaskRequest;
 import com.taskly.dto.task.ReopenTaskRequest;
 import com.taskly.dto.task.TaskChangeResponse;
 import com.taskly.security.CurrentUser;
@@ -26,9 +27,15 @@ public class TaskCompletionController {
         this.taskCompletionService = taskCompletionService;
     }
 
+    /**
+     * Body tuỳ chọn {forever?, resetSubtasks?} (M6c). Task lặp (không forever) → KHÔNG đặt completedAt, due nhảy sang kỳ
+     * kế; `cascaded` = task con vừa được reset. Nhận Idempotency-Key (gửi lặp không nhảy thêm kỳ).
+     */
     @PostMapping("/close")
-    public TaskChangeResponse close(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID taskId) {
-        return taskCompletionService.close(CurrentUser.id(jwt), taskId);
+    public TaskChangeResponse close(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID taskId,
+                                    @RequestBody(required = false) CloseTaskRequest request) {
+        return taskCompletionService.close(CurrentUser.id(jwt), taskId, request != null && request.isForever(),
+                request == null ? null : request.resetSubtasks());
     }
 
     /** Body tuỳ chọn {undo: boolean}; undo = true khi app bấm "Hoàn tác" trên snackbar. */

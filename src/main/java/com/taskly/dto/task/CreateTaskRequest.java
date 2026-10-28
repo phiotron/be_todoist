@@ -57,7 +57,20 @@ public record CreateTaskRequest(
         Optional<UUID> afterId,
 
         @Schema(description = "M2: label gắn cho task (label của mình, tối đa theo giới hạn; trùng bị bỏ)")
-        List<UUID> labelIds) {
+        List<UUID> labelIds,
+
+        @Schema(description = "M6c: chuỗi ngày người dùng gõ (Quick Add), lưu nguyên văn, ≤ 150 ký tự")
+        @Size(max = 150, message = "{validation.due-string.size}")
+        String dueString,
+
+        @Schema(description = "M6c: RRULE rút gọn không tiền tố RRULE:, vd FREQ=WEEKLY;INTERVAL=2;BYDAY=MO (contract 8.1)")
+        String recurrenceRule,
+
+        @Schema(description = "M6c: true = every! (kỳ kế tính từ ngày hoàn thành); vắng = false")
+        Boolean recurrenceFromCompletion,
+
+        @Schema(description = "M6c: múi giờ cố định (IANA) của due có giờ — chỉ múi giờ hiện tại của tài khoản; vắng = floating")
+        String dueTimezone) {
 
     public CreateTaskRequest {
         content = content == null ? null : content.strip();

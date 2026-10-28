@@ -147,7 +147,9 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         "id", "projectId", "sectionId", "parentId", "content", "description", "priority", "dueDate",
                         "dueDatetime", "durationMinutes", "deadlineDate", "dueString", "isOverdue", "completedAt",
                         "subtaskCount", "completedSubtaskCount", "sortOrder", "version", "createdAt", "updatedAt",
-                        "projectName", "parentContent", "labelIds")))
+                        "projectName", "parentContent", "labelIds",
+                        // M6c
+                        "recurrenceRule", "recurrenceFromCompletion", "dueTimezone", "isRecurring")))
                 .andExpect(jsonPath("$.components.schemas.TaskResponse.properties.isFavorite").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.TaskChangeResponse.required")
                         .value(containsInAnyOrder("task", "cascaded")))

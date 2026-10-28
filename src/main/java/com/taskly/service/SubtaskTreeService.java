@@ -199,6 +199,14 @@ public class SubtaskTreeService {
     }
 
     /**
+     * M6c "Complete & reset sub-tasks": con TRỰC TIẾP đã xong theo thứ tự hiển thị, tối đa max (cấp 3 trở xuống không
+     * đụng — Todoist bỏ sub-sub-task).
+     */
+    public List<UUID> completedChildren(Tree tree, UUID id, int max) {
+        return tree.childrenOf(id).stream().filter(Node::completed).limit(max).map(Node::id).toList();
+    }
+
+    /**
      * Phần cây cần sao chép (spec 5.4): node gốc rồi các con cháu ĐANG MỞ theo thứ tự hiển thị — con đã xong không
      * chép và cả nhánh dưới nó cũng không chép. Cha luôn đứng trước con.
      */

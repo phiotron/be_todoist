@@ -96,6 +96,10 @@ public class SettingsService {
         if (request.autoReminderMinutes() != null) {
             user.changeAutoReminderMinutes(request.autoReminderMinutes().orElse(null));
         }
+        // M6c
+        if (request.resetSubtasks() != null) {
+            user.changeResetSubtasks(request.resetSubtasks());
+        }
         return SettingsMapper.toResponse(user);
     }
 

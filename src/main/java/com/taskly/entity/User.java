@@ -44,6 +44,8 @@ public class User extends BaseEntity {
     public static final boolean DEFAULT_REMINDERS_ENABLED = true;
     /** spec 5.8: mặc định 30 phút; null = tắt auto reminder. */
     public static final Integer DEFAULT_AUTO_REMINDER_MINUTES = 30;
+    /** M6c: Todoist mặc định tắt "Reset sub-tasks". */
+    public static final boolean DEFAULT_RESET_SUBTASKS = false;
 
     /** nav_tabs lưu các khoá nối bằng dấu phẩy (khoá không bao giờ chứa dấu phẩy). */
     private static final String NAV_TABS_SEPARATOR = ",";
@@ -114,6 +116,10 @@ public class User extends BaseEntity {
 
     @Column(name = "auto_reminder_minutes")
     private Integer autoReminderMinutes = DEFAULT_AUTO_REMINDER_MINUTES;
+
+    /** M6c: "Reset sub-tasks" — tự mở lại task con khi hoàn thành task lặp (mặc định tắt). */
+    @Column(name = "reset_subtasks", nullable = false)
+    private boolean resetSubtasks = DEFAULT_RESET_SUBTASKS;
 
     /**
      * Số dòng user_totp ĐÃ BẬT của user (0 hoặc 1) — chỉ đọc, tính lúc nạp entity (spec 12.1: GET me kèm
@@ -315,6 +321,15 @@ public class User extends BaseEntity {
         this.locale = DEFAULT_LOCALE;
         applyDefaultSettings();
         resetReminderSettings();
+        this.resetSubtasks = DEFAULT_RESET_SUBTASKS; // M6c
+    }
+
+    public boolean isResetSubtasks() {
+        return resetSubtasks;
+    }
+
+    public void changeResetSubtasks(boolean resetSubtasks) {
+        this.resetSubtasks = resetSubtasks;
     }
 
     public boolean isRemindersEnabled() {
