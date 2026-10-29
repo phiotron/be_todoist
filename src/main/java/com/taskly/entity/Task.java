@@ -282,6 +282,10 @@ public class Task extends BaseEntity {
         }
     }
 
+    public boolean isOpen() {
+        return completedAt == null;
+    }
+
     public boolean isReviewPending() {
         return REVIEW_PENDING.equals(reviewStatus);
     }
@@ -294,6 +298,13 @@ public class Task extends BaseEntity {
     }
 
     /** Huỷ / trả lại / duyệt xong / hoàn thành thật: về NONE (chỉ ghi khi có gì để xoá). */
+    /** Hoàn tác "Trả lại": khôi phục PENDING với người yêu cầu + thời điểm cũ. */
+    public void restoreReview(UUID requestedBy, Instant requestedAt) {
+        this.reviewStatus = REVIEW_PENDING;
+        this.reviewRequestedBy = requestedBy;
+        this.reviewRequestedAt = requestedAt;
+    }
+
     public void clearReview() {
         if (isReviewPending() || reviewRequestedBy != null || reviewRequestedAt != null) {
             this.reviewStatus = REVIEW_NONE;

@@ -1,5 +1,7 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
 import com.taskly.entity.ActivityEventType;
 import com.taskly.entity.NotificationType;
 import com.taskly.entity.Task;
@@ -80,6 +82,23 @@ public class TaskReviewService {
         if (requesterId != null && !requesterId.equals(adminId)) {
             notify(requesterId, NotificationType.REVIEW_REJECTED, adminId, task, clock.instant());
         }
+    }
+
+    /**
+     * Admin hoàn tác "Trả lại": về PENDING với người yêu cầu + thời điểm cũ; nhật ký REVIEW_RESTORED; xoá thông báo
+     * REVIEW_REJECTED CHƯA ĐỌC mới nhất của người yêu cầu (đã đọc thì giữ). Không gửi thông báo mới.
+     * requestedBy không thuộc workspace của việc → 400 validation-failed.
+     */
+    public void restored(UUID adminId, Task task, UUID requestedBy, Instant requestedAt) {
+        Integer member = jdbc.queryForObject("select count(*) from workspace_members where workspace_id = :w "
+                + "and user_id = :u", new MapSqlParameterSource("w", task.getWorkspaceId()).addValue("u", requestedBy),
+                Integer.class);
+        if (member == null || member == 0) {
+            throw ApiException.badRequest(ErrorMessage.VALIDATION_FAILED).withProperty("field", "requestedBy");
+        }
+        task.restoreReview(requestedBy, requestedAt);
+        activityService.task(adminId, task, ActivityEventType.REVIEW_RESTORED);
+        notifications.deleteLatestUnread(requestedBy, NotificationType.REVIEW_REJECTED, task.getId());
     }
 
     private void notify(UUID recipientId, NotificationType type, UUID actorId, Task task, Instant now) {

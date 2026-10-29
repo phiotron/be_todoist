@@ -5,6 +5,7 @@ import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.task.CreateTaskRequest;
 import com.taskly.dto.task.MoveTaskRequest;
+import com.taskly.dto.task.RestoreReviewRequest;
 import com.taskly.dto.task.UpdateTaskRequest;
 import com.taskly.service.TaskCompletionService;
 import com.taskly.service.TaskMoveService;
@@ -97,6 +98,15 @@ public class TaskSyncCommands {
     SyncCommandHandler taskReviewRejectCommand(TaskCompletionService completion) {
         return SyncCommandHandler.of("task_review_reject", ctx -> {
             completion.reject(ctx.userId(), reviewTaskId(ctx));
+            return SyncCommandOutcome.ok();
+        });
+    }
+
+    /** Chờ duyệt: Admin hoàn tác "Trả lại": args {id | taskId, requestedBy, requestedAt}. */
+    @Bean
+    SyncCommandHandler taskReviewRestoreCommand(TaskCompletionService completion) {
+        return SyncCommandHandler.of("task_review_restore", ctx -> {
+            completion.restore(ctx.userId(), reviewTaskId(ctx), ctx.body(RestoreReviewRequest.class, "id", "taskId"));
             return SyncCommandOutcome.ok();
         });
     }

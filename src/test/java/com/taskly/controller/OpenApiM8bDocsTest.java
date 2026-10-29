@@ -77,4 +77,11 @@ class OpenApiM8bDocsTest extends IntegrationTestBase {
                         .value(containsInAnyOrder("COMMENT_MENTION", "COMMENT_ADDED", "TASK_ASSIGNED", "TASK_COMPLETED",
                                 "MEMBER_JOINED", "INVITATION_ACCEPTED")));
     }
+
+    @Test
+    void reviewRestoreEndpointIsDocumented() throws Exception {
+        docs().andExpect(jsonPath("$.paths['/api/v1/tasks/{taskId}/review/restore'].post.summary").isNotEmpty())
+                .andExpect(jsonPath("$.components.schemas.RestoreReviewRequest.required")
+                        .value(containsInAnyOrder("requestedBy", "requestedAt")));
+    }
 }

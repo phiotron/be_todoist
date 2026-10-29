@@ -305,4 +305,109 @@ class TaskReviewApiTest extends M8aApiTestBase {
         List<String> status = JsonPath.read(delta, "$..tasks[?(@.id=='" + fx.task() + "')].reviewStatus");
         assertThat(status).containsExactly("PENDING");
     }
+
+    // ---- Hoàn tác "Trả lại" (restore)
+
+    private static final String AT = "2026-10-29T01:02:03Z";
+
+    private String restoreBody(UUID by, String at) {
+        return "{\"requestedBy\": \"" + by + "\", \"requestedAt\": \"" + at + "\"}";
+    }
+
+    private Fx rejectedFixture() throws Exception {
+        Fx fx = fixture();
+        close(fx.member(), fx.task());
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/reject").andExpect(status().isOk());
+        return fx;
+    }
+
+    @Test
+    void restore_afterReject_backToPending_logsActivity_removesUnreadRejectedNotification() throws Exception {
+        Fx fx = rejectedFixture();
+        authGet(fx.member().accessToken(), "/api/v1/notifications")
+                .andExpect(jsonPath("$.items[0].type").value("REVIEW_REJECTED"));
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", restoreBody(fx.member().id(), AT))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.task.reviewStatus").value("PENDING"))
+                .andExpect(jsonPath("$.task.reviewRequestedBy").value(fx.member().id().toString()))
+                .andExpect(jsonPath("$.task.reviewRequestedAt").value(AT))
+                .andExpect(jsonPath("$.task.completedAt").isEmpty());
+        assertThat(count("select count(*) from activity_log where object_id = ? and event_type = 'REVIEW_RESTORED' "
+                + "and actor_id = ?", fx.task(), fx.admin().id())).isEqualTo(1);
+        assertThat(count("select count(*) from notifications where task_id = ? and type = 'REVIEW_REJECTED'",
+                fx.task())).isZero();
+        authGet(fx.member().accessToken(), "/api/v1/notifications").andExpect(jsonPath("$.items", hasSize(0)));
+    }
+
+    @Test
+    void restore_keepsReadRejectedNotification() throws Exception {
+        Fx fx = rejectedFixture();
+        jdbcTemplate.update("update notifications set read_at = now() where task_id = ? and type = 'REVIEW_REJECTED'",
+                fx.task());
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", restoreBody(fx.member().id(), AT))
+                .andExpect(status().isOk());
+        assertThat(count("select count(*) from notifications where task_id = ? and type = 'REVIEW_REJECTED'",
+                fx.task())).isEqualTo(1);
+    }
+
+    @Test
+    void restore_memberForbidden() throws Exception {
+        Fx fx = rejectedFixture();
+        authPost(fx.member().accessToken(), t(fx.task()) + "/review/restore", restoreBody(fx.member().id(), AT))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value(ADMIN_ONLY));
+    }
+
+    @Test
+    void restore_otherWorkspaceAdminForbidden() throws Exception {
+        Fx fx = rejectedFixture();
+        Fx other = fixture();
+        int status = authPost(other.admin().accessToken(), t(fx.task()) + "/review/restore",
+                restoreBody(fx.member().id(), AT)).andReturn().getResponse().getStatus();
+        assertThat(status).isIn(403, 404);
+    }
+
+    @Test
+    void restore_completedTask_conflict() throws Exception {
+        Fx fx = rejectedFixture();
+        close(fx.admin(), fx.task());
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", restoreBody(fx.member().id(), AT))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("review-not-restorable"));
+    }
+
+    @Test
+    void restore_alreadyPending_conflict() throws Exception {
+        Fx fx = fixture();
+        close(fx.member(), fx.task());
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", restoreBody(fx.member().id(), AT))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("review-not-restorable"));
+    }
+
+    @Test
+    void restore_requesterOutsideWorkspace_orMissing_badRequest() throws Exception {
+        Fx fx = rejectedFixture();
+        RegisteredUser stranger = newUser();
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", restoreBody(stranger.id(), AT))
+                .andExpect(status().isBadRequest());
+        authPost(fx.admin().accessToken(), t(fx.task()) + "/review/restore", "{\"requestedAt\": \"" + AT + "\"}")
+                .andExpect(status().isBadRequest());
+        authGet(fx.admin().accessToken(), t(fx.task())).andExpect(jsonPath("$.reviewStatus").value("NONE"));
+    }
+
+    @Test
+    void sync_restoreCommand_works_andIsIdempotent() throws Exception {
+        Fx fx = rejectedFixture();
+        String uuid = UUID.randomUUID().toString();
+        String json = "{\"syncToken\": null, \"commands\": [{\"uuid\": \"" + uuid
+                + "\", \"type\": \"task_review_restore\", \"args\": {\"taskId\": \"" + fx.task()
+                + "\", \"requestedBy\": \"" + fx.member().id() + "\", \"requestedAt\": \"" + AT + "\"}}]}";
+        String body = sync(fx.admin(), json);
+        assertThat((String) JsonPath.read(body, "$.results[0].status")).isEqualTo("ok");
+        authGet(fx.admin().accessToken(), t(fx.task())).andExpect(jsonPath("$.reviewStatus").value("PENDING"))
+                .andExpect(jsonPath("$.reviewRequestedBy").value(fx.member().id().toString()));
+        String again = sync(fx.admin(), json);
+        assertThat((String) JsonPath.read(again, "$.results[0].status")).isEqualTo("ok");
+        assertThat(count("select count(*) from activity_log where object_id = ? and event_type = 'REVIEW_RESTORED'",
+                fx.task())).isEqualTo(1);
+        String memberBody = sync(fx.member(), json.replace(uuid, UUID.randomUUID().toString()));
+        assertThat((Integer) JsonPath.read(memberBody, "$.results[0].error.status")).isEqualTo(403);
+    }
 }

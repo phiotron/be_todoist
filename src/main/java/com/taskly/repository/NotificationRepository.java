@@ -45,6 +45,16 @@ public class NotificationRepository {
         this.jdbc = jdbc;
     }
 
+    /** Xoá thông báo CHƯA ĐỌC mới nhất (type, task, người nhận); trả số hàng xoá (0 nếu đã đọc / không có). */
+    public int deleteLatestUnread(UUID userId, NotificationType type, UUID taskId) {
+        return jdbc.update("""
+                delete from notifications where id = (select id from notifications where user_id = :userId
+                  and type = :type and task_id = :taskId and read_at is null
+                  order by created_at desc, id desc limit 1)
+                """, new MapSqlParameterSource().addValue("userId", userId).addValue("type", type.name())
+                .addValue("taskId", taskId));
+    }
+
     public void insert(UUID id, UUID userId, NotificationType type, UUID actorId, UUID commentId, UUID taskId,
                        UUID projectId, Instant now) {
         jdbc.update("""

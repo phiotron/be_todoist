@@ -96,6 +96,9 @@ public final class ProblemCodes {
     /** 409: duyệt / trả lại một việc không ở trạng thái chờ duyệt. */
     public static final String REVIEW_NOT_PENDING = "review-not-pending";
 
+    /** 409: hoàn tác "Trả lại" một việc đã hoàn thành hoặc đang chờ duyệt (chỉ khôi phục được khi mở + NONE). */
+    public static final String REVIEW_NOT_RESTORABLE = "review-not-restorable";
+
     private ProblemCodes() {
     }
 }

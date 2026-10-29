@@ -233,7 +233,8 @@ public enum ErrorMessage {
     TEAM_ADMIN_ONLY("error.team-admin-only"),
 
     // ---- Chờ duyệt (review)
-    REVIEW_NOT_PENDING("error.review-not-pending");
+    REVIEW_NOT_PENDING("error.review-not-pending"),
+    REVIEW_NOT_RESTORABLE("error.review-not-restorable");
 
     private final String key;
 

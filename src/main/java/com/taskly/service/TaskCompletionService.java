@@ -4,6 +4,7 @@ import com.taskly.common.error.ApiException;
 import com.taskly.common.error.ErrorMessage;
 import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.task.CascadedTask;
+import com.taskly.dto.task.RestoreReviewRequest;
 import com.taskly.dto.task.TaskChangeResponse;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.entity.Task;
@@ -253,6 +254,24 @@ public class TaskCompletionService {
         requirePending(task);
         reviews.rejected(userId, task);
         return response(userId, taskId, List.of(taskId));
+    }
+
+    /**
+     * Chờ duyệt: Admin hoàn tác "Trả lại" — chỉ khi việc đang mở + review NONE (nếu không 409 review-not-restorable).
+     */
+    public TaskChangeResponse restore(UUID userId, UUID taskId, RestoreReviewRequest request) {
+        Task task = taskService.requireReviewable(userId, taskId);
+        requireRestorable(task);
+        task = taskService.lockAndRecheck(task);
+        requireRestorable(task);
+        reviews.restored(userId, task, request.requestedBy(), request.requestedAt());
+        return response(userId, taskId, List.of(taskId));
+    }
+
+    private static void requireRestorable(Task task) {
+        if (!task.isOpen() || task.isReviewPending()) {
+            throw ApiException.conflict(ErrorMessage.REVIEW_NOT_RESTORABLE).withCode(ProblemCodes.REVIEW_NOT_RESTORABLE);
+        }
     }
 
     private static void requirePending(Task task) {
