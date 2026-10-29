@@ -226,7 +226,7 @@ public class TaskListingService {
         List<KeyedId> rows = repository.calendarPage(context, scope, options, after, pageSize + 1);
         Page<KeyedId> page = Page.fromLookahead(rows, pageSize, row -> CursorCodec.encode(kind, row.keys()));
         List<UUID> ids = page.items().stream().map(KeyedId::id).toList();
-        return new Page<>(taskViewService.getResponsesInOrder(userId, ids), page.nextCursor());
+        return new Page<>(taskViewService.getResponsesInOrder(userId, ids, readScope), page.nextCursor());
     }
 
     /** Display của request (hoặc mặc định của view); filterLabelId phải là label của user (404). */
@@ -257,7 +257,7 @@ public class TaskListingService {
         List<UUID> rootIds = page.items().stream().map(KeyedId::id).toList();
         List<UUID> ids = scope.kind() == ViewKind.PROJECT
                 ? SubtreeOrder.arrange(rootIds, repository.descendants(rootIds)) : rootIds;
-        return new Page<>(taskViewService.getResponsesInOrder(userId, ids), page.nextCursor());
+        return new Page<>(taskViewService.getResponsesInOrder(userId, ids, readScope), page.nextCursor());
     }
 
     /** Con trỏ gắn với loại view + sort / order / group: đổi Display mà dùng lại con trỏ cũ → 400. */

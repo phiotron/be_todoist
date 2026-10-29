@@ -206,8 +206,19 @@ public class TaskViewService {
         if (ids.isEmpty()) {
             return List.of();
         }
+        return getResponsesInOrder(userId, ids, accessPolicy.viewScope(userId));
+    }
+
+    /**
+     * Như trên nhưng dùng phạm vi đọc người gọi ĐÃ có (listing / full sync đã tính listScope hoặc viewScope để lấy
+     * ids) — không tính lại (mỗi lần tính là một câu SQL, full sync gọi theo từng khối 500 task).
+     */
+    public List<TaskResponse> getResponsesInOrder(UUID userId, List<UUID> ids, ReadScope scope) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
         LocalDateTime localNow = localNow(userId);
-        Map<UUID, TaskView> byId = repository.findByIds(accessPolicy.viewScope(userId), ids)
+        Map<UUID, TaskView> byId = repository.findByIds(scope, ids)
                 .stream().collect(Collectors.toMap(TaskView::id, view -> view));
         return ids.stream().filter(byId::containsKey)
                 .map(id -> TaskMapper.toResponse(byId.get(id), localNow)).toList();

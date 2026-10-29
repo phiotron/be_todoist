@@ -82,8 +82,16 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<WorkspaceResponse> list(UUID userId) {
-        return workspaceMembers.findAllOfUser(userId).stream()
-                .map(member -> toResponse(member.getWorkspace(), member.getRole()))
+        List<WorkspaceMember> mine = workspaceMembers.findAllOfUser(userId);
+        Map<UUID, Long> counts = new java.util.HashMap<>();
+        if (!mine.isEmpty()) { // PERF: một câu đếm thành viên cho mọi workspace (trước đây một câu mỗi workspace)
+            workspaceMembers.countByWorkspaceIds(mine.stream().map(m -> m.getWorkspace().getId()).toList())
+                    .forEach(row -> counts.put(row.getWorkspaceId(), row.getMemberCount()));
+        }
+        return mine.stream()
+                .map(member -> new WorkspaceResponse(member.getWorkspace().getId(), member.getWorkspace().getName(),
+                        member.getWorkspace().getType(), member.getRole(),
+                        counts.getOrDefault(member.getWorkspace().getId(), 0L)))
                 .toList();
     }
 

@@ -81,6 +81,14 @@ app:
       max-requests: 30
       window-seconds: 60
 
+# PERF (perf2): nén gzip JSON — full sync ~640 KB, danh sách 50 task ~40 KB (JSON lặp khoá nên nén còn ~1/8); điện thoại
+# gửi Accept-Encoding: gzip (OkHttp / trình duyệt tự giải nén). Chỉ nén JSON ≥ 1 KB; file tải (attachment / avatar) không nén.
+server:
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+    min-response-size: 1KB
+
 taskly:
   google:
     # aud hợp lệ của ID token Google = Web client ID (app Android truyền nó làm serverClientId).

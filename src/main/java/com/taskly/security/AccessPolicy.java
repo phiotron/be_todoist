@@ -152,7 +152,37 @@ public class AccessPolicy {
         return scope(LIST_SCOPE_SQL + PREVIEW_SCOPE_SQL, userId);
     }
 
+    /**
+     * PERF: ghi nhớ phạm vi đọc trong LUỒNG hiện tại tới khi đóng — dùng cho một đoạn CHỈ ĐỌC gọi listScope / viewScope
+     * nhiều lần (full sync gọi ~6 lần, mỗi lần một câu SQL ~2 ms). KHÔNG dùng quanh đoạn có ghi (tạo / mời / xoá dự án
+     * đổi phạm vi). Lồng nhau: lớp trong dùng lại bản nhớ của lớp ngoài.
+     */
+    public ScopeMemo memoizeScopes() {
+        if (SCOPE_MEMO.get() != null) {
+            return () -> { };
+        }
+        SCOPE_MEMO.set(new HashMap<>());
+        return () -> SCOPE_MEMO.remove();
+    }
+
+    /** Đóng bản nhớ (try-with-resources). */
+    @FunctionalInterface
+    public interface ScopeMemo extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    private static final ThreadLocal<Map<String, ReadScope>> SCOPE_MEMO = new ThreadLocal<>();
+
     private ReadScope scope(String sql, UUID userId) {
+        Map<String, ReadScope> memo = SCOPE_MEMO.get();
+        if (memo == null) {
+            return loadScope(sql, userId);
+        }
+        return memo.computeIfAbsent(userId + (sql == LIST_SCOPE_SQL ? "|list" : "|view"), key -> loadScope(sql, userId));
+    }
+
+    private ReadScope loadScope(String sql, UUID userId) {
         Set<UUID> workspaceIds = new LinkedHashSet<>();
         List<UUID> projectIds = new ArrayList<>();
         jdbc.query(sql, new MapSqlParameterSource("userId", userId), rs -> {

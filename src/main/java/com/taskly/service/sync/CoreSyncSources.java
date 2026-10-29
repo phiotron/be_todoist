@@ -68,7 +68,7 @@ public class CoreSyncSources {
                         ps.setArray(2, con.createArrayOf("uuid", scope.projectIds().toArray()));
                         return ps;
                     }, (rs, i) -> rs.getObject(1, UUID.class));
-                    return chunked(ids, chunk -> taskViewService.getResponsesInOrder(userId, chunk));
+                    return chunked(ids, chunk -> taskViewService.getResponsesInOrder(userId, chunk, scope));
                 });
     }
 

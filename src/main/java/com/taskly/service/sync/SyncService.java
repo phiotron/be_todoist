@@ -74,10 +74,13 @@ public class SyncService {
         keys.forEach(key -> changes.put(key, new ArrayList<>()));
         List<SyncDeletedItem> deleted = new ArrayList<>();
         if (!keys.isEmpty()) {
-            if (full) {
-                keys.forEach(key -> changes.get(key).addAll(sourcesByKey.get(key).full(userId)));
-            } else {
-                collectChanges(userId, since.xmin(), keys, changes, deleted);
+            // PERF: đoạn đọc này không ghi → nhớ phạm vi đọc (full sync gọi listScope ~6 lần, mỗi lần một câu SQL)
+            try (AccessPolicy.ScopeMemo memo = accessPolicy.memoizeScopes()) {
+                if (full) {
+                    keys.forEach(key -> changes.get(key).addAll(sourcesByKey.get(key).full(userId)));
+                } else {
+                    collectChanges(userId, since.xmin(), keys, changes, deleted);
+                }
             }
         }
         return new SyncResponse(new SyncToken(token, now).format(), full, changes, deleted, results, tempIds);
