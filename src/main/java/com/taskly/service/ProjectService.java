@@ -527,6 +527,18 @@ public class ProjectService {
         return parent;
     }
 
+    /** Cây dự án của nhiều workspace bằng MỘT câu; workspace không có dự án → cây rỗng. */
+    private Map<UUID, ProjectTreeService.Tree> trees(Collection<UUID> workspaceIds) {
+        Map<UUID, List<ProjectTreeService.Node>> nodes = new HashMap<>();
+        workspaceIds.forEach(id -> nodes.put(id, new ArrayList<>()));
+        for (Object[] row : projectRepository.findTreeRowsIn(workspaceIds)) {
+            nodes.get((UUID) row[0]).add(new ProjectTreeService.Node((UUID) row[1], (UUID) row[2], (Long) row[3]));
+        }
+        Map<UUID, ProjectTreeService.Tree> trees = new HashMap<>();
+        nodes.forEach((id, list) -> trees.put(id, projectTreeService.tree(list)));
+        return trees;
+    }
+
     private ProjectTreeService.Tree tree(UUID workspaceId) {
         return projectTreeService.tree(projectRepository.findTreeRows(workspaceId).stream()
                 .map(row -> new ProjectTreeService.Node((UUID) row[0], (UUID) row[1], (Long) row[2]))
@@ -653,10 +665,13 @@ public class ProjectService {
         Map<UUID, DescendantStats> stats = new HashMap<>();
         Map<UUID, List<Project>> byWorkspace = projects.stream()
                 .collect(Collectors.groupingBy(p -> p.getWorkspace().getId()));
+        // PERF: MỘT câu lấy cây của mọi workspace + MỘT câu đếm task mở cho mọi dự án cần (trước đây 2 câu MỖI workspace
+        // — N+1 theo số workspace; GET projects / full sync của tài khoản 12 workspace mất ~20 câu).
+        Map<UUID, ProjectTreeService.Tree> trees = trees(byWorkspace.keySet());
+        Map<UUID, List<UUID>> descendantsOf = new HashMap<>();
+        Set<UUID> needed = new HashSet<>();
         byWorkspace.forEach((workspaceId, requested) -> {
-            ProjectTreeService.Tree tree = tree(workspaceId);
-            Map<UUID, List<UUID>> descendantsOf = new HashMap<>();
-            Set<UUID> needed = new HashSet<>();
+            ProjectTreeService.Tree tree = trees.get(workspaceId);
             for (Project project : requested) {
                 if (tree.byId().containsKey(project.getId())) { // Inbox không nằm trong cây
                     List<UUID> descendants = projectTreeService.descendants(tree, project.getId());
@@ -665,12 +680,11 @@ public class ProjectService {
                     needed.addAll(descendants);
                 }
             }
-            Map<UUID, Long> workspaceCounts = countOpen(needed);
-            counts.putAll(workspaceCounts);
-            descendantsOf.forEach((id, descendants) -> stats.put(id, new DescendantStats(descendants.size(),
-                    descendants.stream().mapToLong(d -> workspaceCounts.getOrDefault(d, 0L)).sum())));
         });
-        counts.putAll(countOpen(ids.stream().filter(id -> !stats.containsKey(id)).toList())); // Inbox không nằm trong cây
+        ids.stream().filter(id -> !descendantsOf.containsKey(id)).forEach(needed::add); // Inbox không nằm trong cây
+        counts.putAll(countOpen(needed));
+        descendantsOf.forEach((id, descendants) -> stats.put(id, new DescendantStats(descendants.size(),
+                descendants.stream().mapToLong(d -> counts.getOrDefault(d, 0L)).sum())));
         Map<UUID, ProjectMapper.Sharing> sharing = sharing(userId, projects);
         return projects.stream()
                 .map(p -> {

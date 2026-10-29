@@ -40,5 +40,16 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
     long countByWorkspaceId(UUID workspaceId);
 
+    interface WorkspaceMemberCount {
+        UUID getWorkspaceId();
+
+        Long getMemberCount();
+    }
+
+    /** Số thành viên của nhiều workspace bằng MỘT câu (GET workspaces không còn đếm từng workspace). */
+    @Query("select m.workspace.id as workspaceId, count(m) as memberCount from WorkspaceMember m "
+            + "where m.workspace.id in :workspaceIds group by m.workspace.id")
+    List<WorkspaceMemberCount> countByWorkspaceIds(@Param("workspaceIds") java.util.Collection<UUID> workspaceIds);
+
     long countByWorkspaceIdAndRole(UUID workspaceId, WorkspaceRole role);
 }

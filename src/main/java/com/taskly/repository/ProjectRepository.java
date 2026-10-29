@@ -63,6 +63,11 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     @Query("select p.id, p.parentId, p.sortOrder from Project p where p.workspace.id = :workspaceId and p.inbox = false")
     List<Object[]> findTreeRows(UUID workspaceId);
 
+    /** Như findTreeRows nhưng cho nhiều workspace một lần: (workspaceId, id, parentId, sortOrder). */
+    @Query("select p.workspace.id, p.id, p.parentId, p.sortOrder from Project p where p.workspace.id in :workspaceIds "
+            + "and p.inbox = false")
+    List<Object[]> findTreeRowsIn(Collection<UUID> workspaceIds);
+
     @Query("select count(p) from Project p where p.workspace.id = :workspaceId and p.inbox = false "
             + "and p.archivedAt is null")
     long countActive(UUID workspaceId);
