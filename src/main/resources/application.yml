@@ -1,4 +1,18 @@
 # Cấu hình chính. Giá trị bí mật đọc từ file .env (người dùng tự tạo từ .env.example) — không viết bí mật vào đây.
+
+# PERF-NET: nén JSON (mỗi task ~670 byte, nhiều null / khoá lặp → gzip ~10x) và Tomcat vừa cho máy dev.
+server:
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+    min-response-size: 1KB
+  tomcat:
+    threads:
+      max: 60
+      min-spare: 8
+    accept-count: 100
+    keep-alive-timeout: 30s
+    max-keep-alive-requests: 200
 spring:
   application:
     name: taskly-backend
@@ -8,6 +22,14 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/taskly}
     username: ${DB_USER:taskly}
     password: ${DB_PASSWORD:}
+    # PERF-NET: pool cho máy dev/demo (1 instance + Postgres cục bộ): trần 15 đủ cho 60 luồng Tomcat vì request ngắn;
+    # giữ 3 kết nối nhàn rỗi (mặc định 10); timeout 5 s thay 30 s để nghẽn DB trả lỗi nhanh; max-lifetime 25 phút.
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 1500000
   flyway:
     # Số V11 (M8a) còn trống vì gộp sau V12–V19: DB dev đã chạy tới V19 vẫn áp V11 được khi M8a về. Không đổi số V đã có.
     out-of-order: true
