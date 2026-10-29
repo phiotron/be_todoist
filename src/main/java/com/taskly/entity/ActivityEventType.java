@@ -11,5 +11,10 @@ public enum ActivityEventType {
     UNCOMPLETED,
     DELETED,
     ARCHIVED,
-    UNARCHIVED
+    UNARCHIVED,
+    /** Chờ duyệt: yêu cầu / duyệt / trả lại / huỷ yêu cầu (chỉ cho task). */
+    REVIEW_REQUESTED,
+    REVIEW_APPROVED,
+    REVIEW_REJECTED,
+    REVIEW_CANCELLED
 }

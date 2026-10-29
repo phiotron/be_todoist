@@ -69,6 +69,18 @@ public class TaskViewService {
             "(select case when w.type = 'TEAM' then 0 else 1 end from workspaces w where w.id = t.workspace_id)",
             KeyType.INT);
 
+    /**
+     * view=review: việc PENDING còn mở. Admin của workspace nhóm thấy mọi việc PENDING của workspace đó; người khác chỉ thấy
+     * việc do chính mình yêu cầu. Phạm vi dự án vẫn do ReadScope (viewScope) giới hạn.
+     */
+    private static final String REVIEW_FILTER = """
+            t.completed_at is null and p.archived_at is null and t.review_status = 'PENDING'
+            and (t.review_requested_by = :reviewUserId
+                 or exists (select 1 from workspace_members wm join workspaces w on w.id = wm.workspace_id
+                             where wm.workspace_id = t.workspace_id and wm.user_id = :reviewUserId
+                               and wm.role = 'ADMIN' and w.type = 'TEAM'))""";
+    private static final Key REQUESTED_AT = new Key("t.review_requested_at", KeyType.TIMESTAMP);
+
     private final TaskViewRepository repository;
     private final ProjectService projectService;
     private final UserService userService;
@@ -123,7 +135,8 @@ public class TaskViewService {
     /** tasks?view= (bảng định nghĩa ở đầu Task 21). */
     public Page<TaskResponse> listView(UUID userId, TaskViewType view, LocalDate from, LocalDate to, LocalDate since,
                                        LocalDate until, String cursor, Integer limit) {
-        Request request = request(userId, limit, accessPolicy.listScope(userId)); // M8a: dự án đã tham gia
+        Request request = request(userId, limit, view == TaskViewType.review
+                ? accessPolicy.viewScope(userId) : accessPolicy.listScope(userId)); // M8a: dự án đã tham gia
         if (request == null) {
             return new Page<>(List.of(), null);
         }
@@ -147,12 +160,25 @@ public class TaskViewService {
             case completed -> completedKeyset(since, until, request.context().zone(), params);
             // M7: view=calendar do TaskListingService.byCalendar xử lý trước (tryList); tới đây là gọi sai.
             case calendar -> throw ApiException.badRequest(ErrorMessage.CALENDAR_WINDOW_INVALID);
+            case review -> {
+                params.addValue("reviewUserId", userId);
+                yield new Keyset(REVIEW_FILTER, List.of(REQUESTED_AT), false);
+            }
             // Hộp thư đến › Việc nhóm: gom theo workspace (Team trước) → dự án → thứ tự thủ công.
             case inbox_team -> new Keyset(OPEN_IN_ACTIVE_PROJECT + " and " + INBOX_TEAM,
                     List.of(TEAM_FIRST, new Key("t.workspace_id", KeyType.ID), PROJECT_ORDER,
                             new Key("t.project_id", KeyType.ID), TASK_ORDER), false);
         };
         return flatPage(request.context(), keyset, params, view.name(), cursor);
+    }
+
+    /** Số việc chờ duyệt của người gọi (badge): cùng phạm vi + điều kiện với view=review. */
+    public long reviewCount(UUID userId) {
+        ReadScope scope = accessPolicy.viewScope(userId);
+        if (scope.isEmpty()) {
+            return 0;
+        }
+        return repository.count(REVIEW_FILTER, scope.params().addValue("reviewUserId", userId));
     }
 
     /** Cửa sổ ngày của view=upcoming, đã kiểm hợp lệ: [first, last]. */

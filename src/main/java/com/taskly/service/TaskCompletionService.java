@@ -1,9 +1,13 @@
 package com.taskly.service;
 
+import com.taskly.common.error.ApiException;
+import com.taskly.common.error.ErrorMessage;
+import com.taskly.common.error.ProblemCodes;
 import com.taskly.dto.task.CascadedTask;
 import com.taskly.dto.task.TaskChangeResponse;
 import com.taskly.dto.task.TaskResponse;
 import com.taskly.entity.Task;
+import com.taskly.security.AccessPolicy;
 import com.taskly.service.recurrence.InvalidRecurrenceException;
 import com.taskly.service.recurrence.RecurrenceRule;
 import com.taskly.service.recurrence.RecurrenceService;
@@ -43,14 +47,19 @@ public class TaskCompletionService {
     private final RecurrenceService recurrenceService = new RecurrenceService();
     private final Clock clock;
     private final ProductivityEvents productivityEvents; // M10: Activity log + Karma
+    private final AccessPolicy accessPolicy;
+    private final TaskReviewService reviews;
 
     public TaskCompletionService(TaskService taskService, SubtaskTreeService subtaskTreeService, UserService userService,
-                                 Clock clock, ProductivityEvents productivityEvents) {
+                                 Clock clock, ProductivityEvents productivityEvents, AccessPolicy accessPolicy,
+                                 TaskReviewService reviews) {
         this.taskService = taskService;
         this.subtaskTreeService = subtaskTreeService;
         this.userService = userService;
         this.clock = clock;
         this.productivityEvents = productivityEvents;
+        this.accessPolicy = accessPolicy;
+        this.reviews = reviews;
     }
 
     /** Mỗi lần gọi sinh MỘT completion_batch_id mới (căn cứ của Undo, spec 5.1). */
@@ -118,19 +127,37 @@ public class TaskCompletionService {
         if (tree.node(taskId).completed()) {
             return List.of();
         }
+        Task current = taskService.reload(taskId);
+        // Chờ duyệt: Member / Guest dự án nhóm tick = gửi yêu cầu (hoặc huỷ yêu cầu của chính mình), KHÔNG hoàn thành thật
+        if (AccessPolicy.completeMode(access(userId, current)) == AccessPolicy.CompleteMode.REQUEST_REVIEW) {
+            return reviews.requestOrCancel(userId, current);
+        }
+        // Admin tick việc đang PENDING = duyệt: điểm / nhật ký tính cho NGƯỜI YÊU CẦU
+        boolean approving = current.isReviewPending();
+        UUID requesterId = current.getReviewRequestedBy();
+        UUID creditId = approving && requesterId != null ? requesterId : userId;
+        List<UUID> done = completeOrAdvance(userId, creditId, tree, taskId, now, batchId, forever, resetSubtasks);
+        if (approving) {
+            reviews.approved(userId, requesterId, current);
+        }
+        return done;
+    }
+
+    private List<UUID> completeOrAdvance(UUID userId, UUID creditId, SubtaskTreeService.Tree tree, UUID taskId,
+                                         Instant now, UUID batchId, boolean forever, Boolean resetSubtasks) {
         if (!forever) {
             Task task = taskService.reload(taskId);
             if (task.isRecurring()) {
                 Optional<List<UUID>> advanced = advance(userId, task, tree, now, batchId, resetSubtasks);
                 if (advanced.isPresent()) {
                     // M10: task lặp nhảy kỳ vẫn tính là MỘT lần hoàn thành (Activity + Karma); con bị reset thì không
-                    productivityEvents.tasksCompleted(userId, List.of(taskId));
+                    productivityEvents.tasksCompleted(creditId, List.of(taskId));
                     return advanced.get();
                 }
             }
         }
         List<UUID> changed = closeWithin(tree, taskId, now, batchId);
-        productivityEvents.tasksCompleted(userId, changed); // M10: gồm close forever / hết chu kỳ
+        productivityEvents.tasksCompleted(creditId, changed); // M10: gồm close forever / hết chu kỳ
         return changed;
     }
 
@@ -175,9 +202,23 @@ public class TaskCompletionService {
      */
     public List<UUID> reopenIds(UUID userId, UUID taskId, boolean undo) {
         Task task = taskService.requireCompletable(userId, taskId); // PERM: Member / Guest dự án nhóm được mở lại / Undo
+        AccessPolicy.ProjectAccessInfo access = access(userId, task);
+        if (task.isReviewPending()) {
+            // Chờ duyệt: người yêu cầu (hoặc Admin) mở lại / Undo việc đang PENDING = huỷ yêu cầu; người khác: không đổi
+            if (!userId.equals(task.getReviewRequestedBy()) && !access.canReview()) {
+                return List.of();
+            }
+            task = taskService.lockAndRecheck(task);
+            if (!task.isReviewPending()) {
+                return List.of();
+            }
+            reviews.cancel(userId, task);
+            return List.of(taskId);
+        }
         if (task.getCompletedAt() == null && !(undo && task.getRecurrenceUndoBatchId() != null)) {
             return List.of();
         }
+        AccessPolicy.checkReopenCompleted(access); // Chờ duyệt: Member / Guest dự án nhóm không mở lại việc đã hoàn thành
         task = taskService.lockAndRecheck(task); // khoá P rồi đọc lại: dự án / section vừa lưu trữ → 409, task vừa mở / chuyển
         if (task.getCompletedAt() == null) {
             return undo ? undoRecurrence(task) : List.of();
@@ -188,6 +229,41 @@ public class TaskCompletionService {
         taskService.loadAll(changed).forEach(Task::reopen);
         productivityEvents.tasksReopened(userId, changed); // M10
         return changed;
+    }
+
+    /**
+     * Chờ duyệt: Admin duyệt = hoàn thành thật (xử lý việc lặp / cây con như tick thường), điểm tính cho người yêu cầu.
+     * Không phải Admin nhóm → 403 team-admin-only; không PENDING → 409 review-not-pending.
+     */
+    public TaskChangeResponse approve(UUID userId, UUID taskId) {
+        Task task = taskService.requireReviewable(userId, taskId);
+        requirePending(task);
+        task = taskService.lockAndRecheck(task);
+        requirePending(task);
+        List<UUID> changed = closeOrAdvanceWithin(userId, taskService.tree(task.getProjectId()), taskId,
+                clock.instant(), UUID.randomUUID(), false, null);
+        return response(userId, taskId, changed);
+    }
+
+    /** Chờ duyệt: Admin trả lại — về NONE, việc vẫn mở. */
+    public TaskChangeResponse reject(UUID userId, UUID taskId) {
+        Task task = taskService.requireReviewable(userId, taskId);
+        requirePending(task);
+        task = taskService.lockAndRecheck(task);
+        requirePending(task);
+        reviews.rejected(userId, task);
+        return response(userId, taskId, List.of(taskId));
+    }
+
+    private static void requirePending(Task task) {
+        if (!task.isReviewPending()) {
+            throw ApiException.conflict(ErrorMessage.REVIEW_NOT_PENDING).withCode(ProblemCodes.REVIEW_NOT_PENDING);
+        }
+    }
+
+    private AccessPolicy.ProjectAccessInfo access(UUID userId, Task task) {
+        return accessPolicy.projectAccess(userId, task.getProjectId())
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
     }
 
     /** Undo hoàn thành task lặp: due cũ; con trực tiếp vừa reset (cùng batch) còn đang mở → hoàn thành lại. */

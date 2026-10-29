@@ -155,7 +155,9 @@ class OpenApiDocsTest extends IntegrationTestBase {
                         // M6c
                         "recurrenceRule", "recurrenceFromCompletion", "dueTimezone", "isRecurring",
                         // M8b
-                        "commentCount")))
+                        "commentCount",
+                        // chờ duyệt (V22)
+                        "reviewStatus", "reviewRequestedBy", "reviewRequestedAt")))
                 .andExpect(jsonPath("$.components.schemas.TaskResponse.properties.isFavorite").doesNotExist())
                 .andExpect(jsonPath("$.components.schemas.TaskChangeResponse.required")
                         .value(containsInAnyOrder("task", "cascaded")))

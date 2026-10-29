@@ -58,10 +58,13 @@ class TeamMemberPermissionApiTest extends M8aApiTestBase {
         Fx fx = fixture();
         String task = "/api/v1/tasks/" + fx.task();
         for (RegisteredUser user : fx.limited()) {
+            // chờ duyệt: tick = gửi yêu cầu (PENDING, vẫn mở); Undo = huỷ yêu cầu
             authPost(user.accessToken(), task + "/close").andExpect(status().isOk())
-                    .andExpect(jsonPath("$.task.completedAt").isNotEmpty());
+                    .andExpect(jsonPath("$.task.completedAt").isEmpty())
+                    .andExpect(jsonPath("$.task.reviewStatus").value("PENDING"));
             authPost(user.accessToken(), task + "/reopen", "{\"undo\": true}").andExpect(status().isOk())
-                    .andExpect(jsonPath("$.task.completedAt").isEmpty());
+                    .andExpect(jsonPath("$.task.completedAt").isEmpty())
+                    .andExpect(jsonPath("$.task.reviewStatus").value("NONE"));
         }
         authPatch(fx.admin().accessToken(), task, "{\"version\": " + version(fx.admin(), fx.task())
                 + ", \"content\": \"Admin sửa\"}").andExpect(status().isOk());
@@ -125,13 +128,17 @@ class TeamMemberPermissionApiTest extends M8aApiTestBase {
     }
 
     @Test
-    void member_completesRecurringTask_dueAdvances() throws Exception {
+    void member_ticksRecurringTask_pendingUntilAdminApproves() throws Exception {
         Fx fx = fixture();
         UUID recurring = readUuid(authPost(fx.admin().accessToken(), "/api/v1/tasks", "{\"content\": \"Họp tuần\", "
                 + "\"projectId\": \"" + fx.project() + "\", \"dueDate\": \"2026-10-27\", "
                 + "\"recurrenceRule\": \"FREQ=WEEKLY\"}").andExpect(status().isCreated()), "$.id");
+        // chờ duyệt: Member tick việc lặp = PENDING, due CHƯA nhảy; Admin duyệt mới nhảy kỳ
         authPost(fx.member().accessToken(), "/api/v1/tasks/" + recurring + "/close").andExpect(status().isOk())
                 .andExpect(jsonPath("$.task.completedAt").isEmpty())
+                .andExpect(jsonPath("$.task.reviewStatus").value("PENDING"))
+                .andExpect(jsonPath("$.task.dueDate").value("2026-10-27"));
+        authPost(fx.admin().accessToken(), "/api/v1/tasks/" + recurring + "/review/approve").andExpect(status().isOk())
                 .andExpect(jsonPath("$.task.dueDate").value(not("2026-10-27")));
     }
 

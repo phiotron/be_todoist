@@ -441,6 +441,15 @@ public class ProjectService {
         return project;
     }
 
+    /** Chờ duyệt: Admin duyệt / trả lại — 404 không thấy; không phải Admin nhóm → 403 team-admin-only; dự án lưu trữ → 409. */
+    public Project requireReviewable(UUID userId, UUID projectId, ErrorMessage notFoundDetail) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> ApiException.notFound(notFoundDetail));
+        accessPolicy.checkReviewDecision(userId, project, notFoundDetail);
+        requireNotArchived(project);
+        return project;
+    }
+
     /** Dự án đích khi tạo / chuyển task (BR-08): không thấy → 404; của mình nhưng đang lưu trữ → 422 target-archived. */
     public Project requireTarget(UUID userId, UUID projectId) {
         Project project = projectRepository.findById(projectId)
@@ -714,7 +723,7 @@ public class ProjectService {
             }
             long count = members.getOrDefault(project.getId(), 0L) + (project.getWorkspace().isTeam() ? 0 : 1);
             result.put(project.getId(), new ProjectMapper.Sharing(count, info.owner() || info.joined(),
-                    info.canManage(), ProjectCapabilities.of(info.canEdit(), info.canComplete()))); // PERM
+                    info.canManage(), ProjectCapabilities.of(info.canEdit(), info.canComplete(), info.canReview()))); // PERM + chờ duyệt
         }
         return result;
     }

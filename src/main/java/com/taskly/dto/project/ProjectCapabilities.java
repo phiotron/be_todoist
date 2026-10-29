@@ -17,12 +17,15 @@ public record ProjectCapabilities(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Tạo / sửa / xoá / lưu trữ section")
         boolean canManageSections,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Bình luận / đính kèm / reaction")
-        boolean canComment) {
+        boolean canComment,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                description = "Chờ duyệt: duyệt / trả lại việc PENDING (Admin dự án nhóm)")
+        boolean canReview) {
 
-    public static final ProjectCapabilities ALL = new ProjectCapabilities(true, true, true, true);
-    public static final ProjectCapabilities NONE = new ProjectCapabilities(false, false, false, false);
+    public static final ProjectCapabilities ALL = new ProjectCapabilities(true, true, true, true, false);
+    public static final ProjectCapabilities NONE = new ProjectCapabilities(false, false, false, false, false);
 
-    public static ProjectCapabilities of(boolean canEdit, boolean canComplete) {
-        return new ProjectCapabilities(canEdit, canComplete, canEdit, canEdit);
+    public static ProjectCapabilities of(boolean canEdit, boolean canComplete, boolean canReview) {
+        return new ProjectCapabilities(canEdit, canComplete, canEdit, canEdit, canReview);
     }
 }

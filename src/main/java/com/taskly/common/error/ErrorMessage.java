@@ -230,7 +230,10 @@ public enum ErrorMessage {
     PROJECT_HAS_SUBPROJECTS("error.project-has-subprojects"),
     MOVE_TO_WORKSPACE_INVALID("error.move-to-workspace-invalid"),
     // ---- PERM (28/10): dự án nhóm chỉ Admin sửa
-    TEAM_ADMIN_ONLY("error.team-admin-only");
+    TEAM_ADMIN_ONLY("error.team-admin-only"),
+
+    // ---- Chờ duyệt (review)
+    REVIEW_NOT_PENDING("error.review-not-pending");
 
     private final String key;
 

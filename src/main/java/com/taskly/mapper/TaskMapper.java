@@ -18,6 +18,6 @@ public final class TaskMapper {
                 overdue, v.completedAt(), v.subtaskCount(), v.completedSubtaskCount(), v.sortOrder(), v.version(),
                 v.createdAt(), v.updatedAt(), v.projectName(), v.parentContent(), v.labelIds(), v.recurrenceRule(),
                 v.recurrenceFromCompletion(), v.dueTimezone(), v.recurrenceRule() != null,
-                v.commentCount());
+                v.commentCount(), v.reviewStatus(), v.reviewRequestedBy(), v.reviewRequestedAt());
     }
 }

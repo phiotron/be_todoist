@@ -36,6 +36,7 @@ public class TaskViewRepository {
             t.due_date, t.due_datetime, t.duration_minutes, t.deadline_date, t.due_string, t.completed_at,
             t.sort_order, t.version, t.created_at, t.updated_at, p.name as project_name, pt.content as parent_content,
             t.recurrence_rule, t.recurrence_from_completion, t.due_timezone,
+            t.review_status, t.review_requested_by, t.review_requested_at,
             (select count(*) from tasks c where c.parent_id = t.id) as subtask_count,
             (select count(*) from tasks c where c.parent_id = t.id and c.completed_at is not null)
                     as completed_subtask_count,
@@ -186,6 +187,12 @@ public class TaskViewRepository {
         });
     }
 
+    /** Đếm task thoả filter (cùng nguồn + phạm vi với page). params phải có :workspaceIds + :projectIds. */
+    public long count(String filter, MapSqlParameterSource params) {
+        Long n = jdbc.queryForObject("select count(*) " + FROM_WHERE + " and (" + filter + ")", params, Long.class);
+        return n == null ? 0 : n;
+    }
+
     /** Toàn bộ con cháu (kể cả đã xong) của các task gốc, mọi cấp. */
     public List<TaskView> findSubtrees(ReadScope scope, Collection<UUID> rootIds) {
         if (rootIds.isEmpty() || scope.isEmpty()) {
@@ -230,7 +237,10 @@ public class TaskViewRepository {
                 rs.getString("recurrence_rule"),
                 rs.getBoolean("recurrence_from_completion"),
                 rs.getString("due_timezone"),
-                rs.getInt("comment_count"));
+                rs.getInt("comment_count"),
+                rs.getString("review_status"),
+                rs.getObject("review_requested_by", UUID.class),
+                instant(rs, "review_requested_at"));
     }
 
     static List<UUID> labelIds(ResultSet rs) throws SQLException {

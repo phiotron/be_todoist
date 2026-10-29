@@ -83,6 +83,28 @@ public class TaskSyncCommands {
         });
     }
 
+    /** Chờ duyệt: args {id} (hoặc {taskId}); Admin nhóm duyệt = hoàn thành thật. */
+    @Bean
+    SyncCommandHandler taskReviewApproveCommand(TaskCompletionService completion) {
+        return SyncCommandHandler.of("task_review_approve", ctx -> {
+            completion.approve(ctx.userId(), reviewTaskId(ctx));
+            return SyncCommandOutcome.ok();
+        });
+    }
+
+    /** Chờ duyệt: Admin nhóm trả lại (về NONE, vẫn mở). */
+    @Bean
+    SyncCommandHandler taskReviewRejectCommand(TaskCompletionService completion) {
+        return SyncCommandHandler.of("task_review_reject", ctx -> {
+            completion.reject(ctx.userId(), reviewTaskId(ctx));
+            return SyncCommandOutcome.ok();
+        });
+    }
+
+    private static UUID reviewTaskId(SyncCommandContext ctx) {
+        return ctx.has("taskId") ? ctx.requireUuid("taskId") : ctx.requireId();
+    }
+
     @Bean
     SyncCommandHandler taskDeleteCommand(TaskService tasks) {
         return SyncCommandHandler.of("task_delete", ctx -> {

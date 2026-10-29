@@ -70,7 +70,7 @@ class OpenApiM8bDocsTest extends IntegrationTestBase {
     void enumsAreDocumented() throws Exception {
         docs()
                 .andExpect(jsonPath("$.components.schemas.NotificationResponse.properties.type.enum")
-                        .value(containsInAnyOrder("COMMENT_MENTION")))
+                        .value(containsInAnyOrder("COMMENT_MENTION", "REVIEW_REQUESTED", "REVIEW_APPROVED", "REVIEW_REJECTED")))
                 .andExpect(jsonPath("$.components.schemas.NotificationSettingItem.properties.scope.enum")
                         .value(containsInAnyOrder("PROJECT", "WORKSPACE")))
                 .andExpect(jsonPath("$.components.schemas.NotificationSettingItem.properties.event.enum")

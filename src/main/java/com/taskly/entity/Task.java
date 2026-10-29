@@ -27,6 +27,9 @@ import org.hibernate.annotations.DynamicUpdate;
 @Table(name = "tasks")
 public class Task extends BaseEntity {
 
+    public static final String REVIEW_NONE = "NONE";
+    public static final String REVIEW_PENDING = "PENDING";
+
     public static final int DEFAULT_PRIORITY = 4;
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
@@ -103,6 +106,16 @@ public class Task extends BaseEntity {
     @Column(name = "recurrence_undo_completed_at")
     private Instant recurrenceUndoCompletedAt;
 
+    /** Chờ duyệt (V22): NONE | PENDING. PENDING vẫn là việc mở (completed_at null). */
+    @Column(name = "review_status", nullable = false, length = 16)
+    private String reviewStatus = REVIEW_NONE;
+
+    @Column(name = "review_requested_by")
+    private UUID reviewRequestedBy;
+
+    @Column(name = "review_requested_at")
+    private Instant reviewRequestedAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -175,6 +188,7 @@ public class Task extends BaseEntity {
         this.recurrenceUndoDueDate = dueDate;
         this.recurrenceUndoDueDatetime = dueDatetime;
         this.recurrenceUndoCompletedAt = null;
+        clearReview();
         this.dueDate = nextDate;
         this.dueDatetime = nextDatetime;
     }
@@ -264,7 +278,40 @@ public class Task extends BaseEntity {
             completedAt = now;
             completionBatchId = batchId;
             clearRecurrenceUndo(); // M6c: Undo của lần nhảy kỳ trước không còn đúng khi task đã hoàn thành thật
+            clearReview();
         }
+    }
+
+    public boolean isReviewPending() {
+        return REVIEW_PENDING.equals(reviewStatus);
+    }
+
+    /** Member / Guest tick hoàn thành ở dự án nhóm: chờ Admin duyệt. */
+    public void requestReview(UUID userId, Instant now) {
+        this.reviewStatus = REVIEW_PENDING;
+        this.reviewRequestedBy = userId;
+        this.reviewRequestedAt = now;
+    }
+
+    /** Huỷ / trả lại / duyệt xong / hoàn thành thật: về NONE (chỉ ghi khi có gì để xoá). */
+    public void clearReview() {
+        if (isReviewPending() || reviewRequestedBy != null || reviewRequestedAt != null) {
+            this.reviewStatus = REVIEW_NONE;
+            this.reviewRequestedBy = null;
+            this.reviewRequestedAt = null;
+        }
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public UUID getReviewRequestedBy() {
+        return reviewRequestedBy;
+    }
+
+    public Instant getReviewRequestedAt() {
+        return reviewRequestedAt;
     }
 
     /** Mở lại: xoá luôn completion_batch_id (spec 5.1). */

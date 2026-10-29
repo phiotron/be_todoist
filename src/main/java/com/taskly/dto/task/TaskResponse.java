@@ -53,5 +53,14 @@ public record TaskResponse(
         String dueTimezone,
         @JsonProperty("isRecurring") @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean isRecurring,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "M8b: số comment của task")
-        int commentCount) {
+        int commentCount,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"NONE", "PENDING"},
+                description = "Chờ duyệt: PENDING = Member / Guest dự án nhóm đã tick, chờ Admin duyệt (việc vẫn mở)")
+        String reviewStatus,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Người yêu cầu duyệt; null khi reviewStatus = NONE")
+        UUID reviewRequestedBy,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Lúc yêu cầu duyệt; null khi reviewStatus = NONE")
+        Instant reviewRequestedAt) {
 }

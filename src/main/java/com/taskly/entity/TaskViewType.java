@@ -12,5 +12,10 @@ public enum TaskViewType {
      * Khu "Việc nhóm" dưới Hộp thư đến (theo yêu cầu người dùng, khác Todoist): task GỐC chưa có ngày, chưa xong của các
      * dự án nhóm đã tham gia — dự án của workspace Team + dự án cá nhân có người cộng tác; không nhận Display / from / to.
      */
-    inbox_team
+    inbox_team,
+    /**
+     * Chờ duyệt: Admin — mọi việc PENDING trong workspace nhóm mình là Admin; người khác — việc PENDING do chính mình
+     * yêu cầu. Không nhận Display / from / to.
+     */
+    review
 }

@@ -336,6 +336,15 @@ public class TaskService {
         return task;
     }
 
+    /** Chờ duyệt: như requireCompletable nhưng người gọi phải là Admin duyệt (AccessPolicy.checkReviewDecision). */
+    public Task requireReviewable(UUID userId, UUID taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.TASK_NOT_FOUND));
+        projectService.requireReviewable(userId, task.getProjectId(), ErrorMessage.TASK_NOT_FOUND);
+        requireSectionNotArchived(task);
+        return task;
+    }
+
     /**
      * Khoá dự án chứa task (P) rồi ĐỌC LẠI sau khoá — cổng chung của reopen / undo, duplicate, reorder task: task có thể
      * vừa bị xoá (404) / chuyển sang dự án khác (409 version-conflict), dự án vừa lưu trữ (409 project-archived), section

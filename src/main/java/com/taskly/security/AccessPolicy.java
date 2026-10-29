@@ -84,6 +84,16 @@ public class AccessPolicy {
         public boolean canEdit() {
             return canWrite() && (!isTeam() || workspaceRole == WorkspaceRole.ADMIN);
         }
+
+        /** Chờ duyệt: dự án NHÓM, người ĐÃ tham gia nhưng không phải Admin → tick hoàn thành = yêu cầu duyệt (PENDING). */
+        public boolean mustRequestReview() {
+            return canWrite() && isTeam() && workspaceRole != WorkspaceRole.ADMIN;
+        }
+
+        /** Chờ duyệt: Admin của workspace nhóm (đọc được dự án) duyệt / trả lại. */
+        public boolean canReview() {
+            return canRead() && isTeam() && workspaceRole == WorkspaceRole.ADMIN;
+        }
     }
 
     private static final String LIST_SCOPE_SQL = """
@@ -286,6 +296,38 @@ public class AccessPolicy {
     /** PERM: đánh dấu hoàn thành / mở lại / Undo task — mọi người đã tham gia (404 / 403 join-required). */
     public ProjectAccessInfo checkTaskComplete(UUID userId, Project project, ErrorMessage notFoundDetail) {
         return checkProjectParticipant(userId, project, notFoundDetail);
+    }
+
+    /** Kết quả tick hoàn thành: hoàn thành thật hay chỉ gửi yêu cầu duyệt (Member / Guest dự án nhóm). */
+    public enum CompleteMode {
+        COMPLETE,
+        REQUEST_REVIEW
+    }
+
+    public static CompleteMode completeMode(ProjectAccessInfo info) {
+        return info.mustRequestReview() ? CompleteMode.REQUEST_REVIEW : CompleteMode.COMPLETE;
+    }
+
+    /**
+     * Chờ duyệt: duyệt / trả lại — chỉ Admin của workspace nhóm. Không thấy → 404; Member / Guest hoặc dự án không phải
+     * nhóm → 403 team-admin-only.
+     */
+    public ProjectAccessInfo checkReviewDecision(UUID userId, Project project, ErrorMessage notFoundDetail) {
+        ProjectAccessInfo info = checkProjectRead(userId, project, notFoundDetail);
+        if (!info.canReview()) {
+            throw teamAdminOnly();
+        }
+        return info;
+    }
+
+    /**
+     * Chờ duyệt: mở lại việc ĐÃ HOÀN THÀNH — Member / Guest dự án nhóm không được (hoàn thành thật chỉ do Admin duyệt /
+     * tick); Admin và dự án cá nhân như cũ.
+     */
+    public static void checkReopenCompleted(ProjectAccessInfo info) {
+        if (info.mustRequestReview()) {
+            throw teamAdminOnly();
+        }
     }
 
     /**

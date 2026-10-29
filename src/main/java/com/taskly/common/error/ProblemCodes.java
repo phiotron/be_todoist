@@ -93,6 +93,9 @@ public final class ProblemCodes {
     /** 403: Thành viên / Khách của dự án NHÓM chỉ được xem + đánh dấu hoàn thành / mở lại; mọi ghi khác chỉ Admin. */
     public static final String TEAM_ADMIN_ONLY = "team-admin-only";
 
+    /** 409: duyệt / trả lại một việc không ở trạng thái chờ duyệt. */
+    public static final String REVIEW_NOT_PENDING = "review-not-pending";
+
     private ProblemCodes() {
     }
 }
